@@ -9,11 +9,11 @@ import {
   SubscribeToEmitter,
   SubscriberCallback,
   StateHook,
-} from "./GlobalStore.types";
-import { shallowCompare } from "./GlobalStore.utils";
-import { debounce } from "lodash";
-import { useState, useEffect } from "react";
-import { throwNoSubscribersWereAdded } from "./GlobalStore";
+} from './GlobalStore.types';
+import { shallowCompare } from './GlobalStore.utils';
+import { debounce } from 'lodash';
+import { useState, useEffect } from 'react';
+import { throwNoSubscribersWereAdded } from './GlobalStore';
 
 /**
  * @description
@@ -98,7 +98,7 @@ export const combineAsyncGettersEmitter = <
      */
     param3?: SubscribeCallbackConfig<State>
   ) => {
-    const hasExplicitSelector = typeof param2 === "function";
+    const hasExplicitSelector = typeof param2 === 'function';
 
     const selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<
       TDerivate,

@@ -10,6 +10,8 @@ To see how to create a custom hook connected to your favorite async storage, ple
 
 You can also see an introduction video [here!](https://www.youtube.com/watch?v=WfoMhO1zZ04&t=8s)
 
+**react-hooks-global-states** is compatible with both **React** and **React Native**. However, if you prefer, you can also explore [**react-global-state-hooks**](https://www.npmjs.com/package/react-global-state-hooks) for web applications, and [**react-native-global-state-hooks**](https://www.npmjs.com/package/react-native-global-state-hooks) for React Native projects. Each of these libraries extends the capabilities of **react-hooks-global-states** to suit the specific environments.
+
 # Creating a global state
 
 We are gonna create a global state hook **useCount** with one line of code.

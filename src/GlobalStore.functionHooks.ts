@@ -17,9 +17,9 @@ import {
   SelectorCallback,
   SubscribeCallbackConfig,
   SubscribeToEmitter,
-} from "./GlobalStore.types";
+} from './GlobalStore.types';
 
-import { GlobalStore } from "./GlobalStore";
+import { GlobalStore } from './GlobalStore';
 
 /**
  * Creates a global state with the given state and config.
@@ -218,7 +218,7 @@ export const createDerivateEmitter = <
     param2?: SubscribeCallback<State> | SubscribeCallbackConfig<State>,
     param3: SubscribeCallbackConfig<State> = {}
   ) => {
-    const hasExplicitSelector = typeof param2 === "function";
+    const hasExplicitSelector = typeof param2 === 'function';
 
     const $selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<
       unknown,
