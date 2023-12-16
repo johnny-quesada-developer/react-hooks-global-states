@@ -1,15 +1,15 @@
-import { createDecoupledPromise } from "cancelable-promise-jq";
+import { createDecoupledPromise } from 'cancelable-promise-jq';
 
 import {
   StoreTools,
   Subscribe,
   SubscriberCallback,
   SubscribeToEmitter,
-} from "../src/GlobalStore.types";
+} from '../src/GlobalStore.types';
 
-import { useState } from "react";
-import { formatFromStore, formatToStore } from "json-storage-formatter";
-import { getFakeAsyncStorage } from "./getFakeAsyncStorage";
+import { useState } from 'react';
+import { formatFromStore, formatToStore } from 'json-storage-formatter';
+import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 
 import {
   createCustomGlobalStateWithDecoupledFuncs,
@@ -17,11 +17,11 @@ import {
   createGlobalState,
   createDerivate,
   createDerivateEmitter,
-} from "../src/GlobalStore.functionHooks";
+} from '../src/GlobalStore.functionHooks';
 
-describe("basic", () => {
-  it("should be able to create a new instance with state", () => {
-    const stateValue = "test";
+describe('basic', () => {
+  it('should be able to create a new instance with state', () => {
+    const stateValue = 'test';
     const useValue = createGlobalState(stateValue, {
       metadata: {
         test: true,
@@ -36,24 +36,24 @@ describe("basic", () => {
     expect(setState).toBeInstanceOf(Function);
     expect(metadata.test).toBe(true);
 
-    setState("test2");
+    setState('test2');
 
     [state, setState, metadata] = useValue();
 
-    expect(state).toBe("test2");
+    expect(state).toBe('test2');
     expect(useState).toHaveBeenCalledTimes(2);
 
     setState((current) => current + 1);
 
     [state, setState, metadata] = useValue();
 
-    expect(state).toBe("test21");
+    expect(state).toBe('test21');
     expect(useState).toHaveBeenCalledTimes(3);
   });
 });
 
-describe("with actions", () => {
-  it("should be able to create a new instance with state and actions, setter should be and object", () => {
+describe('with actions', () => {
+  it('should be able to create a new instance with state and actions, setter should be and object', () => {
     type Metadata = {
       modificationsCounter: number;
     };
@@ -150,8 +150,8 @@ describe("with actions", () => {
   });
 });
 
-describe("with configuration callbacks", () => {
-  it("should execute onInit callback", () => {
+describe('with configuration callbacks', () => {
+  it('should execute onInit callback', () => {
     const onInitSpy = jest.fn(({ setMetadata }) => {
       setMetadata({
         test: true,
@@ -173,7 +173,7 @@ describe("with configuration callbacks", () => {
     });
   });
 
-  it("should execute onSubscribed callback every time a subscriber is added", () => {
+  it('should execute onSubscribed callback every time a subscriber is added', () => {
     const onSubscribedSpy = jest.fn();
 
     const useCount = createGlobalState(
@@ -198,7 +198,7 @@ describe("with configuration callbacks", () => {
     expect(state).toBe(state2);
   });
 
-  it("should execute onStateChanged callback every time the state is changed", () => {
+  it('should execute onStateChanged callback every time the state is changed', () => {
     const onStateChangedSpy = jest.fn();
 
     const useCount = createGlobalState(
@@ -221,7 +221,7 @@ describe("with configuration callbacks", () => {
     expect(onStateChangedSpy).toBeCalledTimes(2);
   });
 
-  it("should execute computePreventStateChange callback before state is changed and continue if it returns false", () => {
+  it('should execute computePreventStateChange callback before state is changed and continue if it returns false', () => {
     const computePreventStateChangeSpy = jest.fn();
 
     const useCount = createGlobalState(0, {
@@ -241,7 +241,7 @@ describe("with configuration callbacks", () => {
     expect(computePreventStateChangeSpy).toBeCalledTimes(1);
   });
 
-  it("should execute computePreventStateChange callback before state is changed and prevent state change if it returns true", () => {
+  it('should execute computePreventStateChange callback before state is changed and prevent state change if it returns true', () => {
     const computePreventStateChangeSpy = jest.fn();
 
     const useCount = createGlobalState(0, {
@@ -274,15 +274,15 @@ describe("with configuration callbacks", () => {
   });
 });
 
-describe("custom global hooks", () => {
+describe('custom global hooks', () => {
   const getInitialState = () => {
     return new Map([
-      [1, { name: "john" }],
-      [2, { name: "doe" }],
+      [1, { name: 'john' }],
+      [2, { name: 'doe' }],
     ]);
   };
 
-  it("should initialize the store with the initial state where there is no async storage data", () => {
+  it('should initialize the store with the initial state where there is no async storage data', () => {
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
     const { promise: mainPromise, ...tools } = createDecoupledPromise();
@@ -291,7 +291,7 @@ describe("custom global hooks", () => {
       const newState = getState();
 
       fakeAsyncStorage.setItem(
-        "items",
+        'items',
         formatToStore(newState, {
           stringify: true,
         })
@@ -299,7 +299,7 @@ describe("custom global hooks", () => {
     });
 
     const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
-      const stored = (await fakeAsyncStorage.getItem("items")) ?? null;
+      const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
 
       setMetadata({
         isAsyncStorageReady: true,
@@ -341,11 +341,11 @@ describe("custom global hooks", () => {
     });
   });
 
-  it("should initialize the store with the async storage data where there is async storage data", () => {
+  it('should initialize the store with the async storage data where there is async storage data', () => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
-    fakeAsyncStorage.setItem("items", formatToStore(initialState));
+    fakeAsyncStorage.setItem('items', formatToStore(initialState));
 
     const { promise: mainPromise, ...tools } = createDecoupledPromise();
 
@@ -353,7 +353,7 @@ describe("custom global hooks", () => {
       const newState = getState();
 
       fakeAsyncStorage.setItem(
-        "items",
+        'items',
         formatToStore(newState, {
           stringify: true,
         })
@@ -361,7 +361,7 @@ describe("custom global hooks", () => {
     });
 
     const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
-      const stored = (await fakeAsyncStorage.getItem("items")) ?? null;
+      const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
 
       setMetadata({
         isAsyncStorageReady: true,
@@ -397,8 +397,8 @@ describe("custom global hooks", () => {
 
       expect(state).toEqual(
         new Map([
-          [1, { name: "john" }],
-          [2, { name: "doe" }],
+          [1, { name: 'john' }],
+          [2, { name: 'doe' }],
         ])
       );
 
@@ -412,11 +412,11 @@ describe("custom global hooks", () => {
       expect(fakeAsyncStorage.getItem).toBeCalledTimes(1);
       expect(fakeAsyncStorage.setItem).toBeCalledTimes(2);
 
-      expect(fakeAsyncStorage.getItem).toBeCalledWith("items");
+      expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
     });
   });
 
-  it("should be able to update the store async storage", () => {
+  it('should be able to update the store async storage', () => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
@@ -426,7 +426,7 @@ describe("custom global hooks", () => {
       const newState = getState();
 
       fakeAsyncStorage.setItem(
-        "items",
+        'items',
         formatToStore(newState, {
           stringify: true,
         })
@@ -436,7 +436,7 @@ describe("custom global hooks", () => {
     });
 
     const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
-      const stored = (await fakeAsyncStorage.getItem("items")) ?? null;
+      const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
 
       setMetadata({
         isAsyncStorageReady: true,
@@ -475,11 +475,11 @@ describe("custom global hooks", () => {
       expect(fakeAsyncStorage.getItem).toBeCalledTimes(1);
       expect(fakeAsyncStorage.setItem).toBeCalledTimes(1);
 
-      expect(fakeAsyncStorage.getItem).toBeCalledWith("items");
+      expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
     });
   });
 
-  it("should be able to access custom actions from other actions", () => {
+  it('should be able to access custom actions from other actions', () => {
     expect.assertions(9);
 
     const logSpy = jest.fn();
@@ -500,17 +500,17 @@ describe("custom global hooks", () => {
             return ({ setState }) => {
               setState((state) => state + 1);
 
-              $actions.log("increase");
+              $actions.log('increase');
             };
           },
           decrease: () => {
             return ({ setState }) => {
               setState((state) => state - 1);
 
-              $actions.log("decrease");
+              $actions.log('decrease');
             };
           },
-        },
+        } as const,
       }
     );
 
@@ -523,13 +523,13 @@ describe("custom global hooks", () => {
 
     expect(getCount()).toEqual(2);
     expect(logSpy).toBeCalledTimes(1);
-    expect(logSpy).toBeCalledWith("increase");
+    expect(logSpy).toBeCalledWith('increase');
 
     actions.decrease();
 
     expect(getCount()).toEqual(1);
     expect(logSpy).toBeCalledTimes(2);
-    expect(logSpy).toBeCalledWith("decrease");
+    expect(logSpy).toBeCalledWith('decrease');
 
     $actions.increase();
 
@@ -538,7 +538,7 @@ describe("custom global hooks", () => {
     expect(count).toEqual(2);
   });
 
-  it("should be able to create a custom global hook builder", () => {
+  it('should be able to create a custom global hook builder', () => {
     let config;
 
     const onInitSpy = jest.fn((_, _config) => {
@@ -562,14 +562,14 @@ describe("custom global hooks", () => {
 
     const [useCount, getCount, setCount] = createGlobal(initialState, {
       config: {
-        someExtraInfo: "someExtraInfo",
+        someExtraInfo: 'someExtraInfo',
       },
     });
 
     expect(onInitSpy).toBeCalledTimes(1);
     expect(onChangeSpy).toBeCalledTimes(0);
     expect(config).toEqual({
-      someExtraInfo: "someExtraInfo",
+      someExtraInfo: 'someExtraInfo',
     });
 
     let [state, setState, metadata] = useCount();
@@ -606,7 +606,7 @@ describe("custom global hooks", () => {
     expect(onChangeSpy).toBeCalledTimes(1);
   });
 
-  it("should derivate new state from global", () => {
+  it('should derivate new state from global', () => {
     const useCount = createGlobalState({
       a: 1,
       b: 2,
@@ -631,7 +631,7 @@ describe("custom global hooks", () => {
     expect(derivate).toEqual(4);
   });
 
-  it("should avoid derivate to re-render due to shallow equal", () => {
+  it('should avoid derivate to re-render due to shallow equal', () => {
     const useData = createGlobalState({
       a: 1,
       b: 2,
@@ -690,8 +690,8 @@ describe("custom global hooks", () => {
   });
 });
 
-describe("getter subscriptions", () => {
-  it("should subscribe to changes from getter", () => {
+describe('getter subscriptions', () => {
+  it('should subscribe to changes from getter', () => {
     const [_, getter, setter] = createGlobalStateWithDecoupledFuncs({
       a: 3,
       b: 2,
@@ -758,8 +758,8 @@ describe("getter subscriptions", () => {
   });
 });
 
-describe("create fragment", () => {
-  it("should create a fragment as a hook", () => {
+describe('create fragment', () => {
+  it('should create a fragment as a hook', () => {
     const initialState = {
       a: 1,
       b: 2,
@@ -815,7 +815,7 @@ describe("create fragment", () => {
     expect(sub).toBe(12);
   });
 
-  it("should create a derivate emitter", () => {
+  it('should create a derivate emitter', () => {
     expect.assertions(10);
 
     const initialState = {
@@ -880,7 +880,7 @@ describe("create fragment", () => {
         return `${state}`;
       },
       (derivate) => {
-        expect(derivate).toEqual("1");
+        expect(derivate).toEqual('1');
       }
     );
 

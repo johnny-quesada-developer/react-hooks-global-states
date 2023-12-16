@@ -123,9 +123,7 @@ export type StoreTools<TState = any, TMetadata = any, TActions = any> = {
  * @returns {ActionCollectionConfig<TState, TMetadata>} result - The action collection configuration
  */
 export interface ActionCollectionConfig<TState, TMetadata = null> {
-  [key: string]: (
-    ...parameters: any[]
-  ) => (storeTools: StoreTools<TState, TMetadata>) => unknown | void;
+  [key: string]: (...parameters: any[]) => (storeTools: any) => unknown | void;
 }
 
 /**
