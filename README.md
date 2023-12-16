@@ -8,7 +8,7 @@ To see **TODO-LIST** with the hooks and **async storage** take a look here: [tod
 
 To see how to create a custom hook connected to your favorite async storage, please refer to the documentation section titled **Extending Global Hooks**
 
-You can also see an introduction video [here!](https://www.youtube.com/watch?v=1UBqXk2MH8I)
+You can also see an introduction video [here!](https://www.youtube.com/watch?v=1UBqXk2MH8I), you can see the code of the video here: [global-hooks-example](https://github.com/johnny-quesada-developer/global-hooks-example), and a live version of it here: [global-hooks-example-live](https://johnny-quesada-developer.github.io/global-hooks-example/)
 
 **react-hooks-global-states** is compatible with both **React** and **React Native**. However, if you prefer, you can also explore [**react-global-state-hooks**](https://www.npmjs.com/package/react-global-state-hooks) for web applications, and [**react-native-global-state-hooks**](https://www.npmjs.com/package/react-native-global-state-hooks) for React Native projects. Each of these libraries extends the capabilities of **react-hooks-global-states** to suit the specific environments.
 
