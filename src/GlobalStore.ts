@@ -1,5 +1,5 @@
-import { shallowCompare, uniqueId } from "./GlobalStore.utils";
-import { useEffect, useRef, useState } from "react";
+import { shallowCompare, uniqueId } from './GlobalStore.utils';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ActionCollectionConfig,
@@ -19,7 +19,7 @@ import {
   SubscriptionCallback,
   SubscribeToEmitter,
   MetadataGetter,
-} from "./GlobalStore.types";
+} from './GlobalStore.types';
 
 const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
   throw new Error(`[WRONG CONFIGURATION!]: Every key inside the storeActionsConfig must be a higher order function that returns a function \n[${action_key}]: key is not a valid function, try something like this: \n{\n
@@ -31,7 +31,7 @@ const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
 
 export const throwNoSubscribersWereAdded = () => {
   throw new Error(
-    "No new subscribers were added, please make sure to add at least one subscriber with the subscribe method"
+    'No new subscribers were added, please make sure to add at least one subscriber with the subscribe method'
   );
 };
 
@@ -90,7 +90,7 @@ export class GlobalStore<
     TState,
     TMetadata,
     TStateSetter
-  >["onInit"] = null;
+  >['onInit'] = null;
 
   /**
    * execute every time the state is changed
@@ -107,7 +107,7 @@ export class GlobalStore<
     TState,
     TMetadata,
     TStateSetter
-  >["onStateChanged"] = null;
+  >['onStateChanged'] = null;
 
   /**
    * Execute each time a new component gets subscribed to the store
@@ -124,7 +124,7 @@ export class GlobalStore<
     TState,
     TMetadata,
     TStateSetter
-  >["onSubscribed"] = null;
+  >['onSubscribed'] = null;
 
   /**
    * Execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true
@@ -142,7 +142,7 @@ export class GlobalStore<
     TState,
     TMetadata,
     TStateSetter
-  >["computePreventStateChange"] = null;
+  >['computePreventStateChange'] = null;
 
   /**
    * We use a wrapper in order to be able to force the state update when necessary even with primitive types
@@ -224,7 +224,7 @@ export class GlobalStore<
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
 
-    this.initialize();
+    (this as GlobalStore<TState, TMetadata, TStateSetter>).initialize();
   }
 
   protected initialize = async () => {
@@ -294,7 +294,7 @@ export class GlobalStore<
    * @param {MetadataSetter<TMetadata>} setter - The setter function or the value to set
    * */
   protected setMetadata: MetadataSetter<TMetadata> = (setter) => {
-    const isSetterFunction = typeof setter === "function";
+    const isSetterFunction = typeof setter === 'function';
 
     const metadata = isSetterFunction
       ? (setter as (state: TMetadata) => TMetadata)(
@@ -366,7 +366,7 @@ export class GlobalStore<
     const changesSubscribers: string[] = [];
 
     const subscribe = ((param1, param2, param3) => {
-      const hasExplicitSelector = typeof param2 === "function";
+      const hasExplicitSelector = typeof param2 === 'function';
 
       const selector = (
         hasExplicitSelector ? param1 : null
@@ -442,7 +442,7 @@ export class GlobalStore<
     selector,
     config = {},
     stateWrapper: { state },
-  }: Omit<SubscriberParameters, "currentState"> & {
+  }: Omit<SubscriberParameters, 'currentState'> & {
     stateWrapper: {
       state: unknown;
     };
@@ -617,7 +617,7 @@ export class GlobalStore<
     setter,
     { forceUpdate } = {}
   ) => {
-    const isSetterFunction = typeof setter === "function";
+    const isSetterFunction = typeof setter === 'function';
     const previousState = this.stateWrapper.state;
 
     const newState = isSetterFunction
@@ -694,7 +694,7 @@ export class GlobalStore<
           [action_key](...parameters: unknown[]) {
             const actionConfig = actionsConfig[action_key];
             const action = actionConfig.apply(actions, parameters);
-            const actionIsNotAFunction = typeof action !== "function";
+            const actionIsNotAFunction = typeof action !== 'function';
 
             // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
             if (actionIsNotAFunction) {
