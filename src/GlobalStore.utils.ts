@@ -95,14 +95,12 @@ export const debounce = <T extends (...args: any[]) => any>(
 ) => {
   let timeout: NodeJS.Timeout;
 
-  return (...args: Parameters<T>): ReturnType<T> => {
+  return (...args: Parameters<T>): void => {
     if (timeout) clearTimeout(timeout);
 
     timeout = setTimeout(() => {
       callback(...args);
     }, delay);
-
-    return callback(...args);
   };
 };
 
