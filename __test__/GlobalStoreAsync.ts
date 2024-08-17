@@ -20,9 +20,7 @@ export class GlobalStore<
     asyncStorageKey?: string;
     isAsyncStorageReady?: boolean;
   } | null = null,
-  TStateSetter extends
-    | ActionCollectionConfig<TState, TMetadata>
-    | StateSetter<TState> = StateSetter<TState>
+  TStateSetter extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
 > extends GlobalStoreAbstract<TState, TMetadata, TStateSetter> {
   constructor(
     state: TState,
@@ -91,10 +89,7 @@ type HookConfig = {
   asyncStorageKey?: string;
 };
 
-export const createGlobalState = createCustomGlobalStateWithDecoupledFuncs<
-  BaseMetadata,
-  HookConfig
->({
+export const createGlobalState = createCustomGlobalStateWithDecoupledFuncs<BaseMetadata, HookConfig>({
   onInitialize: async ({ setState, setMetadata }, config) => {
     setMetadata((metadata) => ({
       ...(metadata ?? {}),

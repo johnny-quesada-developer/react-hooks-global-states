@@ -1,11 +1,6 @@
 import { createDecoupledPromise } from 'cancelable-promise-jq';
 
-import {
-  StoreTools,
-  Subscribe,
-  SubscriberCallback,
-  SubscribeToEmitter,
-} from '../src/GlobalStore.types';
+import { StoreTools, Subscribe, SubscriberCallback, SubscribeToEmitter } from '../src/GlobalStore.types';
 
 import { useState } from 'react';
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
@@ -484,35 +479,32 @@ describe('custom global hooks', () => {
 
     const logSpy = jest.fn();
 
-    const [useCount, getCount, $actions] = createGlobalStateWithDecoupledFuncs(
-      1,
-      {
-        metadata: {
-          test: true,
+    const [useCount, getCount, $actions] = createGlobalStateWithDecoupledFuncs(1, {
+      metadata: {
+        test: true,
+      },
+      actions: {
+        log: (message: string) => {
+          return () => {
+            logSpy(message);
+          };
         },
-        actions: {
-          log: (message: string) => {
-            return () => {
-              logSpy(message);
-            };
-          },
-          increase: () => {
-            return ({ setState }) => {
-              setState((state) => state + 1);
+        increase: () => {
+          return ({ setState }) => {
+            setState((state) => state + 1);
 
-              $actions.log('increase');
-            };
-          },
-          decrease: () => {
-            return ({ setState }) => {
-              setState((state) => state - 1);
+            $actions.log('increase');
+          };
+        },
+        decrease: () => {
+          return ({ setState }) => {
+            setState((state) => state - 1);
 
-              $actions.log('decrease');
-            };
-          },
-        } as const,
-      }
-    );
+            $actions.log('decrease');
+          };
+        },
+      } as const,
+    });
 
     let [state, actions] = useCount();
 
@@ -612,9 +604,7 @@ describe('custom global hooks', () => {
       b: 2,
     });
 
-    const selector = jest.fn(
-      (state: { a: number; b: number }) => state.a + state.b
-    );
+    const selector = jest.fn((state: { a: number; b: number }) => state.a + state.b);
 
     let [derivate, setState] = useCount(selector);
 
@@ -766,8 +756,7 @@ describe('create fragment', () => {
       c: 3,
     };
 
-    const [useData, getter, setter] =
-      createGlobalStateWithDecoupledFuncs(initialState);
+    const [useData, getter, setter] = createGlobalStateWithDecoupledFuncs(initialState);
 
     expect(useData).toBeInstanceOf(Function);
     expect(getter).toBeInstanceOf(Function);
@@ -825,8 +814,7 @@ describe('create fragment', () => {
       c: 3,
     };
 
-    const [useData, getter, setter] =
-      createGlobalStateWithDecoupledFuncs(initialState);
+    const [useData, getter, setter] = createGlobalStateWithDecoupledFuncs(initialState);
 
     expect(useData).toBeInstanceOf(Function);
     expect(getter).toBeInstanceOf(Function);
@@ -834,16 +822,13 @@ describe('create fragment', () => {
 
     expect(getter()).toBe(initialState);
 
-    let subscribe: SubscribeToEmitter<any> = createDerivateEmitter(
-      getter,
-      ({ a, b, secondRound }) => {
-        return {
-          secondRound,
-          a,
-          b,
-        };
-      }
-    );
+    let subscribe: SubscribeToEmitter<any> = createDerivateEmitter(getter, ({ a, b, secondRound }) => {
+      return {
+        secondRound,
+        a,
+        b,
+      };
+    });
 
     subscribe((derivate) => {
       expect(derivate).toEqual({

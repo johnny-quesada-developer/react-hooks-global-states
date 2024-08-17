@@ -33,11 +33,7 @@ export const createGlobalStateWithDecoupledFuncs = <
   state: TState,
   { actions, ...config }: createStateConfig<TState, TMetadata, TActions> = {}
 ) => {
-  const store = new GlobalStore<TState, TMetadata, TActions>(
-    state,
-    config,
-    actions
-  );
+  const store = new GlobalStore<TState, TMetadata, TActions>(state, config, actions);
 
   const [getState, setter] = store.getHookDecoupled();
 
@@ -64,11 +60,7 @@ export const createGlobalState = <
   state: TState,
   config: createStateConfig<TState, TMetadata, TActions> = {}
 ) => {
-  const [useState] = createGlobalStateWithDecoupledFuncs<
-    TState,
-    TMetadata,
-    TActions
-  >(state, config);
+  const [useState] = createGlobalStateWithDecoupledFuncs<TState, TMetadata, TActions>(state, config);
 
   return useState;
 };
@@ -78,10 +70,7 @@ export const createGlobalState = <
  * Use this function to create a custom global store.
  * You can use this function to create a store with async storage.
  */
-export const createCustomGlobalStateWithDecoupledFuncs = <
-  TInheritMetadata = null,
-  TCustomConfig = null
->({
+export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata = null, TCustomConfig = null>({
   onInitialize,
   onChange,
 }: CustomGlobalHookBuilderParams<TInheritMetadata, TCustomConfig>) => {
@@ -117,31 +106,18 @@ export const createCustomGlobalStateWithDecoupledFuncs = <
     }
   ) => {
     const onInitWrapper = ((callBackParameters) => {
-      onInitialize(
-        callBackParameters as StateConfigCallbackParam<
-          unknown,
-          TInheritMetadata
-        >,
-        customConfig
-      );
+      onInitialize(callBackParameters as StateConfigCallbackParam<unknown, TInheritMetadata>, customConfig);
 
       onInit?.(callBackParameters);
     }) as typeof onInit;
 
     const onStateChangeWrapper = ((callBackParameters) => {
-      onChange(
-        callBackParameters as StateChangesParam<unknown, TInheritMetadata>,
-        customConfig
-      );
+      onChange(callBackParameters as StateChangesParam<unknown, TInheritMetadata>, customConfig);
 
       onStateChanged?.(callBackParameters);
     }) as typeof onStateChanged;
 
-    return createGlobalStateWithDecoupledFuncs<
-      TState,
-      typeof parameters.metadata,
-      TActions
-    >(state, {
+    return createGlobalStateWithDecoupledFuncs<TState, typeof parameters.metadata, TActions>(state, {
       onInit: onInitWrapper,
       onStateChanged: onStateChangeWrapper,
       ...parameters,
@@ -159,10 +135,7 @@ export const createDerivate =
     selector_: SelectorCallback<TState, TDerivate>,
     config_: UseHookConfig<TDerivate> = {}
   ) =>
-  <State = TDerivate>(
-    selector?: SelectorCallback<TDerivate, State>,
-    config: UseHookConfig<State> = null
-  ) => {
+  <State = TDerivate>(selector?: SelectorCallback<TDerivate, State>, config: UseHookConfig<State> = null) => {
     return useHook<State>((state) => {
       const fragment = selector_(state);
 
@@ -220,18 +193,11 @@ export const createDerivateEmitter = <
   ) => {
     const hasExplicitSelector = typeof param2 === 'function';
 
-    const $selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<
-      unknown,
-      unknown
-    >;
+    const $selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<unknown, unknown>;
 
-    const callback = (
-      hasExplicitSelector ? param2 : param1
-    ) as SubscribeCallback<unknown>;
+    const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
 
-    const config = (
-      hasExplicitSelector ? param3 : param2
-    ) as SubscribeCallbackConfig<unknown>;
+    const config = (hasExplicitSelector ? param3 : param2) as SubscribeCallbackConfig<unknown>;
 
     return (getter as StateGetter<unknown>)<Subscribe>((subscribe) => {
       subscribe(

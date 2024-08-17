@@ -1,4 +1,4 @@
-import { createGlobalStateWithDecoupledFuncs } from 'GlobalStore.functionHooks';
+import { createGlobalStateWithDecoupledFuncs } from '../src/GlobalStore.functionHooks';
 import {
   ActionCollectionConfig,
   createStateConfig,
@@ -7,7 +7,7 @@ import {
   ActionCollectionResult,
   StateGetter,
 } from 'GlobalStore.types';
-import { clone } from 'json-storage-formatter';
+import { clone, isDate, isPrimitive } from 'json-storage-formatter';
 import React, { PropsWithChildren } from 'react';
 
 export const createStatefulContext = <
@@ -45,8 +45,21 @@ export const createStatefulContext = <
   > = ({ children, ...props }) => {
     const hook = createGlobalStateWithDecoupledFuncs<TState, TMetadata, TActions>(
       (() => {
-        // if there is an override of the initial state we'll use that one
-        if (props.initialValue) return props.initialValue as TState;
+        if (props.initialValue) {
+          const isFunction = typeof props.initialValue === 'function';
+
+          if (isFunction)
+            return (props.initialValue as unknown as (state: TState) => TState)(clone(initialValue));
+
+          const isArray = Array.isArray(props.initialValue);
+          const isMap = props.initialValue instanceof Map;
+          const isSet = props.initialValue instanceof Set;
+
+          const isMergeAble =
+            !isPrimitive(props.initialValue) && !isDate(props.initialValue) && !isArray && !isMap && !isSet;
+
+          return (isMergeAble ? { ...initialValue, ...props.initialValue } : props.initialValue) as TState;
+        }
 
         // return a copy of the initial value to avoid reference issues
         // this initial value will be reused in all the instances of the hook
@@ -55,7 +68,7 @@ export const createStatefulContext = <
       parameters
     );
 
-    return <context.Provider value={hook}>{children}</context.Provider>;
+    return React.createElement(context.Provider, { value: hook }, children);
   };
 
   return [useHook, Provider] as const;
