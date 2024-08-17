@@ -10,8 +10,7 @@ import {
   SubscriberCallback,
   StateHook,
 } from './GlobalStore.types';
-import { shallowCompare } from './GlobalStore.utils';
-import { debounce } from 'lodash';
+import { debounce, shallowCompare } from './GlobalStore.utils';
 import { useState, useEffect } from 'react';
 import { throwNoSubscribersWereAdded } from './GlobalStore';
 

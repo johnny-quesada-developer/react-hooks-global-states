@@ -61,9 +61,7 @@ Now, let's say we want to have a filter bar for the contacts that will only have
 ```ts
 const [{ filter }, setState] = useContacts(({ filter }) => ({ filter }));
 
-return (
-  <TextInput onChangeText={() => setState((state) => ({ ...state, filter }))} />
-);
+return <TextInput onChangeText={() => setState((state) => ({ ...state, filter }))} />;
 ```
 
 There you have it again, super simple! By adding a **selector** function, you are able to create a derivative hook that will only trigger when the result of the **selector** changes.
@@ -87,9 +85,7 @@ Well, that's it! Now you can simply call **useFilter** inside your component, an
 ```ts
 const [{ filter }, setState] = useFilter();
 
-return (
-  <TextInput onChangeText={() => setState((state) => ({ ...state, filter }))} />
-);
+return <TextInput onChangeText={() => setState((state) => ({ ...state, filter }))} />;
 ```
 
 Notice that the **state** changes, but the **setter** does not. This is because this is a **DERIVATE state**, and it cannot be directly changed. It will always be derived from the main hook.
@@ -168,12 +164,11 @@ Using decoupled state access allows you to retrieve the state when needed withou
 ```ts
 import { createGlobalStateWithDecoupledFuncs } from 'react-hooks-global-states';
 
-export const [useContacts, contactsGetter, contactsSetter] =
-  createGlobalStateWithDecoupledFuncs({
-    isLoading: true,
-    filter: '',
-    items: [] as Contact[],
-  });
+export const [useContacts, contactsGetter, contactsSetter] = createGlobalStateWithDecoupledFuncs({
+  isLoading: true,
+  filter: '',
+  items: [] as Contact[],
+});
 ```
 
 That's great! With the addition of the **contactsGetter** and **contactsSetter** methods, you now have the ability to access and modify the state without the need for subscription to the hook.
@@ -215,12 +210,9 @@ That's great, isn't it? everything stays synchronized with the original state!!
 So, we have seen that we can subscribe a callback to state changes, create **derivative states** from our global hooks, **and derive hooks from those derivative states**. Guess what? We can also create derivative **emitters** and subscribe callbacks to specific portions of the state. Let's review it:
 
 ```ts
-const subscribeToFilter = createDerivateEmitter(
-  contactsGetter,
-  ({ filter }) => ({
-    filter,
-  })
-);
+const subscribeToFilter = createDerivateEmitter(contactsGetter, ({ filter }) => ({
+  filter,
+}));
 ```
 
 Cool, it's basically the same, but instead of using the **hook** as a parameter, we just have to use the **getter** as a parameter, and that will make the magic.
@@ -272,15 +264,9 @@ const removeFilterSubscription = subscribeToFilter<Subscribe>(
 And guess what again? You can also derive emitters from derived emitters without any trouble at all! It works basically the same. Let's see an example:
 
 ```ts
-const subscribeToItems = createDerivateEmitter(
-  contactsGetter,
-  ({ items }) => items
-);
+const subscribeToItems = createDerivateEmitter(contactsGetter, ({ items }) => items);
 
-const subscribeToItemsLength = createDerivateEmitter(
-  subscribeToItems,
-  (items) => items.length
-);
+const subscribeToItemsLength = createDerivateEmitter(subscribeToItems, (items) => items.length);
 ```
 
 The examples may seem a little silly, but they allow you to see the incredible things you can accomplish with these **derivative states** and **emitters**. They open up a world of possibilities!
@@ -379,8 +365,7 @@ const [useHook3, getter3, setter3] = createGlobalStateWithDecoupledFuncs({
   propF: 2,
 });
 
-const [useIsLoading, isLoadingGetter, isLoadingSetter] =
-  createGlobalStateWithDecoupledFuncs(false);
+const [useIsLoading, isLoadingGetter, isLoadingSetter] = createGlobalStateWithDecoupledFuncs(false);
 ```
 
 Once we created another peace of state, we can combine it with our other **global hooks** and **emitters**
@@ -453,27 +438,137 @@ If you don't want to create an extra type please use **createGlobalStateWithDeco
 ```ts
 import { createGlobalStateWithDecoupledFuncs } from 'react-hooks-global-states';
 
-export const [useCount, getCount, $actions] =
-  createGlobalStateWithDecoupledFuncs(0, {
-    actions: {
-      log: (currentValue: string) => {
-        return ({ getState }: StoreTools<number>): void => {
-          console.log(`Current Value: ${getState()}`);
-        };
-      },
+export const [useCount, getCount, $actions] = createGlobalStateWithDecoupledFuncs(0, {
+  actions: {
+    log: (currentValue: string) => {
+      return ({ getState }: StoreTools<number>): void => {
+        console.log(`Current Value: ${getState()}`);
+      };
+    },
 
-      increase(value: number = 1) {
-        return ({ getState, setState }: StoreTools<number>) => {
-          setState((count) => count + value);
+    increase(value: number = 1) {
+      return ({ getState, setState }: StoreTools<number>) => {
+        setState((count) => count + value);
 
-          $actions.log(message);
-        };
-      },
-    } as const,
-  });
+        $actions.log(message);
+      };
+    },
+  } as const,
+});
 ```
 
 In the example the hook will work the same and you'll have access to the correct typing.
+
+# Stateful Context with Actions
+
+**The ultimate blend of flexibility and control in React state management!** You can now create an isolated global state within a React context, giving each consumer of the context provider a unique state instance. But that’s not all...
+
+**Stateful Context with Actions** extends the powerful features of global hooks into the realm of React Context. By integrating global hooks within a context, you bring all the benefits of global state management—such as modularity, selectors, derived states, and actions—into a context-specific environment. This means each consumer of the context not only gets a unique state instance but also inherits all the advanced capabilities of global hooks.
+
+## Creating a Stateful Context
+
+Forget about the boilerplate of creating a context... with **createStatefulContext** it's straightforward and powerful. You can create a context and provider with one line of code.
+
+```tsx
+export const [useCounterContext, CounterProvider] = createStatefulContext(2);
+```
+
+Then just wrap the components you need with the provider:
+
+```tsx
+<CounterProvider>
+  <MyComponent />
+</CounterProvider>
+```
+
+And finally, access the context value with the generated custom hook:
+
+```tsx
+const MyComponent = () => {
+  const [useCounter] = useCounterContext();
+
+  // If the component needs to react to state changes, simply use the hook
+  const [count, setCount] = useCounter();
+
+  return <>{count}</>;
+};
+```
+
+What’s the advantage of this, you might ask? Well, now you have all the capabilities of the global hooks within the isolated scope of the context. For example, you can choose whether or not to listen to changes in the state:
+
+```tsx
+const MyComponent = () => {
+  const [, , setCount] = useCounterContext();
+
+  // This component can access only the setter of the state,
+  // and won't re-render if the counter changes
+  return <button onClick={() => setCount((count) => count + 1)}>Increase</button>;
+};
+```
+
+Now you have selectors—if the state changes, the component will only re-render if the selected portion of the state changes.
+
+```tsx
+const MyComponent = () => {
+  const [useCounter] = useCounterContext();
+
+  // Notice that we can select and derive values from the state
+  const [isEven, setCount] = useCounter((count) => count % 2 === 0);
+
+  useEffect(() => {
+    // Since the counter initially was 2 and now is 4, it’s still an even number.
+    // Because of this, the component will not re-render.
+    setCount(4);
+  }, []);
+
+  return <>{isEven ? 'is even' : 'is odd'}</>;
+};
+```
+
+**createStatefulContext** also allows you to add custom actions to control the manipulation of the state.
+
+```tsx
+import { createStatefulContext, StoreTools } from 'react-global-state-hooks';
+
+type CounterState = {
+  count: number;
+};
+
+const initialState: CounterState = {
+  count: 0,
+};
+
+export const [useCounterContext, CounterProvider] = createStatefulContext(initialState, {
+  actions: {
+    increase: (value: number = 1) => {
+      return ({ setState }: StoreTools<CounterState>) => {
+        setState((state) => ({
+          ...state,
+          count: state.count + value,
+        }));
+      };
+    },
+    decrease: (value: number = 1) => {
+      return ({ setState }: StoreTools<CounterState>) => {
+        setState((state) => ({
+          ...state,
+          count: state.count - value,
+        }));
+      };
+    },
+  } as const,
+});
+```
+
+And just like with regular global hooks, now instead of a setter, the hook will return the collection of actions:
+
+```tsx
+const MyComponent = () => {
+  const [, , actions] = useCounterContext();
+
+  return <button onClick={() => actions.increase(1)}>Increase</button>;
+};
+```
 
 # Extending Global Hooks
 
@@ -661,9 +756,7 @@ export class GlobalStore<
     asyncStorageKey?: string;
     isAsyncStorageReady?: boolean;
   } | null = null,
-  TStateSetter extends
-    | ActionCollectionConfig<TState, TMetadata>
-    | StateSetter<TState> = StateSetter<TState>
+  TStateSetter extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
 > extends GlobalStoreAbstract<TState, TMetadata, TStateSetter> {
   constructor(
     state: TState,
