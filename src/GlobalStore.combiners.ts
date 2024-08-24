@@ -40,25 +40,17 @@ export const combineAsyncGettersEmitter = <
 ) => {
   const getters = args as unknown as StateGetter<unknown>[];
 
-  const dictionary = new Map<number, unknown>(
-    getters.map((useHook, index) => [index, useHook()])
-  );
+  const dictionary = new Map<number, unknown>(getters.map((useHook, index) => [index, useHook()]));
 
-  let parentState = parameters.selector(
-    Array.from(dictionary.values()) as TResults
-  );
+  let parentState = parameters.selector(Array.from(dictionary.values()) as TResults);
 
   const parentIsEqual =
-    parameters?.config?.isEqual !== undefined
-      ? parameters?.config?.isEqual
-      : shallowCompare;
+    parameters?.config?.isEqual !== undefined ? parameters?.config?.isEqual : shallowCompare;
 
   const subscribers = new Set<() => void>();
 
   const updateMainState = debounce(() => {
-    const newState = parameters.selector(
-      Array.from(dictionary.values()) as TResults
-    );
+    const newState = parameters.selector(Array.from(dictionary.values()) as TResults);
 
     if (parentIsEqual?.(parentState, newState)) return;
 
@@ -99,18 +91,11 @@ export const combineAsyncGettersEmitter = <
   ) => {
     const hasExplicitSelector = typeof param2 === 'function';
 
-    const selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<
-      TDerivate,
-      State
-    >;
+    const selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<TDerivate, State>;
 
-    const callback = (
-      hasExplicitSelector ? param2 : param1
-    ) as SubscribeCallback<State>;
+    const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<State>;
 
-    const config = (
-      hasExplicitSelector ? param3 : param2
-    ) as SubscribeCallbackConfig<State>;
+    const config = (hasExplicitSelector ? param3 : param2) as SubscribeCallbackConfig<State>;
 
     const $config = {
       delay: 0,
@@ -143,9 +128,7 @@ export const combineAsyncGettersEmitter = <
     };
   };
 
-  const stateGetter = (<TCallback extends SubscriberCallback<TDerivate> | null>(
-    $callback?: TCallback
-  ) => {
+  const stateGetter = (<TCallback extends SubscriberCallback<TDerivate> | null>($callback?: TCallback) => {
     // if there is no subscription callback return the state
     if (!$callback) return parentState;
 
@@ -174,12 +157,10 @@ export const combineAsyncGettersEmitter = <
     (() => {
       getterSubscriptions.forEach((unsubscribe) => unsubscribe());
     }) as UnsubscribeCallback,
-  ] as [
-    subscribe: SubscribeToEmitter<TDerivate>,
-    getState: typeof stateGetter,
-    dispose: UnsubscribeCallback
-  ];
+  ] as [subscribe: SubscribeToEmitter<TDerivate>, getState: typeof stateGetter, dispose: UnsubscribeCallback];
 };
+
+export const combineRetrieverEmitterAsynchronously = combineAsyncGettersEmitter;
 
 /**
  * @description
@@ -205,11 +186,10 @@ export const combineAsyncGetters = <
   },
   ...args: TArguments
 ) => {
-  const [subscribe, getState, dispose] = combineAsyncGettersEmitter<
-    TDerivate,
-    TArguments,
-    TResults
-  >(parameters, ...args);
+  const [subscribe, getState, dispose] = combineAsyncGettersEmitter<TDerivate, TArguments, TResults>(
+    parameters,
+    ...args
+  );
 
   const useHook = (<State = TDerivate>(
     selector?: SelectorCallback<TDerivate, State>,
@@ -220,9 +200,7 @@ export const combineAsyncGetters = <
     const [state, setState] = useState<State>(() => {
       const parentState = getState();
 
-      return selector
-        ? selector(parentState)
-        : (parentState as unknown as State);
+      return selector ? selector(parentState) : (parentState as unknown as State);
     });
 
     useEffect(() => {
@@ -232,17 +210,14 @@ export const combineAsyncGetters = <
         ...(config ?? {}),
       };
 
-      const compareCallback =
-        $config.isEqual !== undefined ? $config.isEqual : shallowCompare;
+      const compareCallback = $config.isEqual !== undefined ? $config.isEqual : shallowCompare;
 
       const unsubscribe = subscribe(
         (state) => {
           return selector ? selector(state) : (state as unknown as State);
         },
         debounce((state) => {
-          const newState = selector
-            ? selector(state)
-            : (state as unknown as State);
+          const newState = selector ? selector(state) : (state as unknown as State);
 
           if (compareCallback?.(state, newState)) return;
 
@@ -264,3 +239,5 @@ export const combineAsyncGetters = <
     dispose: UnsubscribeCallback
   ];
 };
+
+export const combineRetrieverAsynchronously = combineAsyncGetters;

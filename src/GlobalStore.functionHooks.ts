@@ -23,7 +23,7 @@ import { GlobalStore } from './GlobalStore';
 
 /**
  * Creates a global state with the given state and config.
- * @returns {} [HOOK, DECOUPLED_GETTER, DECOUPLED_SETTER] this is an array with the hook, the decoupled getState function and the decoupled setter of the state
+ * @returns {} [HOOK, DECOUPLED_RETRIEVER, DECOUPLED_MUTATOR] this is an array with the hook, the decoupled getState function and the decoupled setter of the state
  */
 export const createGlobalStateWithDecoupledFuncs = <
   TState,
@@ -42,9 +42,9 @@ export const createGlobalStateWithDecoupledFuncs = <
     : ActionCollectionResult<TState, TMetadata, TActions>;
 
   return [store.getHook(), getState, setter] as [
-    StateHook<TState, Setter, TMetadata>,
-    StateGetter<TState>,
-    Setter
+    state: StateHook<TState, Setter, TMetadata>,
+    stateRetriever: StateGetter<TState>,
+    stateMutator: Setter
   ];
 };
 
@@ -60,9 +60,19 @@ export const createGlobalState = <
   state: TState,
   config: createStateConfig<TState, TMetadata, TActions> = {}
 ) => {
-  const [useState] = createGlobalStateWithDecoupledFuncs<TState, TMetadata, TActions>(state, config);
+  const [useState, stateRetriever, stateMutator] = createGlobalStateWithDecoupledFuncs<
+    TState,
+    TMetadata,
+    TActions
+  >(state, config);
 
-  return useState;
+  type GlobalStateHook = typeof useState & {
+    stateControls: () => [stateRetriever: typeof stateRetriever, stateMutator: typeof stateMutator];
+  };
+
+  (useState as unknown as GlobalStateHook).stateControls = () => [stateRetriever, stateMutator];
+
+  return useState as GlobalStateHook;
 };
 
 /**
@@ -80,7 +90,7 @@ export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata = nul
    * You can use this function to create a store with async storage or any other custom logic.
    * @param state The initial state of the store.
    * @param config The configuration of the store.
-   * @returns [HOOK, DECOUPLED_GETTER, DECOUPLED_SETTER] - this is an array with the hook, the decoupled getState function and the decoupled setter of the state
+   * @returns [HOOK, DECOUPLED_RETRIEVER, DECOUPLED_MUTATOR] - this is an array with the hook, the decoupled getState function and the decoupled setter of the state
    */
   return <
     TState,
@@ -150,10 +160,10 @@ export const createDerivate =
  */
 export const createDerivateEmitter = <
   TDerivate,
-  TGetter extends StateGetter<unknown>,
-  TState = Exclude<ReturnType<TGetter>, UnsubscribeCallback>
+  TStateRetriever extends StateGetter<unknown>,
+  TState = Exclude<ReturnType<TStateRetriever>, UnsubscribeCallback>
 >(
-  getter: TGetter,
+  getter: TStateRetriever,
   selector: SelectorCallback<TState, TDerivate>
 ): SubscribeToEmitter<TDerivate> => {
   type Infected = {
@@ -173,8 +183,8 @@ export const createDerivateEmitter = <
       return selector(fatherFragment as unknown as TState);
     };
 
-    const subscriber = createDerivateEmitter<TDerivate, TGetter, TState>(
-      father_emitter.getter as TGetter,
+    const subscriber = createDerivateEmitter<TDerivate, TStateRetriever, TState>(
+      father_emitter.getter as TStateRetriever,
       selectorWrapper
     );
 

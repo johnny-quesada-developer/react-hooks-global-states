@@ -20,12 +20,12 @@ export class GlobalStore<
     asyncStorageKey?: string;
     isAsyncStorageReady?: boolean;
   } | null = null,
-  TStateSetter extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> extends GlobalStoreAbstract<TState, TMetadata, TStateSetter> {
+  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
+> extends GlobalStoreAbstract<TState, TMetadata, TStateMutator> {
   constructor(
     state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateSetter> = {},
-    actionsConfig: TStateSetter | null = null
+    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
+    actionsConfig: TStateMutator | null = null
   ) {
     super(state, config, actionsConfig);
 
@@ -37,7 +37,7 @@ export class GlobalStore<
     setMetadata,
     getMetadata,
     getState,
-  }: StateConfigCallbackParam<TState, TMetadata, TStateSetter>) => {
+  }: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => {
     const metadata = getMetadata();
     const asyncStorageKey = metadata?.asyncStorageKey;
 
@@ -66,7 +66,7 @@ export class GlobalStore<
   protected onChange = ({
     getMetadata,
     getState,
-  }: StateChangesParam<TState, TMetadata, NonNullable<TStateSetter>>) => {
+  }: StateChangesParam<TState, TMetadata, NonNullable<TStateMutator>>) => {
     const asyncStorageKey = getMetadata()?.asyncStorageKey;
 
     if (!asyncStorageKey) return;

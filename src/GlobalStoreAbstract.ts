@@ -4,9 +4,9 @@ import {
   StateChangesParam,
   ActionCollectionConfig,
   GlobalStoreConfig,
-} from "./GlobalStore.types";
+} from './GlobalStore.types';
 
-import { GlobalStore } from "./GlobalStore";
+import { GlobalStore } from './GlobalStore';
 
 /**
  * @description
@@ -17,27 +17,21 @@ import { GlobalStore } from "./GlobalStore";
 export abstract class GlobalStoreAbstract<
   TState,
   TMetadata = null,
-  TStateSetter extends
-    | ActionCollectionConfig<TState, TMetadata>
-    | StateSetter<TState> = StateSetter<TState>
-> extends GlobalStore<TState, TMetadata, TStateSetter> {
+  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
+> extends GlobalStore<TState, TMetadata, TStateMutator> {
   constructor(
     state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateSetter> = {},
-    actionsConfig: TStateSetter | null = null
+    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
+    actionsConfig: TStateMutator | null = null
   ) {
     super(state, config, actionsConfig);
   }
 
-  protected onInit = (
-    parameters: StateConfigCallbackParam<TState, TMetadata, TStateSetter>
-  ) => {
+  protected onInit = (parameters: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => {
     this.onInitialize(parameters);
   };
 
-  protected onStateChanged = (
-    parameters: StateChangesParam<TState, TMetadata, TStateSetter>
-  ) => {
+  protected onStateChanged = (parameters: StateChangesParam<TState, TMetadata, TStateMutator>) => {
     this.onChange(parameters);
   };
 
@@ -47,7 +41,7 @@ export abstract class GlobalStoreAbstract<
     getMetadata,
     getState,
     actions,
-  }: StateConfigCallbackParam<TState, TMetadata, TStateSetter>) => void;
+  }: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => void;
 
   protected abstract onChange: ({
     setState,
@@ -55,5 +49,5 @@ export abstract class GlobalStoreAbstract<
     getMetadata,
     getState,
     actions,
-  }: StateChangesParam<TState, TMetadata, TStateSetter>) => void;
+  }: StateChangesParam<TState, TMetadata, TStateMutator>) => void;
 }
