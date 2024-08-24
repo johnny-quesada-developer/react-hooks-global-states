@@ -288,7 +288,7 @@ What if you have two states and you want to combine them? You may have already g
 
 By utilizing the approach of combining **emitters** and **hooks**, you can effectively merge multiple states and make them shareable. This allows for better organization and simplifies the management of the combined states. You don't need to refactor everything; you just need to combine the **global state hooks** you already have. Let's see a simple example:
 
-Fist we are gonna create a couple of **global states**, and extract the **stateRetriever**. (In case you are using an instance of **GlobalStore** or **GlobalStoreAbstract** you can just pick up the stateRetrievers from the **getHookDecoupled** method)
+First we are gonna create a couple of **global states**, and extract the **stateRetriever**. (In case you are using an instance of **GlobalStore** or **GlobalStoreAbstract** you can just pick up the stateRetrievers from the **getHookDecoupled** method)
 
 ```ts
 const useHook1 = createGlobalState({
@@ -408,7 +408,7 @@ You have the freedom to combine as many global hooks as you wish. This means you
 
 ### **Quick note**:
 
-Please be aware that the third parameter is a **dispose callback**, which can be particularly useful in **high-order** functions when you want to release any resources associated with the hook. By invoking the dispose callback, the hook will no longer report any changes, ensuring that resources are properly cleaned up. This allows for efficient resource management and can be beneficial in scenarios where you need to handle resource cleanup or termination in a controlled manner.
+Please be aware that the third parameter is a **dispose callback**, which can be particularly useful in **higher-order** functions when you want to release any resources associated with the hook. By invoking the dispose callback, the hook will no longer report any changes, ensuring that resources are properly cleaned up. This allows for efficient resource management and can be beneficial in scenarios where you need to handle resource cleanup or termination in a controlled manner.
 
 ## stateMutator
 
