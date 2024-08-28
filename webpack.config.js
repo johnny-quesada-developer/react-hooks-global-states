@@ -2,11 +2,7 @@ const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = {
-  mode: 'development',
-  devtool: 'source-map', // Change this line to avoid eval
-  optimization: {
-    minimize: false,
-  },
+  mode: 'production',
   entry: {
     bundle: './src/index.ts',
   },
