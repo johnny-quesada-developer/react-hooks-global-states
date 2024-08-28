@@ -332,9 +332,11 @@ export class GlobalStore<
    * @param {UseHookConfig<TState, TDerivate>} config.config.isEqual - The compare function to check if the state is changed (optional) (default: shallowCompare)
    * @returns The state of the store, optionally if you provide a subscriptionCallback it this method will return the unsubscribe function
    */
-  protected getState = (<TCallback extends SubscriberCallback<TState> | null>($callback?: TCallback) => {
+  protected getState = (<TCallback extends SubscriberCallback<TState> | null>(
+    subscriberCallback?: TCallback
+  ) => {
     // if there is no subscription callback return the state
-    if (!$callback) return this.stateWrapper.state;
+    if (!subscriberCallback) return this.stateWrapper.state;
 
     const changesSubscribers: string[] = [];
 
@@ -355,8 +357,7 @@ export class GlobalStore<
 
       const subscriptionId = uniqueId();
 
-      this.updateSubscription({
-        subscriptionId,
+      this.addNewSubscriber(subscriptionId, {
         selector,
         config,
         stateWrapper,
@@ -366,7 +367,7 @@ export class GlobalStore<
       changesSubscribers.push(subscriptionId);
     }) as SubscribeToEmitter<TState>;
 
-    $callback(subscribe);
+    subscriberCallback(subscribe);
 
     if (!changesSubscribers.length) {
       throwNoSubscribersWereAdded();
@@ -397,45 +398,44 @@ export class GlobalStore<
     } as StateConfigCallbackParam<TState, TMetadata, TStateMutator>;
   };
 
-  protected updateSubscription = ({
-    subscriptionId,
-    callback,
-    selector,
-    config = {},
-    stateWrapper,
-  }: Partial<
-    Omit<SubscriberParameters, 'currentState'> & {
-      stateWrapper: {
-        state: unknown;
-      };
+  protected addNewSubscriber = (
+    subscriptionId: string,
+    args: {
+      callback: SubscriptionCallback;
+      selector: SelectorCallback<any, any>;
+      config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
+      stateWrapper: { state: unknown };
     }
-  >) => {
+  ) => {
+    this.subscribers.set(subscriptionId, {
+      subscriptionId,
+      currentState: args.stateWrapper.state,
+      selector: args.selector,
+      config: args.config,
+      callback: args.callback,
+      currentDependencies: uniqueSymbol as unknown,
+    } as SubscriberParameters);
+  };
+
+  protected updateSubscriptionIfExists = (
+    subscriptionId: string,
+    args: {
+      callback: SubscriptionCallback;
+      selector: SelectorCallback<any, any>;
+      config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
+      stateWrapper: { state: unknown };
+    }
+  ): void => {
+    if (!this.subscribers.has(subscriptionId)) return;
+
     const subscriber = this.subscribers.get(subscriptionId);
 
-    if (subscriber) {
-      // every time the hook is called we update the reference of the state derivate state
-      // this allows to compare the state and trigger the callback only when the state is changed
-      if (stateWrapper) subscriber.currentState = stateWrapper?.state;
+    subscriber.currentState = args.stateWrapper.state;
+    subscriber.currentDependencies = subscriber.config?.dependencies;
 
-      // update other dependencies if present
-      if (selector) subscriber.selector = selector;
-      if (config) subscriber.config = config;
-      if (callback) subscriber.callback;
-
-      return subscriber;
-    }
-
-    const newSubscriber: SubscriberParameters = {
-      subscriptionId,
-      selector,
-      config,
-      currentState: stateWrapper.state,
-      callback,
-    };
-
-    this.subscribers.set(subscriptionId, newSubscriber);
-
-    return newSubscriber;
+    subscriber.selector = args.selector;
+    subscriber.config = args.config;
+    subscriber.callback = args.callback;
   };
 
   protected executeOnSubscribed = () => {
@@ -457,22 +457,15 @@ export class GlobalStore<
   public getHook =
     () =>
     <State = TState>(selector?: SelectorCallback<TState, State>, config: UseHookConfig<State> = {}) => {
-      const subscriptionRef = useRef({
-        id: null as string,
-        dependencies: uniqueSymbol as unknown as unknown[],
-      });
-
-      // remove the subscription when the component is unmounted
-      useEffect(() => {
-        return () => {
-          this.subscribers.delete(subscriptionRef.current.id);
-        };
-      }, []);
+      // store non-reactive values of the hook
+      const subscriptionIdRef = useRef<string>(null);
 
       const computeStateWrapper = () => {
         if (selector) {
+          const derivedState = selector(this.stateWrapper.state);
+
           return {
-            state: selector(this.stateWrapper.state),
+            state: derivedState,
           };
         }
 
@@ -483,27 +476,39 @@ export class GlobalStore<
         state: unknown;
       }>(computeStateWrapper);
 
-      // by using a ref we can avoid to lose the id when StrictMode is enabled
+      // handles the subscription lifecycle
       useEffect(() => {
-        if (subscriptionRef.current.id !== null) return;
+        if (subscriptionIdRef.current === null) {
+          subscriptionIdRef.current = uniqueId();
+        }
 
-        subscriptionRef.current.id = uniqueId();
+        return () => {
+          this.subscribers.delete(subscriptionIdRef.current);
+        };
       }, []);
 
+      // ensure the subscription id is always updated with the last callbacks and configurations
+      this.updateSubscriptionIfExists(subscriptionIdRef.current, {
+        stateWrapper,
+        selector,
+        config,
+        callback: setState,
+      });
+
       useEffect(() => {
-        const subscriptionId = subscriptionRef.current.id;
+        const subscriptionId = subscriptionIdRef.current;
         if (subscriptionId === null) return;
 
         const isFirstTime = !this.subscribers.has(subscriptionId);
-
-        // prepare the values for the orchestrator
-        this.updateSubscription({
-          subscriptionId,
-          stateWrapper,
-          ...(isFirstTime && { selector, config, callback: setState }),
-        });
-
         if (!isFirstTime) return;
+
+        // create a new subscriber just once
+        this.addNewSubscriber(subscriptionId, {
+          stateWrapper,
+          selector,
+          config,
+          callback: setState,
+        });
 
         this.executeOnSubscribed();
       }, [stateWrapper]);
@@ -516,41 +521,40 @@ export class GlobalStore<
 
       return [
         (() => {
-          const { id: subscriptionId, dependencies: oldDependencies } = subscriptionRef.current;
-          const { dependencies: newDependencies } = config ?? {};
+          const subscriptionId = subscriptionIdRef.current;
 
-          // update the dependencies
-          subscriptionRef.current.dependencies = newDependencies;
+          // if there is no selector we just return the state
+          if (!selector || !this.subscribers.has(subscriptionId)) return stateWrapper.state;
 
-          if (subscriptionId === null) return stateWrapper.state;
+          const subscription = this.subscribers.get(subscriptionId);
+          const { currentDependencies, config: { dependencies: newDependencies } = {} } = subscription;
 
-          // make sure we don't proceed if wa ere just adding the dependencies
-          if ((oldDependencies as unknown) === uniqueSymbol) return stateWrapper.state;
+          // we don't need to compute the state if it is the first time the component is mounted
+          if ((currentDependencies as unknown) === uniqueSymbol) return stateWrapper.state;
 
-          // if the dependencies are the same we don't need to update the subscription
-          if (newDependencies === oldDependencies) return stateWrapper.state;
+          // if the dependencies are the same we don't need to compute the state
+          if (currentDependencies === newDependencies) return stateWrapper.state;
 
-          const haveDifferentLength = oldDependencies?.length !== newDependencies?.length;
+          const isLengthEqual = currentDependencies?.length === newDependencies?.length;
+          const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
 
-          const haveDifferentValues =
-            haveDifferentLength || !shallowCompare(oldDependencies, newDependencies);
+          // if values are the same we don't need to compute the state
+          if (isSameValues) return stateWrapper.state;
 
-          if (!haveDifferentLength && !haveDifferentValues) return stateWrapper.state;
+          // if the dependencies are different we need to compute the state
+          const newStateWrapper = computeStateWrapper();
 
-          // this will be the state of the component but will not be part of react state yet
-          const impureStateWrapper = computeStateWrapper();
-
-          this.updateSubscription({
-            subscriptionId,
-            stateWrapper: impureStateWrapper,
+          this.updateSubscriptionIfExists(subscriptionId, {
+            stateWrapper: newStateWrapper,
             selector,
             config,
+            callback: setState,
           });
 
-          // we need to update directly the reference to be compatible with strict mode
-          stateWrapper.state = impureStateWrapper.state;
+          // update the current state without re-rendering the component
+          stateWrapper.state = newStateWrapper.state;
 
-          return impureStateWrapper.state;
+          return newStateWrapper.state;
         })(),
         this.getStateOrchestrator(),
         this.config.metadata ?? null,
