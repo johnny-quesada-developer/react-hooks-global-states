@@ -35,6 +35,8 @@ export const throwNoSubscribersWereAdded = () => {
   );
 };
 
+const uniqueSymbol = Symbol('unique');
+
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
  * @template {TState} TState - The type of the state object
@@ -232,37 +234,42 @@ export class GlobalStore<
    * set the state and update all the subscribers
    * @param {StateSetter<TState>} setter - The setter function or the value to set
    * */
-  protected setState = ({ state, forceUpdate }: { state: TState; forceUpdate: boolean }) => {
+  protected setState = ({ state: newRootState, forceUpdate }: { state: TState; forceUpdate: boolean }) => {
+    const { state: currentRootState } = this.stateWrapper;
+
     // update the main state
     this.stateWrapper = {
-      state,
+      state: newRootState,
     };
 
     const executeSetState = (parameters: SubscriberParameters) => {
-      const { selector, callback, currentState, config } = parameters;
+      const { selector, callback, currentState: currentChildState, config } = parameters;
 
-      const compareCallback = (() => {
-        if (config?.isEqual || config?.isEqual === null) {
-          return config?.isEqual;
-        }
+      // compare the root state, there should not be a re-render if the root state is the same
+      if (
+        !forceUpdate &&
+        (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(currentRootState, newRootState)
+      )
+        return;
 
-        if (!selector) return null;
+      const newChildState = selector ? selector(newRootState) : newRootState;
 
-        // shallow compare is added by default to the selectors unless the isEqual property is set
-        return shallowCompare;
-      })();
+      // compare the result after the selector is executed
+      if (!forceUpdate && (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState))
+        return;
 
-      const newState = selector ? selector(state) : state;
-
-      if (!forceUpdate && compareCallback?.(currentState, newState)) return;
-
-      callback({ state: newState });
+      // this in the case of the hooks is the setState function
+      callback({ state: newChildState });
     };
 
+    const subscribers = Array.from(this.subscribers.values());
+
     // update all the subscribers
-    Array.from(this.subscribers.values()).forEach((parameters) => {
+    for (let index = 0; index < subscribers.length; index++) {
+      const parameters = subscribers[index];
+
       executeSetState(parameters);
-    });
+    }
   };
 
   /**
@@ -395,17 +402,25 @@ export class GlobalStore<
     callback,
     selector,
     config = {},
-    stateWrapper: { state },
-  }: Omit<SubscriberParameters, 'currentState'> & {
-    stateWrapper: {
-      state: unknown;
-    };
-  }) => {
+    stateWrapper,
+  }: Partial<
+    Omit<SubscriberParameters, 'currentState'> & {
+      stateWrapper: {
+        state: unknown;
+      };
+    }
+  >) => {
     const subscriber = this.subscribers.get(subscriptionId);
 
     if (subscriber) {
-      // every time the hook is called we update the reference of the state
-      subscriber.currentState = state;
+      // every time the hook is called we update the reference of the state derivate state
+      // this allows to compare the state and trigger the callback only when the state is changed
+      if (stateWrapper) subscriber.currentState = stateWrapper?.state;
+
+      // update other dependencies if present
+      if (selector) subscriber.selector = selector;
+      if (config) subscriber.config = config;
+      if (callback) subscriber.callback;
 
       return subscriber;
     }
@@ -414,7 +429,7 @@ export class GlobalStore<
       subscriptionId,
       selector,
       config,
-      currentState: state,
+      currentState: stateWrapper.state,
       callback,
     };
 
@@ -442,53 +457,55 @@ export class GlobalStore<
   public getHook =
     () =>
     <State = TState>(selector?: SelectorCallback<TState, State>, config: UseHookConfig<State> = {}) => {
-      const subscriptionIdRef = useRef(null);
+      const subscriptionRef = useRef({
+        id: null as string,
+        dependencies: uniqueSymbol as unknown as unknown[],
+      });
 
       // remove the subscription when the component is unmounted
       useEffect(() => {
         return () => {
-          this.subscribers.delete(subscriptionIdRef.current);
+          this.subscribers.delete(subscriptionRef.current.id);
         };
       }, []);
 
-      const [stateWrapper, setState] = useState<{
-        state: unknown;
-      }>(() => {
+      const computeStateWrapper = () => {
         if (selector) {
-          const state = selector(this.stateWrapper.state);
-
           return {
-            state,
+            state: selector(this.stateWrapper.state),
           };
         }
 
         return this.stateWrapper;
-      });
+      };
+
+      const [stateWrapper, setState] = useState<{
+        state: unknown;
+      }>(computeStateWrapper);
 
       // by using a ref we can avoid to lose the id when StrictMode is enabled
       useEffect(() => {
-        if (subscriptionIdRef.current !== null) return;
+        if (subscriptionRef.current.id !== null) return;
 
-        subscriptionIdRef.current = uniqueId();
+        subscriptionRef.current.id = uniqueId();
       }, []);
 
       useEffect(() => {
-        const subscriptionId = subscriptionIdRef.current;
+        const subscriptionId = subscriptionRef.current.id;
         if (subscriptionId === null) return;
 
         const isFirstTime = !this.subscribers.has(subscriptionId);
 
+        // prepare the values for the orchestrator
         this.updateSubscription({
           subscriptionId,
           stateWrapper,
-          selector,
-          config,
-          callback: setState,
+          ...(isFirstTime && { selector, config, callback: setState }),
         });
 
-        if (isFirstTime) {
-          this.executeOnSubscribed();
-        }
+        if (!isFirstTime) return;
+
+        this.executeOnSubscribed();
       }, [stateWrapper]);
 
       type State_ = State extends never | undefined | null ? TState : State;
@@ -497,11 +514,47 @@ export class GlobalStore<
         ? StateSetter<TState>
         : ActionCollectionResult<TState, TMetadata, TStateMutator>;
 
-      return [stateWrapper.state, this.getStateOrchestrator(), this.config.metadata ?? null] as [
-        state: State_,
-        setter: Setter,
-        metadata: TMetadata
-      ];
+      return [
+        (() => {
+          const { id: subscriptionId, dependencies: oldDependencies } = subscriptionRef.current;
+          const { dependencies: newDependencies } = config ?? {};
+
+          // update the dependencies
+          subscriptionRef.current.dependencies = newDependencies;
+
+          if (subscriptionId === null) return stateWrapper.state;
+
+          // make sure we don't proceed if wa ere just adding the dependencies
+          if ((oldDependencies as unknown) === uniqueSymbol) return stateWrapper.state;
+
+          // if the dependencies are the same we don't need to update the subscription
+          if (newDependencies === oldDependencies) return stateWrapper.state;
+
+          const haveDifferentLength = oldDependencies?.length !== newDependencies?.length;
+
+          const haveDifferentValues =
+            haveDifferentLength || !shallowCompare(oldDependencies, newDependencies);
+
+          if (!haveDifferentLength && !haveDifferentValues) return stateWrapper.state;
+
+          // this will be the state of the component but will not be part of react state yet
+          const impureStateWrapper = computeStateWrapper();
+
+          this.updateSubscription({
+            subscriptionId,
+            stateWrapper: impureStateWrapper,
+            selector,
+            config,
+          });
+
+          // we need to update directly the reference to be compatible with strict mode
+          stateWrapper.state = impureStateWrapper.state;
+
+          return impureStateWrapper.state;
+        })(),
+        this.getStateOrchestrator(),
+        this.config.metadata ?? null,
+      ] as [state: State_, setter: Setter, metadata: TMetadata];
     };
 
   /**

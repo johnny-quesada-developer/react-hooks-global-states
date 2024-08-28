@@ -251,6 +251,8 @@ export type UseHookConfig<TState> = {
    * If the function is not provided the derived state will perform a shallow comparison
    */
   isEqual?: (current: TState, next: TState) => boolean;
+  isEqualRoot?: (current: any, next: any) => boolean;
+  dependencies?: unknown[];
 };
 
 /**
