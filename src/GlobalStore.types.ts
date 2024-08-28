@@ -32,7 +32,7 @@ export type StateSetter<TState> = (
  */
 export type StateHook<TState, TSetter, TMetadata> = <State = TState>(
   selector?: (state: TState) => State,
-  config?: UseHookConfig<State>
+  config?: UseHookConfig<State, TState>
 ) => [state: State, stateMutator: TSetter, metadata: TMetadata];
 
 /**
@@ -245,13 +245,13 @@ export type GlobalStoreConfig<
   computePreventStateChange?: (parameters: StateChangesParam<TState, TMetadata, TStateMutator>) => boolean;
 } | null;
 
-export type UseHookConfig<TState> = {
+export type UseHookConfig<TState, TRoot = any> = {
   /**
    * The callback to execute when the state is changed to check if the same really changed
    * If the function is not provided the derived state will perform a shallow comparison
    */
   isEqual?: (current: TState, next: TState) => boolean;
-  isEqualRoot?: (current: any, next: any) => boolean;
+  isEqualRoot?: (current: TRoot, next: TRoot) => boolean;
   dependencies?: unknown[];
 };
 

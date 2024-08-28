@@ -456,7 +456,10 @@ export class GlobalStore<
    * */
   public getHook =
     () =>
-    <State = TState>(selector?: SelectorCallback<TState, State>, config: UseHookConfig<State> = {}) => {
+    <State = TState>(
+      selector?: SelectorCallback<TState, State>,
+      config: UseHookConfig<State, TState> = {}
+    ) => {
       // store non-reactive values of the hook
       const subscriptionIdRef = useRef<string>(null);
 
