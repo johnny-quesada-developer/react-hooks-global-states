@@ -35,14 +35,15 @@ export const createGlobalStateWithDecoupledFuncs = <
 ) => {
   const store = new GlobalStore<TState, TMetadata, TActions>(state, config, actions);
 
-  const [getState, setter] = store.getHookDecoupled();
+  const hook = store.getHook();
+  const [getState, setter] = hook.stateControls();
 
   type Setter = keyof TActions extends never
     ? StateSetter<TState>
     : ActionCollectionResult<TState, TMetadata, TActions>;
 
-  return [store.getHook(), getState, setter] as [
-    state: StateHook<TState, Setter, TMetadata>,
+  return [hook, getState, setter] as unknown as [
+    hook: StateHook<TState, Setter, TMetadata>,
     stateRetriever: StateGetter<TState>,
     stateMutator: Setter
   ];
@@ -58,21 +59,15 @@ export const createGlobalState = <
   TActions extends ActionCollectionConfig<TState, TMetadata> | null = null
 >(
   state: TState,
-  config: createStateConfig<TState, TMetadata, TActions> = {}
+  { actions, ...config }: createStateConfig<TState, TMetadata, TActions> = {}
 ) => {
-  const [useState, stateRetriever, stateMutator] = createGlobalStateWithDecoupledFuncs<
-    TState,
-    TMetadata,
-    TActions
-  >(state, config);
+  const hook = new GlobalStore<TState, TMetadata, TActions>(state, config, actions).getHook();
 
-  type GlobalStateHook = typeof useState & {
-    stateControls: () => [stateRetriever: typeof stateRetriever, stateMutator: typeof stateMutator];
-  };
+  type Setter = keyof TActions extends never
+    ? StateSetter<TState>
+    : ActionCollectionResult<TState, TMetadata, TActions>;
 
-  (useState as unknown as GlobalStateHook).stateControls = () => [stateRetriever, stateMutator];
-
-  return useState as GlobalStateHook;
+  return hook as unknown as StateHook<TState, Setter, TMetadata>;
 };
 
 /**
@@ -135,23 +130,37 @@ export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata = nul
   };
 };
 
+export type HookToDerivateParameter<State, StateMutator, TMetadata> = <Derivate = State>(
+  selector?: (state: State) => Derivate,
+  config?: UseHookConfig<Derivate, State>
+) => Readonly<[state: Derivate, stateMutator: StateMutator, metadata: TMetadata]>;
+
 /**
  * @description
  * Use this function to create a custom global hook which contains a fragment of the state of another hook or a fragment
  */
-export const createDerivate =
-  <TState, TSetter, TMetadata, TDerivate>(
-    useHook: StateHook<TState, TSetter, TMetadata>,
-    selector_: SelectorCallback<TState, TDerivate>,
-    config_: UseHookConfig<TDerivate> = {}
-  ) =>
-  <State = TDerivate>(selector?: SelectorCallback<TDerivate, State>, config: UseHookConfig<State> = null) => {
-    return useHook<State>((state) => {
-      const fragment = selector_(state);
+export const createDerivate = <
+  RootState,
+  StateMutator,
+  TMetadata,
+  SelectorResult,
+  MainDerivate = SelectorResult extends never ? RootState : SelectorResult
+>(
+  useHook: HookToDerivateParameter<RootState, StateMutator, TMetadata>,
+  mainSelector?: (state: RootState) => SelectorResult,
+  config_: UseHookConfig<MainDerivate, RootState> = {}
+) => {
+  return <Derivate = MainDerivate>(
+    selector?: SelectorCallback<MainDerivate, Derivate>,
+    config: UseHookConfig<Derivate, MainDerivate> = null
+  ) => {
+    return useHook<Derivate>((state) => {
+      const fragment = mainSelector(state) as unknown as MainDerivate;
 
-      return (selector ? selector(fragment) : fragment) as State;
-    }, (selector && config ? config : config_) as UseHookConfig<State>);
+      return (selector ? selector(fragment) : fragment) as Derivate;
+    }, (selector && config ? config : config_) as UseHookConfig<Derivate>);
   };
+};
 
 /**
  * @description

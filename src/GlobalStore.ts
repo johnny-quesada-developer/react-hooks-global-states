@@ -454,9 +454,8 @@ export class GlobalStore<
    * Returns a custom hook that allows to handle a global state
    * @returns {[TState, TStateMutator, TMetadata]} - The state, the state setter or the actions map, the metadata
    * */
-  public getHook =
-    () =>
-    <State = TState>(
+  public getHook = () => {
+    const hook = <State = TState>(
       selector?: SelectorCallback<TState, State>,
       config: UseHookConfig<State, TState> = {}
     ) => {
@@ -563,6 +562,11 @@ export class GlobalStore<
         this.config.metadata ?? null,
       ] as [state: State_, setter: Setter, metadata: TMetadata];
     };
+
+    hook.stateControls = () => this.getHookDecoupled();
+
+    return hook;
+  };
 
   /**
    * Returns an array with the a function to get the state, the state setter or the actions map, and a function to get the metadata

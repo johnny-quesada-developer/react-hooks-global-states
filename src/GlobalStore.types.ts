@@ -28,12 +28,23 @@ export type StateSetter<TState> = (
 /**
  * @description
  * The hook to use the global state
- * @returns {[State, StateSetter<TState>, TMetadata]} result - the state, the setter and the metadata
+ * @returns {[State, StateSetter<State>, TMetadata]} result - the state, the setter and the metadata
  */
-export type StateHook<TState, TSetter, TMetadata> = <State = TState>(
-  selector?: (state: TState) => State,
-  config?: UseHookConfig<State, TState>
-) => [state: State, stateMutator: TSetter, metadata: TMetadata];
+export type StateHook<State, StateMutator, TMetadata> = (<Derivate = State>(
+  selector?: (state: State) => Derivate,
+  config?: UseHookConfig<Derivate, State>
+) => Readonly<[state: Derivate, stateMutator: StateMutator, metadata: TMetadata]>) & {
+  stateControls: () => Readonly<
+    [
+      stateRetriever: StateGetter<State>,
+      stateMutator: StateMutator,
+      metadataRetriever: MetadataGetter<TMetadata>
+    ]
+  >;
+  State: State;
+  StateMutator: StateMutator;
+  Metadata: TMetadata;
+};
 
 /**
  * @description
