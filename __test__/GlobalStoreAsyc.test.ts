@@ -1,25 +1,20 @@
-import { createDecoupledPromise } from "cancelable-promise-jq";
-import { formatToStore } from "json-storage-formatter";
-import { Subscribe, SubscriberCallback } from "../src/GlobalStore.types";
-import {
-  GlobalStore,
-  asyncStorage,
-  createGlobalState,
-} from "./GlobalStoreAsync";
+import { createDecoupledPromise } from 'cancelable-promise-jq';
+import { formatToStore } from 'json-storage-formatter';
+import { Subscribe, SubscriberCallback } from '../src/GlobalStore.types';
+import { GlobalStore, asyncStorage, createGlobalState } from './GlobalStoreAsync';
 
-describe("GlobalStoreAsync Basics", () => {
-  it("should create a store with async storage", async () => {
-    asyncStorage.setItem("counter", 0);
+describe('GlobalStoreAsync Basics', () => {
+  it('should create a store with async storage', async () => {
+    asyncStorage.setItem('counter', 0);
 
     const { promise, resolve } = createDecoupledPromise();
 
     setTimeout(async () => {
-      const { promise: onStateChangedPromise, resolve: onStateChangedResolve } =
-        createDecoupledPromise();
+      const { promise: onStateChangedPromise, resolve: onStateChangedResolve } = createDecoupledPromise();
 
       const storage = new GlobalStore(0, {
         metadata: {
-          asyncStorageKey: "counter",
+          asyncStorageKey: 'counter',
           isAsyncStorageReady: false,
         },
       });
@@ -29,13 +24,11 @@ describe("GlobalStoreAsync Basics", () => {
       const onStateChanged = (storage as any).onStateChanged;
       onStateChanged.bind(storage);
 
-      jest
-        .spyOn(storage, "onStateChanged" as any)
-        .mockImplementation((...parameters) => {
-          onStateChanged(...parameters);
+      jest.spyOn(storage, 'onStateChanged' as any).mockImplementation((...parameters) => {
+        onStateChanged(...parameters);
 
-          onStateChangedResolve();
-        });
+        onStateChangedResolve();
+      });
 
       expect(storage).toBeInstanceOf(GlobalStore);
 
@@ -57,7 +50,7 @@ describe("GlobalStoreAsync Basics", () => {
 
       expect(getState()).toBe(0);
 
-      const storedValue = await asyncStorage.getItem("counter");
+      const storedValue = await asyncStorage.getItem('counter');
 
       expect(storedValue).toBe('"0"');
 
@@ -68,19 +61,18 @@ describe("GlobalStoreAsync Basics", () => {
   });
 });
 
-describe("createGlobalState", () => {
-  it("should create a store with async storage", async () => {
-    asyncStorage.setItem("data", formatToStore(new Map([["prop", 0]])));
+describe('createGlobalState', () => {
+  it('should create a store with async storage', async () => {
+    asyncStorage.setItem('data', formatToStore(new Map([['prop', 0]])));
 
     const { promise, resolve } = createDecoupledPromise();
 
     setTimeout(async () => {
-      const { promise: onStateChangedPromise, resolve: onStateChangedResolve } =
-        createDecoupledPromise();
+      const { promise: onStateChangedPromise, resolve: onStateChangedResolve } = createDecoupledPromise();
 
       const [useData] = createGlobalState(new Map<string, number>(), {
         config: {
-          asyncStorageKey: "data",
+          asyncStorageKey: 'data',
         },
         onStateChanged: onStateChangedResolve,
       });
@@ -94,10 +86,10 @@ describe("createGlobalState", () => {
       [data, setData, metadata] = useData();
 
       expect(!!metadata.isAsyncStorageReady).toBe(true);
-      expect(data).toEqual(new Map([["prop", 0]]));
+      expect(data).toEqual(new Map([['prop', 0]]));
 
       setData((data) => {
-        data.set("prop", 1);
+        data.set('prop', 1);
 
         return data;
       });
@@ -113,8 +105,8 @@ describe("createGlobalState", () => {
   });
 });
 
-describe("getter subscriptions custom global state", () => {
-  it("should subscribe to changes from getter", () => {
+describe('getter subscriptions custom global state', () => {
+  it('should subscribe to changes from getter', () => {
     const [_, getter, setter] = createGlobalState({
       a: 3,
       b: 2,

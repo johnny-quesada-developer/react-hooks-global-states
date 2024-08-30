@@ -35,7 +35,7 @@ export const throwNoSubscribersWereAdded = () => {
   );
 };
 
-const uniqueSymbol = Symbol('unique');
+export const uniqueSymbol = Symbol('unique');
 
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
@@ -471,7 +471,9 @@ export class GlobalStore<
           };
         }
 
-        return this.stateWrapper;
+        return {
+          state: this.stateWrapper.state,
+        };
       };
 
       const [stateWrapper, setState] = useState<{
