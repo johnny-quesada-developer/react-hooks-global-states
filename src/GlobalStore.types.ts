@@ -34,6 +34,13 @@ export type StateHook<State, StateMutator, TMetadata> = (<Derivate = State>(
   selector?: (state: State) => Derivate,
   config?: UseHookConfig<Derivate, State>
 ) => Readonly<[state: Derivate, stateMutator: StateMutator, metadata: TMetadata]>) & {
+  /**
+   * @description Return the state controls of the hook
+   * This selectors includes:
+   * - stateRetriever: a function to get the current state or subscribe a callback to the state changes
+   * - stateMutator: a function to set the state or a collection of actions if you pass an storeActionsConfig configuration
+   * - metadataRetriever: a function to get the metadata of the global state
+   */
   stateControls: () => Readonly<
     [
       stateRetriever: StateGetter<State>,
@@ -41,6 +48,25 @@ export type StateHook<State, StateMutator, TMetadata> = (<Derivate = State>(
       metadataRetriever: MetadataGetter<TMetadata>
     ]
   >;
+
+  /***
+   * @description Creates a new hooks that returns the result of the selector passed as a parameter
+   * Your can create selector hooks of other selectors hooks and extract as many derived states as or fragments of the state as you want
+   * The selector hook will be evaluated only if the result of the selector changes and the equality function returns false
+   * you can customize the equality function by passing the isEqualRoot and isEqual parameters
+   */
+  createSelectorHook: <
+    RootState,
+    StateMutator,
+    Metadata,
+    RootSelectorResult,
+    RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
+  >(
+    this: StateHook<RootState, StateMutator, Metadata>,
+    mainSelector?: (state: RootState) => RootSelectorResult,
+    { isEqualRoot, isEqual }?: Omit<UseHookConfig<RootDerivate, RootState>, 'dependencies'>
+  ) => StateHook<RootDerivate, StateMutator, Metadata>;
+
   State: State;
   StateMutator: StateMutator;
   Metadata: TMetadata;
