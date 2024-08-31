@@ -231,7 +231,7 @@ export const combineAsyncGetters = <
     }, []);
 
     return [state, null, null];
-  }) as StateHook<TDerivate, null, null>;
+  }) as unknown as StateHook<TDerivate, null, null>;
 
   return [useHook, getState, dispose] as [
     useHook: typeof useHook,
