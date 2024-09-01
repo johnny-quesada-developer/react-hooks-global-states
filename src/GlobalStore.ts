@@ -45,7 +45,7 @@ export const uniqueSymbol = Symbol('unique');
  * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
  * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
  * */
-export class GlobalStore<
+class GlobalStoreBase<
   TState,
   TMetadata = null,
   TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
@@ -210,7 +210,7 @@ export class GlobalStore<
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
 
-    (this as GlobalStore<TState, TMetadata, TStateMutator>).initialize();
+    (this as GlobalStoreBase<TState, TMetadata, TStateMutator>).initialize();
   }
 
   protected initialize = async () => {
@@ -1051,3 +1051,14 @@ export class GlobalStore<
     return actions;
   };
 }
+
+type DebugProps = {
+  REACT_GLOBAL_STATE_HOOK_DEBUG: typeof GlobalStoreBase;
+};
+
+// Determine the class to use
+const GlobalStore: typeof GlobalStoreBase =
+  (globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG || GlobalStoreBase;
+
+// Export the determined class
+export { GlobalStore };
