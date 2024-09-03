@@ -3,10 +3,12 @@
     "jsx": "react",
     "target": "ES2016",
     "module": "commonjs",
-    "lib": ["es2016"],
+    "lib": [
+      "es2016"
+    ],
     "declaration": true,
     "outDir": "./lib",
-    "strict": true,
+    "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
     "strictFunctionTypes": true,
@@ -24,14 +26,28 @@
     "sourceMap": true,
     "allowJs": true,
     "declarationDir": "./lib",
-    "typeRoots": ["node_modules/@types", "./types"],
+    "typeRoots": [
+      "node_modules/@types",
+      "./types"
+    ],
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "*": ["src/*"],
-      "__test__/*": ["src/__test__/*"]
+      "*": [
+        "src/*"
+      ],
+      "__test__/*": [
+        "src/__test__/*"
+      ]
     }
   },
-  "include": ["src/**/*", "types/**/*", "__test__/**/*"],
-  "exclude": ["node_modules", "lib"]
+  "include": [
+    "src/**/*",
+    "types/**/*",
+    "__test__/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib"
+  ]
 }

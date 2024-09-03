@@ -207,6 +207,19 @@ export class GlobalStore<
       ...(config ?? {}),
     };
 
+    type DebugProps = {
+      REACT_GLOBAL_STATE_HOOK_DEBUG: (state, config, actionsConfig) => void;
+    };
+
+    if (process.env.NODE_ENV && (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG) {
+      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG.call(
+        this,
+        state,
+        config,
+        actionsConfig
+      );
+    }
+
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
 
@@ -376,9 +389,11 @@ export class GlobalStore<
     }
 
     return () => {
-      changesSubscribers.forEach((subscriber) => {
+      for (let index = 0; index < changesSubscribers.length; index++) {
+        const subscriber = changesSubscribers[index];
+
         this.subscribers.delete(subscriber);
-      });
+      }
     };
   }) as StateGetter<TState>;
 
@@ -740,9 +755,11 @@ export class GlobalStore<
       }
 
       return () => {
-        changesSubscribers.forEach((subscriber) => {
+        for (let index = 0; index < changesSubscribers.length; index++) {
+          const subscriber = changesSubscribers[index];
+
           subscribers.delete(subscriber);
-        });
+        }
       };
     }) as StateGetter<RootDerivate>;
 
@@ -883,6 +900,11 @@ export class GlobalStore<
 
     newHook.stateControls = () => [stateRetriever, rootMutator, metadataRetriever];
     newHook.createSelectorHook = this.createSelectorHook.bind(newHook);
+
+    Object.assign(newHook, {
+      _parent: useHook,
+      _subscribers: subscribers,
+    });
 
     return newHook;
   };

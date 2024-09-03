@@ -1,4 +1,4 @@
-import { createGlobalStateWithDecoupledFuncs } from '../src/GlobalStore.functionHooks';
+import { createGlobalStateWithDecoupledFuncs } from './GlobalStore.functionHooks';
 import {
   ActionCollectionConfig,
   createStateConfig,
@@ -6,7 +6,7 @@ import {
   StateSetter,
   ActionCollectionResult,
   StateGetter,
-} from 'GlobalStore.types';
+} from './GlobalStore.types';
 import { clone, isDate, isPrimitive } from 'json-storage-formatter';
 import React, { PropsWithChildren } from 'react';
 
