@@ -208,16 +208,16 @@ export class GlobalStore<
     };
 
     type DebugProps = {
-      REACT_GLOBAL_STATE_HOOK_DEBUG: (state, config, actionsConfig) => void;
-    };
-
-    if (process.env.NODE_ENV && (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG.call(
-        this,
+      REACT_GLOBAL_STATE_HOOK_DEBUG: (
+        $this: GlobalStore<TState, TMetadata, TStateMutator>,
         state,
         config,
         actionsConfig
-      );
+      ) => void;
+    };
+
+    if (process.env.NODE_ENV && (globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
+      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(this, state, config, actionsConfig);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
