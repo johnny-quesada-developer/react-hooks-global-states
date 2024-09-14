@@ -216,7 +216,8 @@ export class GlobalStore<
       ) => void;
     };
 
-    if (process.env.NODE_ENV && (globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
+    const isDevMode = typeof process !== 'undefined' && process?.env?.NODE_ENV === 'development';
+    if (isDevMode && (globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
       (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(this, state, config, actionsConfig);
     }
 
@@ -249,7 +250,15 @@ export class GlobalStore<
    * set the state and update all the subscribers
    * @param {StateSetter<TState>} setter - The setter function or the value to set
    * */
-  protected setState = ({ state: newRootState, forceUpdate }: { state: TState; forceUpdate: boolean }) => {
+  protected setState = ({
+    state: newRootState,
+    forceUpdate,
+    identifier,
+  }: {
+    state: TState;
+    forceUpdate: boolean;
+    identifier?: string;
+  }) => {
     const { state: currentRootState } = this.stateWrapper;
 
     // update the main state
@@ -274,7 +283,7 @@ export class GlobalStore<
         return;
 
       // this in the case of the hooks is the setState function
-      callback({ state: newChildState });
+      callback({ state: newChildState, identifier });
     };
 
     const subscribers = Array.from(this.subscribers.values());
@@ -317,7 +326,7 @@ export class GlobalStore<
   }) => {
     const initialState = selector ? selector(this.stateWrapper.state) : this.stateWrapper.state;
 
-    let stateWrapper = {
+    const stateWrapper = {
       state: initialState,
     };
 
@@ -432,6 +441,10 @@ export class GlobalStore<
       callback: args.callback,
       currentDependencies: uniqueSymbol as unknown,
     } as SubscriberParameters);
+
+    Object.assign(args.callback, {
+      __global_state_subscription_id__: subscriptionId,
+    });
   };
 
   protected updateSubscriptionIfExists = (
@@ -656,7 +669,7 @@ export class GlobalStore<
     }) => {
       const initialState = (selector ?? ((s) => s))(rootDerivate);
 
-      let stateWrapper = {
+      const stateWrapper = {
         state: initialState,
       };
 
@@ -693,6 +706,10 @@ export class GlobalStore<
         callback: args.callback,
         currentDependencies: uniqueSymbol as unknown,
       } as SubscriberParameters);
+
+      Object.assign(args.callback, {
+        __global_state_subscription_id__: subscriptionId,
+      });
     };
 
     const updateSubscriptionIfExists = (
@@ -979,7 +996,7 @@ export class GlobalStore<
    * - onStateChanged (if defined) - this function is executed after the state change
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
-  protected setStateWrapper: StateSetter<TState> = (setter, { forceUpdate } = {}) => {
+  protected setStateWrapper: StateSetter<TState> = (setter, { forceUpdate, identifier } = {}) => {
     const isSetterFunction = typeof setter === 'function';
     const previousState = this.stateWrapper.state;
 
@@ -998,6 +1015,7 @@ export class GlobalStore<
       actions,
       previousState,
       state: newState,
+      identifier,
     } as StateChangesParam<TState, TMetadata, TStateMutator>;
 
     const { computePreventStateChange } = this;
@@ -1014,6 +1032,7 @@ export class GlobalStore<
 
     this.setState({
       forceUpdate,
+      identifier,
       state: newState,
     });
 

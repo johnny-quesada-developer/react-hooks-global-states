@@ -18,6 +18,11 @@ export type StateSetter<TState> = (
     forceUpdate,
   }?: {
     /**
+     * @description you can add an identifier to the state call
+     * this will show up in the devtools to help you identify from where the state change was called
+     */
+    identifier?: string;
+    /**
      * @deprecated forceUpdate normally should not be used inside components
      * Use this flag just in custom implementations of the global store
      */
@@ -235,7 +240,10 @@ export type StateChangesParam<
   TState = any,
   TMetadata = null,
   TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> = StateConfigCallbackParam<TState, TMetadata, TStateMutator> & StateChanges<TState>;
+> = StateConfigCallbackParam<TState, TMetadata, TStateMutator> &
+  StateChanges<TState> & {
+    identifier?: string;
+  };
 
 /**
  * Configuration of the store (optional) - if you don't need to use the store configuration you don't need to pass this parameter
@@ -454,6 +462,13 @@ export type SubscriberParameters = {
   currentDependencies: unknown[];
 };
 
-export type SubscriptionCallback = (params: { state: unknown }) => void;
+/**
+ * @description
+ * This is the final listener of the store changes, it can be a subscription or a setState
+ * @param {unknown} params - The parameters of the subscription
+ * @param {unknown} params.state - The new state
+ * @param {string} params.identifier - Optional identifier for the setState call
+ */
+export type SubscriptionCallback = (params: { state: unknown; identifier?: string }) => void;
 
 export type SetStateCallback = (parameters: { state: unknown }) => void;
