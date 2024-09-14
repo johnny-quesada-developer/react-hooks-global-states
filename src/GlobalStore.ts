@@ -37,6 +37,10 @@ export const throwNoSubscribersWereAdded = () => {
   );
 };
 
+type DebugProps = {
+  REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown>, state, config, actionsConfig) => void;
+};
+
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
  * @template {TState} TState - The type of the state object
@@ -205,18 +209,13 @@ export class GlobalStore<
       ...(config ?? {}),
     };
 
-    type DebugProps = {
-      REACT_GLOBAL_STATE_HOOK_DEBUG: (
-        $this: GlobalStore<TState, TMetadata, TStateMutator>,
+    if ((globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
+      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(
+        this as GlobalStore<unknown, null, StateSetter<unknown>>,
         state,
         config,
         actionsConfig
-      ) => void;
-    };
-
-    const isDevMode = typeof process !== 'undefined' && process?.env?.NODE_ENV === 'development';
-    if (isDevMode && (globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(this, state, config, actionsConfig);
+      );
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
