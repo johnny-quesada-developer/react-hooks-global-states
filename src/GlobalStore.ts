@@ -37,8 +37,6 @@ export const throwNoSubscribersWereAdded = () => {
   );
 };
 
-export const uniqueSymbol = Symbol('unique');
-
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
  * @template {TState} TState - The type of the state object
@@ -439,7 +437,6 @@ export class GlobalStore<
       selector: args.selector,
       config: args.config,
       callback: args.callback,
-      currentDependencies: uniqueSymbol as unknown,
     } as SubscriberParameters);
 
     Object.assign(args.callback, {
@@ -461,8 +458,6 @@ export class GlobalStore<
     const subscriber = this.subscribers.get(subscriptionId);
 
     subscriber.currentState = args.stateWrapper.state;
-    subscriber.currentDependencies = subscriber.config?.dependencies;
-
     subscriber.selector = args.selector;
     subscriber.config = args.config;
     subscriber.callback = args.callback;
@@ -521,6 +516,11 @@ export class GlobalStore<
         };
       }, []);
 
+      const subscriptionParameters = this.subscribers.get(subscriptionIdRef.current);
+      const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
+        dependencies: config.dependencies,
+      };
+
       // ensure the subscription id is always updated with the last callbacks and configurations
       this.updateSubscriptionIfExists(subscriptionIdRef.current, {
         stateWrapper,
@@ -555,16 +555,11 @@ export class GlobalStore<
 
       return [
         (() => {
-          const subscriptionId = subscriptionIdRef.current;
-
+          // if it is the first render we just return the state
           // if there is no selector we just return the state
-          if (!selector || !this.subscribers.has(subscriptionId)) return stateWrapper.state;
+          if (!selector || !subscriptionIdRef.current) return stateWrapper.state;
 
-          const subscription = this.subscribers.get(subscriptionId);
-          const { currentDependencies, config: { dependencies: newDependencies } = {} } = subscription;
-
-          // we don't need to compute the state if it is the first time the component is mounted
-          if ((currentDependencies as unknown) === uniqueSymbol) return stateWrapper.state;
+          const { dependencies: newDependencies } = config;
 
           // if the dependencies are the same we don't need to compute the state
           if (currentDependencies === newDependencies) return stateWrapper.state;
@@ -578,7 +573,7 @@ export class GlobalStore<
           // if the dependencies are different we need to compute the state
           const newStateWrapper = computeStateWrapper();
 
-          this.updateSubscriptionIfExists(subscriptionId, {
+          this.updateSubscriptionIfExists(subscriptionIdRef.current, {
             stateWrapper: newStateWrapper,
             selector,
             config,
@@ -704,7 +699,6 @@ export class GlobalStore<
         selector: args.selector,
         config: args.config,
         callback: args.callback,
-        currentDependencies: uniqueSymbol as unknown,
       } as SubscriberParameters);
 
       Object.assign(args.callback, {
@@ -726,8 +720,6 @@ export class GlobalStore<
       const subscriber = subscribers.get(subscriptionId);
 
       subscriber.currentState = args.stateWrapper.state;
-      subscriber.currentDependencies = subscriber.config?.dependencies;
-
       subscriber.selector = args.selector;
       subscriber.config = args.config;
       subscriber.callback = args.callback;
@@ -849,6 +841,11 @@ export class GlobalStore<
         };
       }, []);
 
+      const subscriptionParameters = subscribers.get(subscriptionIdRef.current);
+      const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
+        dependencies: config.dependencies,
+      };
+
       // ensure the subscription id is always updated with the last callbacks and configurations
       updateSubscriptionIfExists(subscriptionIdRef.current, {
         stateWrapper,
@@ -875,16 +872,11 @@ export class GlobalStore<
 
       return [
         (() => {
-          const subscriptionId = subscriptionIdRef.current;
-
+          // if it is the first render we just return the state
           // if there is no selector we just return the state
-          if (!selector || !subscribers.has(subscriptionId)) return stateWrapper.state;
+          if (!selector || subscriptionIdRef.current) return stateWrapper.state;
 
-          const subscription = subscribers.get(subscriptionId);
-          const { currentDependencies, config: { dependencies: newDependencies } = {} } = subscription;
-
-          // we don't need to compute the state if it is the first time the component is mounted
-          if ((currentDependencies as unknown) === uniqueSymbol) return stateWrapper.state;
+          const { dependencies: newDependencies } = config;
 
           // if the dependencies are the same we don't need to compute the state
           if (currentDependencies === newDependencies) return stateWrapper.state;
@@ -898,7 +890,7 @@ export class GlobalStore<
           // if the dependencies are different we need to compute the state
           const newStateWrapper = computeStateWrapper();
 
-          updateSubscriptionIfExists(subscriptionId, {
+          updateSubscriptionIfExists(subscriptionIdRef.current, {
             stateWrapper: newStateWrapper,
             selector,
             config,

@@ -459,7 +459,6 @@ export type SubscriberParameters = {
   config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
   currentState: unknown;
   callback: SubscriptionCallback;
-  currentDependencies: unknown[];
 };
 
 /**
