@@ -873,7 +873,7 @@ export class GlobalStore<
         (() => {
           // if it is the first render we just return the state
           // if there is no selector we just return the state
-          if (!selector || subscriptionIdRef.current) return stateWrapper.state;
+          if (!selector || !subscriptionIdRef.current) return stateWrapper.state;
 
           const { dependencies: newDependencies } = config;
 
