@@ -379,9 +379,10 @@ export class GlobalStore<
       const subscriptionId = uniqueId();
 
       this.addNewSubscriber(subscriptionId, {
+        subscriptionId,
         selector,
         config,
-        stateWrapper,
+        currentState: stateWrapper.state,
         callback: subscriptionCallback,
       });
 
@@ -421,45 +422,14 @@ export class GlobalStore<
     } as StateConfigCallbackParam<TState, TMetadata, TStateMutator>;
   };
 
-  protected addNewSubscriber = (
-    subscriptionId: string,
-    args: {
-      callback: SubscriptionCallback;
-      selector: SelectorCallback<any, any>;
-      config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
-      stateWrapper: { state: unknown };
-    }
-  ) => {
-    this.subscribers.set(subscriptionId, {
-      subscriptionId,
-      currentState: args.stateWrapper.state,
-      selector: args.selector,
-      config: args.config,
-      callback: args.callback,
-    } as SubscriberParameters);
-
-    Object.assign(args.callback, {
-      __global_state_subscription_id__: subscriptionId,
-    });
+  protected addNewSubscriber = (subscriptionId: string, item: SubscriberParameters) => {
+    this.subscribers.set(subscriptionId, item);
   };
 
-  protected updateSubscriptionIfExists = (
-    subscriptionId: string,
-    args: {
-      callback: SubscriptionCallback;
-      selector: SelectorCallback<any, any>;
-      config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
-      stateWrapper: { state: unknown };
-    }
-  ): void => {
+  protected updateSubscriptionIfExists = (subscriptionId: string, item: SubscriberParameters): void => {
     if (!this.subscribers.has(subscriptionId)) return;
 
-    const subscriber = this.subscribers.get(subscriptionId);
-
-    subscriber.currentState = args.stateWrapper.state;
-    subscriber.selector = args.selector;
-    subscriber.config = args.config;
-    subscriber.callback = args.callback;
+    Object.assign(this.subscribers.get(subscriptionId), item);
   };
 
   protected executeOnSubscribed = () => {
@@ -483,9 +453,6 @@ export class GlobalStore<
       selector?: SelectorCallback<TState, State>,
       config: UseHookConfig<State, TState> = {}
     ) => {
-      // store non-reactive values of the hook
-      const subscriptionIdRef = useRef<string>(null);
-
       const computeStateWrapper = () => {
         if (selector) {
           const derivedState = selector(this.stateWrapper.state);
@@ -504,47 +471,58 @@ export class GlobalStore<
         state: unknown;
       }>(computeStateWrapper);
 
+      // store non-reactive values of the hook
+      const subscriptionIdRef = useRef<string>(null);
+
       // handles the subscription lifecycle
       useEffect(() => {
         if (subscriptionIdRef.current === null) {
-          subscriptionIdRef.current = uniqueId();
+          const subscriptionId = uniqueId();
+
+          subscriptionIdRef.current = subscriptionId;
+
+          // create a new subscriber just once
+          this.addNewSubscriber(subscriptionId, {
+            subscriptionId,
+            currentState: stateWrapper.state,
+            selector,
+            config,
+            callback: setState,
+          });
+
+          this.executeOnSubscribed();
         }
+
+        const subscriptionId = subscriptionIdRef.current;
+
+        // strick mode will trigger the useEffect twice, we need to ensure the subscription is always updated
+        this.updateSubscriptionIfExists(subscriptionId, {
+          subscriptionId,
+          currentState: stateWrapper.state,
+          selector,
+          config,
+          callback: setState,
+        });
 
         return () => {
           this.subscribers.delete(subscriptionIdRef.current);
         };
       }, []);
 
-      const subscriptionParameters = this.subscribers.get(subscriptionIdRef.current);
+      const subscriptionId = subscriptionIdRef.current;
+      const subscriptionParameters = this.subscribers.get(subscriptionId);
       const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
         dependencies: config.dependencies,
       };
 
       // ensure the subscription id is always updated with the last callbacks and configurations
-      this.updateSubscriptionIfExists(subscriptionIdRef.current, {
-        stateWrapper,
+      this.updateSubscriptionIfExists(subscriptionId, {
+        subscriptionId,
+        currentState: stateWrapper.state,
         selector,
         config,
         callback: setState,
       });
-
-      useEffect(() => {
-        const subscriptionId = subscriptionIdRef.current;
-        if (subscriptionId === null) return;
-
-        const isFirstTime = !this.subscribers.has(subscriptionId);
-        if (!isFirstTime) return;
-
-        // create a new subscriber just once
-        this.addNewSubscriber(subscriptionId, {
-          stateWrapper,
-          selector,
-          config,
-          callback: setState,
-        });
-
-        this.executeOnSubscribed();
-      }, [stateWrapper]);
 
       type State_ = State extends never | undefined | null ? TState : State;
 
@@ -556,7 +534,7 @@ export class GlobalStore<
         (() => {
           // if it is the first render we just return the state
           // if there is no selector we just return the state
-          if (!selector || !subscriptionIdRef.current) return stateWrapper.state;
+          if (!selector || !subscriptionId) return stateWrapper.state;
 
           const { dependencies: newDependencies } = config;
 
@@ -572,8 +550,9 @@ export class GlobalStore<
           // if the dependencies are different we need to compute the state
           const newStateWrapper = computeStateWrapper();
 
-          this.updateSubscriptionIfExists(subscriptionIdRef.current, {
-            stateWrapper: newStateWrapper,
+          this.updateSubscriptionIfExists(subscriptionId, {
+            subscriptionId,
+            currentState: newStateWrapper.state,
             selector,
             config,
             callback: setState,
@@ -683,45 +662,14 @@ export class GlobalStore<
       };
     };
 
-    const addNewSubscriber = (
-      subscriptionId: string,
-      args: {
-        callback: SubscriptionCallback;
-        selector: SelectorCallback<any, any>;
-        config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
-        stateWrapper: { state: unknown };
-      }
-    ) => {
-      subscribers.set(subscriptionId, {
-        subscriptionId,
-        currentState: args.stateWrapper.state,
-        selector: args.selector,
-        config: args.config,
-        callback: args.callback,
-      } as SubscriberParameters);
-
-      Object.assign(args.callback, {
-        __global_state_subscription_id__: subscriptionId,
-      });
+    const addNewSubscriber = (subscriptionId: string, args: SubscriberParameters) => {
+      subscribers.set(subscriptionId, args);
     };
 
-    const updateSubscriptionIfExists = (
-      subscriptionId: string,
-      args: {
-        callback: SubscriptionCallback;
-        selector: SelectorCallback<any, any>;
-        config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
-        stateWrapper: { state: unknown };
-      }
-    ): void => {
+    const updateSubscriptionIfExists = (subscriptionId: string, item: SubscriberParameters): void => {
       if (!subscribers.has(subscriptionId)) return;
 
-      const subscriber = subscribers.get(subscriptionId);
-
-      subscriber.currentState = args.stateWrapper.state;
-      subscriber.selector = args.selector;
-      subscriber.config = args.config;
-      subscriber.callback = args.callback;
+      Object.assign(subscribers.get(subscriptionId), item);
     };
 
     const stateRetriever = ((subscriberCallback) => {
@@ -747,9 +695,10 @@ export class GlobalStore<
         const subscriptionId = uniqueId();
 
         addNewSubscriber(subscriptionId, {
+          subscriptionId,
           selector,
           config,
-          stateWrapper,
+          currentState: stateWrapper.state,
           callback: subscriptionCallback,
         });
 
@@ -792,46 +741,68 @@ export class GlobalStore<
         };
       };
 
-      const subscriptionIdRef = useRef<string>(null);
-
       const [stateWrapper, setState] = useState<{
         state: Derivate;
       }>(computeStateWrapper);
 
+      const subscriptionIdRef = useRef<string>(null);
+
       useEffect(() => {
         if (subscriptionIdRef.current === null) {
-          subscriptionIdRef.current = uniqueId();
+          const subscriptionId = uniqueId();
+
+          subscriptionIdRef.current = subscriptionId;
+
+          // create a new subscriber just once
+          addNewSubscriber(subscriptionId, {
+            subscriptionId,
+            currentState: stateWrapper.state,
+            selector,
+            config,
+            callback: setState as SubscriptionCallback,
+          });
         }
+
+        const subscriptionId = subscriptionIdRef.current;
+
+        // strick mode will trigger the useEffect twice, we need to ensure the subscription is always updated
+        this.updateSubscriptionIfExists(subscriptionId, {
+          subscriptionId,
+          currentState: stateWrapper.state,
+          selector,
+          config,
+          callback: setState as SubscriptionCallback,
+        });
 
         const unsubscribe = stateRetriever<Subscribe>((subscribe) => {
           let previousRootDerivate = rootDerivate;
 
-          subscribe(
-            (newRootDerivate) => {
-              const subscription = subscribers.get(subscriptionIdRef.current);
-              const isRootDerivateEqual = (isEqualRoot ?? Object.is)(previousRootDerivate, newRootDerivate);
+          subscribe((newRootDerivate) => {
+            const subscription = subscribers.get(subscriptionIdRef.current);
+            const isRootDerivateEqual = (subscription.config?.isEqualRoot ?? Object.is)(
+              previousRootDerivate,
+              newRootDerivate
+            );
 
-              if (isRootDerivateEqual) return;
+            if (isRootDerivateEqual) return;
 
-              previousRootDerivate = newRootDerivate;
+            previousRootDerivate = newRootDerivate;
 
-              const derivate = (selector ?? ((s) => s))(rootDerivate);
+            const derivate = (subscription.selector ?? ((s) => s))(rootDerivate) as Derivate;
 
-              const isDerivateEqual = (isEqual ?? Object.is)(derivate, subscription.currentState);
+            const isDerivateEqual = (subscription?.config.isEqual ?? Object.is)(
+              derivate,
+              subscription.currentState
+            );
 
-              if (isDerivateEqual) return;
+            if (isDerivateEqual) return;
 
-              subscription.currentState = derivate;
+            subscription.currentState = derivate;
 
-              setState({
-                state: derivate as unknown as Derivate,
-              });
-            },
-            {
-              // the hooks starts with the correct derivate state, there is no need to re-render the component
-              skipFirst: true,
-            }
-          );
+            subscription.callback({
+              state: derivate,
+            });
+          });
         });
 
         return () => {
@@ -840,40 +811,26 @@ export class GlobalStore<
         };
       }, []);
 
-      const subscriptionParameters = subscribers.get(subscriptionIdRef.current);
+      const subscriptionId = subscriptionIdRef.current;
+      const subscriptionParameters = subscribers.get(subscriptionId);
       const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
         dependencies: config.dependencies,
       };
 
       // ensure the subscription id is always updated with the last callbacks and configurations
-      updateSubscriptionIfExists(subscriptionIdRef.current, {
-        stateWrapper,
+      updateSubscriptionIfExists(subscriptionId, {
+        subscriptionId,
+        currentState: stateWrapper.state,
         selector,
         config,
         callback: setState as SubscriptionCallback,
       });
 
-      useEffect(() => {
-        const subscriptionId = subscriptionIdRef.current;
-        if (subscriptionId === null) return;
-
-        const isFirstTime = !subscribers.has(subscriptionId);
-        if (!isFirstTime) return;
-
-        // create a new subscriber just once
-        addNewSubscriber(subscriptionId, {
-          stateWrapper,
-          selector,
-          config,
-          callback: setState as SubscriptionCallback,
-        });
-      }, [stateWrapper]);
-
       return [
         (() => {
           // if it is the first render we just return the state
           // if there is no selector we just return the state
-          if (!selector || !subscriptionIdRef.current) return stateWrapper.state;
+          if (!selector || !subscriptionId) return stateWrapper.state;
 
           const { dependencies: newDependencies } = config;
 
@@ -889,8 +846,9 @@ export class GlobalStore<
           // if the dependencies are different we need to compute the state
           const newStateWrapper = computeStateWrapper();
 
-          updateSubscriptionIfExists(subscriptionIdRef.current, {
-            stateWrapper: newStateWrapper,
+          updateSubscriptionIfExists(subscriptionId, {
+            subscriptionId,
+            currentState: newStateWrapper.state,
             selector,
             config,
             callback: setState as SubscriptionCallback,
@@ -910,8 +868,7 @@ export class GlobalStore<
     newHook.createSelectorHook = this.createSelectorHook.bind(newHook);
 
     Object.assign(newHook, {
-      _parent: useHook,
-      _subscribers: subscribers,
+      subscribers: subscribers,
     });
 
     return newHook;
