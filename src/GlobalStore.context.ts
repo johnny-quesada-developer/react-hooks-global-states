@@ -1,7 +1,6 @@
 import { createGlobalStateWithDecoupledFuncs } from './GlobalStore.functionHooks';
 import {
   ActionCollectionConfig,
-  createStateConfig,
   StateHook,
   StateSetter,
   ActionCollectionResult,

@@ -11,7 +11,6 @@ import {
   StateGetter,
   SubscribeCallback,
   Subscribe,
-  createStateConfig,
   CustomGlobalHookBuilderParams,
   CustomGlobalHookParams,
   SelectorCallback,
@@ -49,24 +48,75 @@ export const createGlobalStateWithDecoupledFuncs = <
   ];
 };
 
-type First<T> = T extends infer U ? (U extends any ? U : never) : never;
-
-type IsUnion<T> = [T] extends [infer U] ? ([U] extends [T] ? false : true) : never;
-
 /**
  * Creates a global hook that can be used to access the state and actions across the application
  * @returns {} - () => [TState, Setter, TMetadata] the hook that can be used to access the state and the setter of the state
  */
 export const createGlobalState = <
   TState,
-  TMetadata,
-  TActions extends Readonly<ActionCollectionConfig<TState, TMetadata>> | null = null
+  TMetadata extends Record<string, any> = {},
+  TActions extends ActionCollectionConfig<TState, TMetadata> | null | {} = null
 >(
   state: TState,
-  _config?: {
-    actions?: TActions;
+  _config?: Readonly<{
+    /**
+     * @param {StateConfigCallbackParam<TState, TMetadata> => void} metadata - the initial value of the metadata
+     * */
     metadata?: TMetadata;
-  } & Omit<createStateConfig<TState, TMetadata, TActions>, 'actions' | 'metadata'>
+
+    /**
+     * actions configuration for restricting the manipulation of the state
+     */
+    actions?: TActions;
+
+    /**
+     * @param {StateConfigCallbackParam<TState, TMetadata> => void} onInit - callback function called when the store is initialized
+     * @returns {void} result - void
+     * */
+    onInit?: (
+      parameters: StateConfigCallbackParam<
+        TState,
+        TMetadata,
+        TActions extends null ? StateSetter<TState> : ActionCollectionResult<TState, TMetadata, TActions>
+      >
+    ) => void;
+
+    /**
+     * @param {StateChangesParam<TState, TMetadata> => void} onStateChanged - callback function called every time the state is changed
+     * @returns {void} result - void
+     */
+    onStateChanged?: (
+      parameters: StateChangesParam<
+        TState,
+        TMetadata,
+        TActions extends null ? StateSetter<TState> : ActionCollectionResult<TState, TMetadata, TActions>
+      >
+    ) => void;
+
+    /**
+     * @param {StateConfigCallbackParam<TState, TMetadata> => void} onSubscribed - callback function called every time a component is subscribed to the store
+     * @returns {void} result - void
+     */
+    onSubscribed?: (
+      parameters: StateConfigCallbackParam<
+        TState,
+        TMetadata,
+        TActions extends null ? StateSetter<TState> : ActionCollectionResult<TState, TMetadata, TActions>
+      >
+    ) => void;
+
+    /**
+     * @param {StateChangesParam<TState, TMetadata> => boolean} computePreventStateChange - callback function called every time the state is about to change and it allows you to prevent the state change
+     * @returns {boolean} result - true if you want to prevent the state change, false otherwise
+     */
+    computePreventStateChange?: (
+      parameters: StateChangesParam<
+        TState,
+        TMetadata,
+        TActions extends null ? StateSetter<TState> : ActionCollectionResult<TState, TMetadata, TActions>
+      >
+    ) => boolean;
+  }>
 ) => {
   const { actions, ...config } = _config ?? {};
 
