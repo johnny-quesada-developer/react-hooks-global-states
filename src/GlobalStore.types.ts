@@ -110,6 +110,8 @@ export type StateChanges<TState> = {
    * The previous state
    * */
   previousState?: TState;
+
+  identifier?: string;
 };
 
 /**
@@ -164,12 +166,44 @@ export type StoreTools<TState = any, TMetadata = any, TActions = any> = {
  * @property {(...parameters: unknown[]) => (storeTools: { setMetadata: MetadataSetter<TMetadata>; setState: StateSetter<TState>; getState: () => TState; getMetadata: () => TMetadata; }) => unknown | void} value - The action function
  * @returns {ActionCollectionConfig<TState, TMetadata>} result - The action collection configuration
  */
-export interface ActionCollectionConfig<TState, TMetadata> {
-  readonly [key: string]: (
-    ...parameters: any[]
-  ) => (
-    storeTools: StoreTools<TState, TMetadata, ActionCollectionResult<TState, TMetadata>>
-  ) => unknown | void;
+export interface ActionCollectionConfig<State, Metadata, ActionsConfig> {
+  readonly [key: string]: (...parameters: any[]) => (storeAPI: {
+    /**
+     * Set the metadata
+     * @param {Metadata} setter - The metadata or a function that will receive the metadata and return the new metadata
+     * @returns {void} result - void
+     * */
+    setMetadata: MetadataSetter<Metadata>;
+
+    /**
+     * Set the state
+     * @param {State} setter - The state or a function that will receive the state and return the new state
+     * @param {{ forceUpdate?: boolean }} options - Options
+     * @returns {void} result - void
+     * */
+    setState: StateSetter<State>;
+
+    /**
+     * Get the state
+     * @returns {State} result - The state
+     * */
+    getState: StateGetter<State>;
+
+    /**
+     * Get the metadata
+     * @returns {Metadata} result - The metadata
+     * */
+    getMetadata: () => Metadata;
+
+    /**
+     * Actions of the hook
+     */
+    actions: ActionCollectionResult<
+      State,
+      Metadata,
+      ActionsConfig extends null ? null : ActionCollectionConfig<State, Metadata, ActionsConfig>
+    >;
+  }) => unknown;
 }
 
 /**
@@ -201,18 +235,21 @@ export interface ActionCollectionConfig<TState, TMetadata> {
 export type ActionCollectionResult<
   TState,
   TMetadata,
-  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> = TStateMutator extends ActionCollectionConfig<TState, TMetadata>
-  ? {
+  ActionsConfig extends ActionCollectionConfig<any, any, any> | null = null,
+  FullActionsConfig extends ActionCollectionConfig<any, any, any> = ActionsConfig extends null
+    ? null
+    : ActionCollectionConfig<TState, TMetadata, ActionsConfig>
+> = ActionsConfig extends null
+  ? null
+  : {
       /**
        * @description
        * A new object with will be created with the same keys of the storeActionsConfig object
        */
-      [key in keyof TStateMutator]: (
-        ...params: Parameters<TStateMutator[key]>
-      ) => ReturnType<ReturnType<TStateMutator[key]>>;
-    }
-  : null;
+      [key in keyof FullActionsConfig]: (
+        ...params: Parameters<FullActionsConfig[key]>
+      ) => ReturnType<ReturnType<FullActionsConfig[key]>>;
+    };
 
 /**
  * Common parameters of the store configuration callback functions
@@ -226,24 +263,7 @@ export type ActionCollectionResult<
  * @template {TStateMutator} TStateMutator - The storeActionsConfig type (optional) - if you pass an storeActionsConfig the hook will return an object with the actions
  * @template {ActionCollectionResult<TState, TStateMutator>} TStateMutator - the result of the API (optional) - if you don't pass an API as a parameter, you can pass null
  * */
-export type StateConfigCallbackParam<TState, TMetadata, TStateMutator> = {
-  actions: TStateMutator extends Function ? null : TStateMutator;
-} & StoreTools<TState, TMetadata>;
-
-/**
- * Parameters of the onStateChanged callback function
- * @template {TState} TState - The state type
- * @template {TMetadata} TMetadata - The metadata type
- * @template {TStateMutator} TStateMutator - The storeActionsConfig type (optional) - if you pass an storeActionsConfig the hook will return an object with the actions
- */
-export type StateChangesParam<TState, TMetadata, TStateMutator> = StateConfigCallbackParam<
-  TState,
-  TMetadata,
-  TStateMutator
-> &
-  StateChanges<TState> & {
-    identifier?: string;
-  };
+export type StateConfigCallbackParam<State, Metadata, Actions> = StoreTools<State, Metadata, Actions>;
 
 /**
  * Configuration of the store (optional) - if you don't need to use the store configuration you don't need to pass this parameter
@@ -255,37 +275,31 @@ export type StateChangesParam<TState, TMetadata, TStateMutator> = StateConfigCal
  * @template TMetadata - the type of the metadata (optional) - if you don't pass an metadata as a parameter, you can pass null
  * @template {ActionCollectionConfig<TState,TMetadata> | null} TPublicStateMutator - the configuration of the API (optional) - if you don't pass an API as a parameter, you can pass null
  * */
-export type GlobalStoreConfig<TState, TMetadata, TPublicStateMutator> = {
+export type GlobalStoreConfig<TState, TMetadata, StoreAPI> = {
   /**
    * @param {StateConfigCallbackParam<TState, TMetadata> => void} metadata - the initial value of the metadata
    * */
   metadata?: TMetadata;
 
-  /**
-   * @param {StateConfigCallbackParam<TState, TMetadata> => void} onInit - callback function called when the store is initialized
-   * @returns {void} result - void
-   * */
-  onInit?: (parameters: StateConfigCallbackParam<TState, TMetadata, TPublicStateMutator>) => void;
+  onInit?: (storeAPI: StoreAPI) => void;
 
   /**
    * @param {StateChangesParam<TState, TMetadata> => void} onStateChanged - callback function called every time the state is changed
    * @returns {void} result - void
    */
-  onStateChanged?: (parameters: StateChangesParam<TState, TMetadata, TPublicStateMutator>) => void;
+  onStateChanged?: (storeAPI: StoreAPI & StateChanges<TState>) => void;
 
   /**
    * @param {StateConfigCallbackParam<TState, TMetadata> => void} onSubscribed - callback function called every time a component is subscribed to the store
    * @returns {void} result - void
    */
-  onSubscribed?: (parameters: StateConfigCallbackParam<TState, TMetadata, TPublicStateMutator>) => void;
+  onSubscribed?: (storeAPI: StoreAPI) => void;
 
   /**
    * @param {StateChangesParam<TState, TMetadata> => boolean} computePreventStateChange - callback function called every time the state is about to change and it allows you to prevent the state change
    * @returns {boolean} result - true if you want to prevent the state change, false otherwise
    */
-  computePreventStateChange?: (
-    parameters: StateChangesParam<TState, TMetadata, TPublicStateMutator>
-  ) => boolean;
+  computePreventStateChange?: (storeAPI: StoreAPI & StateChanges<TState>) => boolean;
 };
 
 export type UseHookConfig<TState, TRoot = any> = {
@@ -346,47 +360,55 @@ export type MetadataGetter<TMetadata> = () => TMetadata;
  */
 export type Subscribe = true;
 
-export type CustomGlobalHookBuilderParams<TInheritMetadata, TCustomConfig, TPublicStateMutator> = {
-  /**
-   * @description
-   * This function is called when the state is initialized.
-   */
-  onInitialize: (
-    {
-      setState,
-      setMetadata,
-      getMetadata,
-      getState,
-      actions,
-    }: StateConfigCallbackParam<any, TInheritMetadata, TPublicStateMutator>,
-    config: TCustomConfig
-  ) => void;
-
-  /**
-   * @description
-   * This function is called when the state is changed.
-   */
-  onChange: (
-    {
-      setState,
-      setMetadata,
-      getMetadata,
-      getState,
-      actions,
-    }: StateChangesParam<any, TInheritMetadata, TPublicStateMutator>,
-    config: TCustomConfig
-  ) => void;
-};
-
 /**
  * @description
  * Configuration of the custom global hook
  */
 export type CustomGlobalHookParams<
   TCustomConfig,
-  TState,
-  TMetadata,
-  TActions extends ActionCollectionConfig<TState, TMetadata> | null
+  State,
+  Metadata extends Record<string, unknown> = {},
+  ActionsConfig extends ActionCollectionConfig<any, any, any> | null | {} = null,
+  FullActionsConfig extends ActionCollectionConfig<any, any, any> = ActionsConfig extends null
+    ? null
+    : ActionCollectionConfig<State, Metadata, ActionsConfig>,
+  Actions extends ActionCollectionResult<State, Metadata, FullActionsConfig> = ActionsConfig extends null
+    ? null
+    : ActionCollectionResult<State, Metadata, FullActionsConfig>,
+  // PublicStateMutator = ActionsConfig extends null ? StateSetter<State> : Actions,
+  StoreAPI extends StoreTools<State, Metadata, Actions> = {
+    /**
+     * Set the metadata
+     * @param {Metadata} setter - The metadata or a function that will receive the metadata and return the new metadata
+     * @returns {void} result - void
+     * */
+    setMetadata: MetadataSetter<Metadata>;
+
+    /**
+     * Set the state
+     * @param {State} setter - The state or a function that will receive the state and return the new state
+     * @param {{ forceUpdate?: boolean }} options - Options
+     * @returns {void} result - void
+     * */
+    setState: StateSetter<State>;
+
+    /**
+     * Get the state
+     * @returns {State} result - The state
+     * */
+    getState: StateGetter<State>;
+
+    /**
+     * Get the metadata
+     * @returns {Metadata} result - The metadata
+     * */
+    getMetadata: () => Metadata;
+
+    /**
+     * Actions of the hook
+     */
+    actions: Actions;
+  }
 > = {
   /**
    * @description
@@ -398,8 +420,8 @@ export type CustomGlobalHookParams<
    * @description
    * The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
    */
-  actions?: TActions;
-} & GlobalStoreConfig<TState, TMetadata, TActions>;
+  actions?: ActionsConfig;
+} & GlobalStoreConfig<State, Metadata, StoreAPI>;
 
 export type SelectorCallback<TState, TDerivate> = (state: TState) => TDerivate;
 

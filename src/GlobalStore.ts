@@ -6,8 +6,6 @@ import {
   StateSetter,
   GlobalStoreConfig,
   ActionCollectionResult,
-  StateConfigCallbackParam,
-  StateChangesParam,
   MetadataSetter,
   UseHookConfig,
   StateGetter,
@@ -21,6 +19,8 @@ import {
   MetadataGetter,
   StateHook,
   Subscribe,
+  StoreTools,
+  StateChanges,
 } from './GlobalStore.types';
 
 const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
@@ -38,131 +38,116 @@ export const throwNoSubscribersWereAdded = () => {
 };
 
 type DebugProps = {
-  REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown>, state, config, actionsConfig) => void;
+  REACT_GLOBAL_STATE_HOOK_DEBUG: (
+    $this: GlobalStore<any, any, any, any, any, any, any>,
+    state,
+    config,
+    actionsConfig
+  ) => void;
 };
 
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
- * @template {TState} TState - The type of the state object
- * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
+ * @template {State} State - The type of the state object
+ * @template {Metadata} Metadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
  * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
  * */
 export class GlobalStore<
-  TState,
-  TMetadata = null,
-  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
+  State,
+  Metadata extends Record<string, unknown> = {},
+  ActionsConfig extends ActionCollectionConfig<any, any, any> | null | {} = null,
+  FullActionsConfig extends ActionCollectionConfig<any, any, any> = ActionsConfig extends null
+    ? null
+    : ActionCollectionConfig<State, Metadata, ActionsConfig>,
+  Actions extends ActionCollectionResult<State, Metadata, FullActionsConfig> = ActionsConfig extends null
+    ? null
+    : ActionCollectionResult<State, Metadata, FullActionsConfig>,
+  PublicStateMutator = ActionsConfig extends null ? StateSetter<State> : Actions,
+  StoreAPI extends StoreTools<State, Metadata, Actions> = {
+    /**
+     * Set the metadata
+     * @param {Metadata} setter - The metadata or a function that will receive the metadata and return the new metadata
+     * @returns {void} result - void
+     * */
+    setMetadata: MetadataSetter<Metadata>;
+
+    /**
+     * Set the state
+     * @param {State} setter - The state or a function that will receive the state and return the new state
+     * @param {{ forceUpdate?: boolean }} options - Options
+     * @returns {void} result - void
+     * */
+    setState: StateSetter<State>;
+
+    /**
+     * Get the state
+     * @returns {State} result - The state
+     * */
+    getState: StateGetter<State>;
+
+    /**
+     * Get the metadata
+     * @returns {Metadata} result - The metadata
+     * */
+    getMetadata: () => Metadata;
+
+    /**
+     * Actions of the hook
+     */
+    actions: Actions;
+  }
 > {
   /**
    * list of all the subscribers setState functions
-   * @template {TState} TState - The type of the state object
+   * @template {State} State - The type of the state object
    * */
   public subscribers: Map<string, SubscriberParameters> = new Map();
 
   /**
    * Actions of the store
    */
-  public actions?: ActionCollectionResult<TState, TMetadata, TStateMutator> = null;
+  public actions?: Actions;
 
-  /**
-   * additional configuration for the store
-   * @template {TState} TState - The type of the state object
-   * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
-   * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
-   * @property {GlobalStoreConfig<TState, TMetadata, TStateMutator>} config.metadata - The metadata to pass to the callbacks (optional) (default: null)
-   * @property {GlobalStoreConfig<TState, TMetadata, TStateMutator>} config.onInit - The callback to execute when the store is initialized (optional) (default: null)
-   * @property {GlobalStoreConfig<TState, TMetadata, TStateMutator>} config.onStateChanged - The callback to execute when the state is changed (optional) (default: null)
-   * @property {GlobalStoreConfig<TState, TMetadata, TStateMutator>} config.onSubscribed - The callback to execute when a component is subscribed to the store (optional) (default: null)
-   * @property {GlobalStoreConfig<TState, TMetadata, TStateMutator>} config.computePreventStateChange - The callback to execute when the state is changed to compute if the state change should be prevented (optional) (default: null)
-   */
-  protected config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {
+  protected config: GlobalStoreConfig<State, Metadata, StoreAPI> = {
     metadata: null,
   };
 
-  /**
-   * execute once the store is created
-   * @template {TState} TState - The type of the state object
-   * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
-   * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
-   * @param {StateConfigCallbackParam<TState, TMetadata, TStateMutator>} parameters - The parameters object brings the following properties: setState, getState, setMetadata, getMetadata
-   * @param {Dispatch<SetStateAction<TState>>} parameters.setState - The setState function to update the state
-   * @param {() => TState} parameters.getState - The getState function to get the state
-   * @param {Dispatch<SetStateAction<TMetadata>>} parameters.setMetadata - The setMetadata function to update the metadata
-   * @param {() => TMetadata} parameters.getMetadata - The getMetadata function to get the metadata
-   * */
-  protected onInit?: GlobalStoreConfig<TState, TMetadata, TStateMutator>['onInit'] = null;
+  protected onInit?: (storeAPI: StoreAPI) => void;
 
-  /**
-   * execute every time the state is changed
-   * @template {TState} TState - The type of the state object
-   * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
-   * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
-   * @param {StateConfigCallbackParam<TState, TMetadata, TStateMutator>} parameters - The parameters object brings the following properties: setState, getState, setMetadata, getMetadata
-   * @param {Dispatch<SetStateAction<TState>>} parameters.setState - The setState function to update the state
-   * @param {() => TState} parameters.getState - The getState function to get the state
-   * @param {Dispatch<SetStateAction<TMetadata>>} parameters.setMetadata - The setMetadata function to update the metadata
-   * @param {() => TMetadata} parameters.getMetadata - The getMetadata function to get the metadata
-   * */
-  protected onStateChanged?: GlobalStoreConfig<TState, TMetadata, TStateMutator>['onStateChanged'] = null;
+  protected onStateChanged?: (storeAPI: StoreAPI & StateChanges<State>) => void;
 
-  /**
-   * Execute each time a new component gets subscribed to the store
-   * @template {TState} TState - The type of the state object
-   * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
-   * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
-   * @param {StateConfigCallbackParam<TState, TMetadata, TStateMutator>} parameters - The parameters object brings the following properties: setState, getState, setMetadata, getMetadata
-   * @param {Dispatch<SetStateAction<TState>>} parameters.setState - The setState function to update the state
-   * @param {() => TState} parameters.getState - The getState function to get the state
-   * @param {Dispatch<SetStateAction<TMetadata>>} parameters.setMetadata - The setMetadata function to update the metadata
-   * @param {() => TMetadata} parameters.getMetadata - The getMetadata function to get the metadata
-   * */
-  protected onSubscribed?: GlobalStoreConfig<TState, TMetadata, TStateMutator>['onSubscribed'] = null;
+  protected onSubscribed?: (storeAPI: StoreAPI) => void;
 
-  /**
-   * Execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true
-   * @template {TState} TState - The type of the state object
-   * @template {TMetadata} TMetadata - The type of the metadata object (optional) (default: null) no reactive information set to share with the subscribers
-   * @template {TStateMutator} TStateMutator - The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
-   * @param {StateConfigCallbackParam<TState, TMetadata, TStateMutator>} parameters - The parameters object brings the following properties: setState, getState, setMetadata, getMetadata
-   * @param {Dispatch<SetStateAction<TState>>} parameters.setState - The setState function to update the state
-   * @param {() => TState} parameters.getState - The getState function to get the state
-   * @param {Dispatch<SetStateAction<TMetadata>>} parameters.setMetadata - The setMetadata function to update the metadata
-   * @param {() => TMetadata} parameters.getMetadata - The getMetadata function to get the metadata
-   * @returns {boolean} - true to prevent the state change, false to allow the state change
-   * */
-  protected computePreventStateChange?: GlobalStoreConfig<
-    TState,
-    TMetadata,
-    TStateMutator
-  >['computePreventStateChange'] = null;
+  protected computePreventStateChange?: (storeAPI: StoreAPI & StateChanges<State>) => boolean;
 
   /**
    * We use a wrapper in order to be able to force the state update when necessary even with primitive types
    */
   protected stateWrapper: {
-    state: TState;
+    state: State;
   };
 
   /**
    * @deprecated direct modifications of the state could end up in unexpected behaviors
    */
-  protected get state(): TState {
+  protected get state(): State {
     return this.stateWrapper.state;
   }
 
   /**
    * Create a simple global store
-   * @param {TState} state - The initial state
+   * @param {State} state - The initial state
    * */
-  constructor(state: TState);
+  constructor(state: State);
 
   /**
    * Create a new global store with custom action
    * The metadata object could be null if not needed
    * The setter Object is used to define the actions that will be used to manipulate the state
-   * @param {TState} state - The initial state
+   * @param {State} state - The initial state
    * @param {TStateMutator} actionsConfig - The actions configuration object (optional) (default: null) if not null the store manipulation will be done through the actions
    * */
-  constructor(state: TState, config: GlobalStoreConfig<TState, TMetadata, TStateMutator>);
+  constructor(state: State, config: GlobalStoreConfig<State, Metadata, StoreAPI>);
 
   /**
    * Create a new global store with custom action
@@ -170,35 +155,35 @@ export class GlobalStore<
    * The setter Object is used to define the actions that will be used to manipulate the state
    * The config object is used to define the callbacks that will be executed during the store lifecycle
    * The lifecycle callbacks are: onInit, onStateChanged, onSubscribed and computePreventStateChange
-   * @param {TState} state - The initial state
-   * @param {GlobalStoreConfig<TState, TMetadata>} config - The configuration object (optional) (default: { metadata: null })
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.metadata - The metadata object (optional) (default: null) if not null the metadata object will be reactive
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onInit - The callback to execute when the store is initialized (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onStateChanged - The callback to execute when the state is changed (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onSubscribed - The callback to execute when a new component gets subscribed to the store (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.computePreventStateChange - The callback to execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true (optional) (default: null)
+   * @param {State} state - The initial state
+   * @param {GlobalStoreConfig<State, Metadata>} config - The configuration object (optional) (default: { metadata: null })
+   * @param {GlobalStoreConfig<State, Metadata>} config.metadata - The metadata object (optional) (default: null) if not null the metadata object will be reactive
+   * @param {GlobalStoreConfig<State, Metadata>} config.onInit - The callback to execute when the store is initialized (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.onStateChanged - The callback to execute when the state is changed (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.onSubscribed - The callback to execute when a new component gets subscribed to the store (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.computePreventStateChange - The callback to execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true (optional) (default: null)
    * @param {TStateMutator} actionsConfig - The actions configuration object (optional) (default: null) if not null the store manipulation will be done through the actions
    * */
   constructor(
-    state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateMutator>,
-    actionsConfig: TStateMutator
+    state: State,
+    config: GlobalStoreConfig<State, Metadata, StoreAPI>,
+    actionsConfig: ActionsConfig
   );
 
   /**
    * Create a new instance of the GlobalStore
-   * @param {TState} state - The initial state
-   * @param {GlobalStoreConfig<TState, TMetadata>} config - The configuration object (optional) (default: { metadata: null })
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.metadata - The metadata object (optional) (default: null) if not null the metadata object will be reactive
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onInit - The callback to execute when the store is initialized (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onStateChanged - The callback to execute when the state is changed (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.onSubscribed - The callback to execute when a new component gets subscribed to the store (optional) (default: null)
-   * @param {GlobalStoreConfig<TState, TMetadata>} config.computePreventStateChange - The callback to execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true (optional) (default: null)   * @param {TStateMutator} actionsConfig - The actions configuration object (optional) (default: null) if not null the store manipulation will be done through the actions
+   * @param {State} state - The initial state
+   * @param {GlobalStoreConfig<State, Metadata>} config - The configuration object (optional) (default: { metadata: null })
+   * @param {GlobalStoreConfig<State, Metadata>} config.metadata - The metadata object (optional) (default: null) if not null the metadata object will be reactive
+   * @param {GlobalStoreConfig<State, Metadata>} config.onInit - The callback to execute when the store is initialized (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.onStateChanged - The callback to execute when the state is changed (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.onSubscribed - The callback to execute when a new component gets subscribed to the store (optional) (default: null)
+   * @param {GlobalStoreConfig<State, Metadata>} config.computePreventStateChange - The callback to execute every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true (optional) (default: null)   * @param {TStateMutator} actionsConfig - The actions configuration object (optional) (default: null) if not null the store manipulation will be done through the actions
    * */
   constructor(
-    state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
-    protected actionsConfig: TStateMutator | null = null
+    state: State,
+    config: GlobalStoreConfig<State, Metadata, StoreAPI> = {},
+    protected actionsConfig: ActionsConfig | null = null
   ) {
     this.stateWrapper = {
       state,
@@ -210,18 +195,13 @@ export class GlobalStore<
     };
 
     if ((globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(
-        this as GlobalStore<unknown, null, StateSetter<unknown>>,
-        state,
-        config,
-        actionsConfig
-      );
+      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(this, state, config, actionsConfig);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
 
-    (this as GlobalStore<TState, TMetadata, TStateMutator>).initialize();
+    (this as GlobalStore<State, Metadata, PublicStateMutator>).initialize();
   }
 
   protected initialize = async () => {
@@ -245,14 +225,14 @@ export class GlobalStore<
 
   /**
    * set the state and update all the subscribers
-   * @param {StateSetter<TState>} setter - The setter function or the value to set
+   * @param {StateSetter<State>} setter - The setter function or the value to set
    * */
   protected setState = ({
     state: newRootState,
     forceUpdate,
     identifier,
   }: {
-    state: TState;
+    state: State;
     forceUpdate: boolean;
     identifier?: string;
   }) => {
@@ -295,13 +275,13 @@ export class GlobalStore<
 
   /**
    * Set the value of the metadata property, this is no reactive and will not trigger a re-render
-   * @param {MetadataSetter<TMetadata>} setter - The setter function or the value to set
+   * @param {MetadataSetter<Metadata>} setter - The setter function or the value to set
    * */
-  protected setMetadata: MetadataSetter<TMetadata> = (setter) => {
+  protected setMetadata: MetadataSetter<Metadata> = (setter) => {
     const isSetterFunction = typeof setter === 'function';
 
     const metadata = isSetterFunction
-      ? (setter as (state: TMetadata) => TMetadata)(this.config.metadata ?? null)
+      ? (setter as (state: Metadata) => Metadata)(this.config.metadata ?? null)
       : setter;
 
     this.config = {
@@ -346,14 +326,14 @@ export class GlobalStore<
   /**
    * Return current state of the store
    * Optionally you can use this method to subscribe a callback to the store changes
-   * @param {UseHookConfig<TState, TDerivate>} config - The configuration object (optional) (default: { selector: null, subscriptionCallback: null, config: null })
+   * @param {UseHookConfig<State, TDerivate>} config - The configuration object (optional) (default: { selector: null, subscriptionCallback: null, config: null })
    * @param {TSelector} config.selector - The selector function to derive the state (optional) (default: null)
    * @param {TSubscriptionCallback} config.subscriptionCallback - The callback to execute every time the state is changed
-   * @param {UseHookConfig<TState, TDerivate>} config.config - The configuration for the callback (optional) (default: null)
-   * @param {UseHookConfig<TState, TDerivate>} config.config.isEqual - The compare function to check if the state is changed (optional) (default: shallowCompare)
+   * @param {UseHookConfig<State, TDerivate>} config.config - The configuration for the callback (optional) (default: null)
+   * @param {UseHookConfig<State, TDerivate>} config.config.isEqual - The compare function to check if the state is changed (optional) (default: shallowCompare)
    * @returns The state of the store, optionally if you provide a subscriptionCallback it this method will return the unsubscribe function
    */
-  protected getState = (<TCallback extends SubscriberCallback<TState> | null>(
+  protected getState = (<TCallback extends SubscriberCallback<State> | null>(
     subscriberCallback?: TCallback
   ) => {
     // if there is no subscription callback return the state
@@ -387,7 +367,7 @@ export class GlobalStore<
       });
 
       changesSubscribers.push(subscriptionId);
-    }) as SubscribeToEmitter<TState>;
+    }) as SubscribeToEmitter<State>;
 
     subscriberCallback(subscribe);
 
@@ -402,15 +382,9 @@ export class GlobalStore<
         this.subscribers.delete(subscriber);
       }
     };
-  }) as StateGetter<TState>;
+  }) as StateGetter<State>;
 
-  /**
-   * get the parameters object to pass to the callback functions (onInit, onStateChanged, onSubscribed, computePreventStateChange)
-   * this parameters object brings the following properties: setState, getState, setMetadata, getMetadata
-   * this parameter object allows to update the state, get the state, update the metadata, get the metadata
-   * @returns {StateConfigCallbackParam<TState, TMetadata>} - The parameters object
-   * */
-  protected getConfigCallbackParam = (): StateConfigCallbackParam<TState, TMetadata, TStateMutator> => {
+  protected getConfigCallbackParam = (): StoreAPI => {
     const { setMetadata, getMetadata, getState, actions, setStateWrapper } = this;
 
     return {
@@ -419,7 +393,7 @@ export class GlobalStore<
       getState,
       setState: setStateWrapper,
       actions,
-    } as StateConfigCallbackParam<TState, TMetadata, TStateMutator>;
+    } as StoreAPI;
   };
 
   protected addNewSubscriber = (subscriptionId: string, item: SubscriberParameters) => {
@@ -446,12 +420,12 @@ export class GlobalStore<
 
   /**
    * Returns a custom hook that allows to handle a global state
-   * @returns {[TState, TStateMutator, TMetadata]} - The state, the state setter or the actions map, the metadata
+   * @returns {[State, TStateMutator, Metadata]} - The state, the state setter or the actions map, the metadata
    * */
   public getHook = () => {
-    const hook = <State = TState>(
-      selector?: SelectorCallback<TState, State>,
-      config: UseHookConfig<State, TState> = {}
+    const hook = <_State = State>(
+      selector?: SelectorCallback<State, _State>,
+      config: UseHookConfig<_State, State> = {}
     ) => {
       const computeStateWrapper = () => {
         if (selector) {
@@ -524,12 +498,6 @@ export class GlobalStore<
         callback: setState,
       });
 
-      type State_ = State extends never | undefined | null ? TState : State;
-
-      type Setter = keyof TStateMutator extends never
-        ? StateSetter<TState>
-        : ActionCollectionResult<TState, TMetadata, TStateMutator>;
-
       return [
         (() => {
           // if it is the first render we just return the state
@@ -565,7 +533,7 @@ export class GlobalStore<
         })(),
         this.getStateOrchestrator(),
         this.config.metadata ?? null,
-      ] as [state: State_, setter: Setter, metadata: TMetadata];
+      ];
     };
 
     /**
@@ -575,7 +543,7 @@ export class GlobalStore<
 
     hook.createSelectorHook = this.createSelectorHook;
 
-    return hook as unknown as StateHook<TState, TStateMutator, TMetadata>;
+    return hook as unknown as StateHook<State, PublicStateMutator, Metadata>;
   };
 
   /**
@@ -876,7 +844,7 @@ export class GlobalStore<
 
   /**
    * Returns an array with the a function to get the state, the state setter or the actions map, and a function to get the metadata
-   * @returns {[() => TState, TStateMutator, () => TMetadata]} - The state getter, the state setter or the actions map, the metadata getter
+   * @returns {[() => State, TStateMutator, () => Metadata]} - The state getter, the state setter or the actions map, the metadata getter
    * */
   public stateControls = () => {
     const stateOrchestrator = this.getStateOrchestrator();
@@ -884,9 +852,9 @@ export class GlobalStore<
     const { getMetadata, getState } = this;
 
     return [getState, stateOrchestrator, getMetadata] as [
-      StateGetter<TState>,
+      StateGetter<State>,
       typeof stateOrchestrator,
-      MetadataGetter<TMetadata>
+      MetadataGetter<Metadata>
     ];
   };
 
@@ -895,9 +863,9 @@ export class GlobalStore<
    */
   public getHookDecoupled = () => {
     return this.stateControls() as [
-      StateGetter<TState>,
+      StateGetter<State>,
       ReturnType<typeof this.getStateOrchestrator>,
-      MetadataGetter<TMetadata>
+      MetadataGetter<Metadata>
     ];
   };
 
@@ -912,9 +880,9 @@ export class GlobalStore<
       }
 
       return this.setStateWrapper;
-    })() as keyof TStateMutator extends never
-      ? StateSetter<TState>
-      : ActionCollectionResult<TState, TMetadata, TStateMutator>;
+    })() as keyof PublicStateMutator extends never
+      ? StateSetter<State>
+      : ActionCollectionResult<State, Metadata, ActionsConfig, FullActionsConfig>;
   };
 
   /**
@@ -944,11 +912,11 @@ export class GlobalStore<
    * - onStateChanged (if defined) - this function is executed after the state change
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
-  protected setStateWrapper: StateSetter<TState> = (setter, { forceUpdate, identifier } = {}) => {
+  protected setStateWrapper: StateSetter<State> = (setter, { forceUpdate, identifier } = {}) => {
     const isSetterFunction = typeof setter === 'function';
     const previousState = this.stateWrapper.state;
 
-    const newState = isSetterFunction ? (setter as (state: TState) => TState)(previousState) : setter;
+    const newState = isSetterFunction ? (setter as (state: State) => State)(previousState) : setter;
 
     // if the state didn't change, we don't need to do anything
     if (!forceUpdate && Object.is(this.stateWrapper.state, newState)) return;
@@ -958,13 +926,13 @@ export class GlobalStore<
     const callbackParameter = {
       setMetadata,
       getMetadata,
-      setState: setState,
+      setState: setState as StateSetter<State>,
       getState,
       actions,
       previousState,
       state: newState,
       identifier,
-    } as StateChangesParam<TState, TMetadata, TStateMutator>;
+    } as StoreAPI & StateChanges<State>;
 
     const { computePreventStateChange } = this;
     const { computePreventStateChange: computePreventStateChangeFromConfig } = this.config;
@@ -995,9 +963,9 @@ export class GlobalStore<
 
   /**
    * This creates a map of actions that can be used to modify or interact with the state
-   * @returns {ActionCollectionResult<TState, TMetadata, TStateMutator>} - The actions map result of the configuration object passed to the constructor
+   * @returns {ActionCollectionResult<State, Metadata, TStateMutator>} - The actions map result of the configuration object passed to the constructor
    * */
-  protected getStoreActionsMap = (): ActionCollectionResult<TState, TMetadata, TStateMutator> => {
+  protected getStoreActionsMap = (): Actions => {
     if (!this.actionsConfig) return null;
 
     const { actionsConfig, setMetadata, setStateWrapper, getState, getMetadata } = this;
@@ -1005,37 +973,34 @@ export class GlobalStore<
     const actionsKeys = Object.keys(actionsConfig);
 
     // we bind the functions to the actions object to allow reusing actions in the same api config by using the -this- keyword
-    const actions: ActionCollectionResult<TState, TMetadata, TStateMutator> = actionsKeys.reduce(
-      (accumulator, action_key) => {
-        Object.assign(accumulator, {
-          [action_key](...parameters: unknown[]) {
-            const actionConfig = actionsConfig[action_key];
-            const action = actionConfig.apply(actions, parameters);
-            const actionIsNotAFunction = typeof action !== 'function';
+    const actions: Actions = actionsKeys.reduce((accumulator, action_key) => {
+      Object.assign(accumulator, {
+        [action_key](...parameters: unknown[]) {
+          const actionConfig = actionsConfig[action_key];
+          const action = actionConfig.apply(actions, parameters);
+          const actionIsNotAFunction = typeof action !== 'function';
 
-            // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
-            if (actionIsNotAFunction) {
-              throwWrongKeyOnActionCollectionConfig(action_key);
-            }
+          // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
+          if (actionIsNotAFunction) {
+            throwWrongKeyOnActionCollectionConfig(action_key);
+          }
 
-            // executes the actions bringing access to the state setter and a copy of the state
-            const result = action.call(actions, {
-              setState: setStateWrapper,
-              getState,
-              setMetadata,
-              getMetadata,
-              actions: actions as ActionCollectionResult<TState, TMetadata>,
-            });
+          // executes the actions bringing access to the state setter and a copy of the state
+          const result = action.call(actions, {
+            setState: setStateWrapper,
+            getState,
+            setMetadata,
+            getMetadata,
+            actions: actions as ActionCollectionResult<State, Metadata>,
+          });
 
-            // we return the result of the actions to the invoker
-            return result;
-          },
-        });
+          // we return the result of the actions to the invoker
+          return result;
+        },
+      });
 
-        return accumulator;
-      },
-      {} as ActionCollectionResult<TState, TMetadata, TStateMutator>
-    );
+      return accumulator;
+    }, {} as Actions);
 
     return actions;
   };
