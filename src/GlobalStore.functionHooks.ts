@@ -27,8 +27,8 @@ import { GlobalStore } from './GlobalStore';
  */
 export const createGlobalStateWithDecoupledFuncs = <
   TState,
-  TMetadata = null,
-  TActions extends ActionCollectionConfig<TState, TMetadata> | null = null
+  TMetadata,
+  TActions extends ActionCollectionConfig<TState, TMetadata> | null
 >(
   state: TState,
   { actions, ...config }: createStateConfig<TState, TMetadata, TActions> = {}
@@ -49,25 +49,36 @@ export const createGlobalStateWithDecoupledFuncs = <
   ];
 };
 
+type First<T> = T extends infer U ? (U extends any ? U : never) : never;
+
+type IsUnion<T> = [T] extends [infer U] ? ([U] extends [T] ? false : true) : never;
+
 /**
  * Creates a global hook that can be used to access the state and actions across the application
  * @returns {} - () => [TState, Setter, TMetadata] the hook that can be used to access the state and the setter of the state
  */
 export const createGlobalState = <
   TState,
-  TMetadata = null,
-  TActions extends ActionCollectionConfig<TState, TMetadata> | null = null
+  TMetadata,
+  TActions extends Readonly<ActionCollectionConfig<TState, TMetadata>> | null = null
 >(
   state: TState,
-  { actions, ...config }: createStateConfig<TState, TMetadata, TActions> = {}
+  _config?: {
+    actions?: TActions;
+    metadata?: TMetadata;
+  } & Omit<createStateConfig<TState, TMetadata, TActions>, 'actions' | 'metadata'>
 ) => {
-  const hook = new GlobalStore<TState, TMetadata, TActions>(state, config, actions).getHook();
+  const { actions, ...config } = _config ?? {};
 
-  type Setter = keyof TActions extends never
-    ? StateSetter<TState>
-    : ActionCollectionResult<TState, TMetadata, TActions>;
+  type HasActions = TActions extends null ? false : true;
 
-  return hook as unknown as StateHook<TState, Setter, TMetadata>;
+  const hook = new GlobalStore(state, config, actions).getHook();
+
+  type PublicStateMutator = HasActions extends true
+    ? ActionCollectionResult<TState, TMetadata, TActions>
+    : StateSetter<TState>;
+
+  return hook as unknown as StateHook<TState, PublicStateMutator, TMetadata>;
 };
 
 /**
@@ -75,7 +86,7 @@ export const createGlobalState = <
  * Use this function to create a custom global store.
  * You can use this function to create a store with async storage.
  */
-export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata = null, TCustomConfig = null>({
+export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata, TCustomConfig>({
   onInitialize,
   onChange,
 }: CustomGlobalHookBuilderParams<TInheritMetadata, TCustomConfig>) => {
@@ -89,11 +100,11 @@ export const createCustomGlobalStateWithDecoupledFuncs = <TInheritMetadata = nul
    */
   return <
     TState,
-    TMetadata = null,
+    TMetadata,
     TActions extends ActionCollectionConfig<
       TState,
       AvoidNever<TInheritMetadata> & AvoidNever<TMetadata>
-    > | null = null
+    > | null
   >(
     state: TState,
     {

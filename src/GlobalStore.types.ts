@@ -164,8 +164,12 @@ export type StoreTools<TState = any, TMetadata = any, TActions = any> = {
  * @property {(...parameters: unknown[]) => (storeTools: { setMetadata: MetadataSetter<TMetadata>; setState: StateSetter<TState>; getState: () => TState; getMetadata: () => TMetadata; }) => unknown | void} value - The action function
  * @returns {ActionCollectionConfig<TState, TMetadata>} result - The action collection configuration
  */
-export interface ActionCollectionConfig<TState, TMetadata = null> {
-  [key: string]: (...parameters: any[]) => (storeTools: any) => unknown | void;
+export interface ActionCollectionConfig<TState, TMetadata> {
+  readonly [key: string]: (
+    ...parameters: any[]
+  ) => (
+    storeTools: StoreTools<TState, TMetadata, ActionCollectionResult<TState, TMetadata>>
+  ) => unknown | void;
 }
 
 /**
@@ -360,8 +364,8 @@ export type createStateConfig<
    * @description
    * The type of the actionsConfig object (optional) (default: null) if a configuration is passed, the hook will return an object with the actions then all the store manipulation will be done through the actions
    */
-  actions?: TActions;
-} & GlobalStoreConfig<TState, TMetadata, TActions>;
+  actions?: Readonly<TActions>;
+} & GlobalStoreConfig<TState, TMetadata, any>;
 
 export type CustomGlobalHookBuilderParams<TInheritMetadata = null, TCustomConfig = {}> = {
   /**
