@@ -161,6 +161,37 @@ export class GlobalStore<
     onInitFromConfig?.(parameters as StoreTools<State, Metadata, ActionsConfig>);
   };
 
+  protected executeSetStateForSubscriber = (
+    subscription: SubscriberParameters,
+    {
+      forceUpdate,
+      newRootState,
+      currentRootState,
+      identifier,
+    }: {
+      forceUpdate: boolean;
+      newRootState: State;
+      currentRootState: State;
+      identifier: string;
+    }
+  ) => {
+    const { selector, callback, currentState: currentChildState, config } = subscription;
+
+    debugger;
+    // compare the root state, there should not be a re-render if the root state is the same
+    if (!forceUpdate && (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(currentRootState, newRootState))
+      return;
+
+    const newChildState = selector ? selector(newRootState) : newRootState;
+
+    // compare the result after the selector is executed
+    if (!forceUpdate && (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState))
+      return;
+
+    // this in the case of the hooks is the setState function
+    callback({ state: newChildState, identifier });
+  };
+
   /**
    * set the state and update all the subscribers
    * @param {StateSetter<State>} setter - The setter function or the value to set
@@ -181,33 +212,20 @@ export class GlobalStore<
       state: newRootState,
     };
 
-    const executeSetState = (parameters: SubscriberParameters) => {
-      const { selector, callback, currentState: currentChildState, config } = parameters;
-
-      // compare the root state, there should not be a re-render if the root state is the same
-      if (
-        !forceUpdate &&
-        (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(currentRootState, newRootState)
-      )
-        return;
-
-      const newChildState = selector ? selector(newRootState) : newRootState;
-
-      // compare the result after the selector is executed
-      if (!forceUpdate && (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState))
-        return;
-
-      // this in the case of the hooks is the setState function
-      callback({ state: newChildState, identifier });
-    };
-
     const subscribers = Array.from(this.subscribers.values());
+
+    const args = {
+      forceUpdate,
+      newRootState,
+      currentRootState,
+      identifier,
+    };
 
     // update all the subscribers
     for (let index = 0; index < subscribers.length; index++) {
-      const parameters = subscribers[index];
+      const subscription = subscribers[index];
 
-      executeSetState(parameters);
+      this.executeSetStateForSubscriber(subscription, args);
     }
   };
 
@@ -286,7 +304,7 @@ export class GlobalStore<
 
       const subscriptionId = uniqueId();
 
-      this.addNewSubscriber(subscriptionId, {
+      this.updateSubscriptionArgs(subscriptionId, {
         subscriptionId,
         selector,
         config,
@@ -327,14 +345,26 @@ export class GlobalStore<
     } as StoreAPI;
   };
 
-  protected addNewSubscriber = (subscriptionId: string, item: SubscriberParameters) => {
-    this.subscribers.set(subscriptionId, item);
-  };
+  /**
+   * Returns the new subscription when added or false if the subscription was updated
+   */
+  protected updateSubscriptionArgs = (subscriptionId: string, item: Partial<SubscriberParameters>) => {
+    // before the useEffect is triggered the first time the subscriptionId is null
+    if (!subscriptionId) return false;
 
-  protected updateSubscriptionIfExists = (subscriptionId: string, item: SubscriberParameters): void => {
-    if (!this.subscribers.has(subscriptionId)) return;
+    // updates the subscriber parameters
+    if (this.subscribers.has(subscriptionId)) {
+      Object.assign(this.subscribers.get(subscriptionId), item);
 
-    Object.assign(this.subscribers.get(subscriptionId), item);
+      return false;
+    }
+
+    // new component was subscribed
+    this.executeOnSubscribed();
+
+    this.subscribers.set(subscriptionId, item as SubscriberParameters);
+
+    return item;
   };
 
   protected executeOnSubscribed = () => {
@@ -355,59 +385,63 @@ export class GlobalStore<
    * */
   public getHook = () => {
     const hook = <S = State>(selector?: SelectorCallback<State, S>, config: UseHookConfig<S, State> = {}) => {
+      const subscriptionIdRef = useRef<string>(null);
+
       const computeStateWrapper = () => {
+        // the initial root state is needed to check if the state has changed before the subscription is fully committed
+        // this applies for both hooks and selectorHooks
+        // validating the subscriptionId prevents keeping the reference alive after the state is changed
+        const initialRootState = subscriptionIdRef.current === null ? this.stateWrapper.state : null;
+
         if (selector) {
           const derivedState = selector(this.stateWrapper.state);
 
           return {
             state: derivedState,
+            initialRootState,
           };
         }
 
         return {
           state: this.stateWrapper.state,
+          initialRootState,
         };
       };
 
       const [stateWrapper, setState] = useState<{
         state: unknown;
+        initialRootState?: State;
       }>(computeStateWrapper);
-
-      const subscriptionIdRef = useRef<string>(null);
 
       // handles the subscription lifecycle
       useEffect(() => {
         // id is created just once
         if (subscriptionIdRef.current === null) {
-          const subscriptionId = uniqueId();
-
-          subscriptionIdRef.current = subscriptionId;
-
-          this.executeOnSubscribed();
+          subscriptionIdRef.current = uniqueId();
         }
 
         const subscriptionId = subscriptionIdRef.current;
 
-        // if the subscription was deleted by the strict mode we need to recreate it
-        if (!this.subscribers.has(subscriptionId)) {
-          // create a new subscriber just once
-          this.addNewSubscriber(subscriptionId, {
-            subscriptionId,
-            currentState: stateWrapper.state,
-            selector,
-            config,
-            callback: setState,
-          });
-        }
-
         // if the strict mode triggers the useEffect twice we need to ensure the subscription is always updated
-        this.updateSubscriptionIfExists(subscriptionId, {
+        const newSubscription = this.updateSubscriptionArgs(subscriptionId, {
           subscriptionId,
           currentState: stateWrapper.state,
           selector,
           config,
           callback: setState,
         });
+
+        // if it is a new subscription we need to update the state
+        // there could be changes on state before the subscription is fully committed
+        if (newSubscription) {
+          // the state could have been changing before the subscription was fully committed
+          this.executeSetStateForSubscriber(newSubscription as SubscriberParameters, {
+            forceUpdate: false,
+            newRootState: this.stateWrapper.state,
+            currentRootState: stateWrapper.initialRootState,
+            identifier: null,
+          });
+        }
 
         return () => {
           this.subscribers.delete(subscriptionId);
@@ -421,7 +455,7 @@ export class GlobalStore<
       };
 
       // ensure the subscription id is always updated with the last callbacks and configurations
-      this.updateSubscriptionIfExists(subscriptionId, {
+      this.updateSubscriptionArgs(subscriptionId, {
         subscriptionId,
         currentState: stateWrapper.state,
         selector,
@@ -447,20 +481,16 @@ export class GlobalStore<
           if (isSameValues) return stateWrapper.state;
 
           // if the dependencies are different we need to compute the state
-          const newStateWrapper = computeStateWrapper();
+          const { state: currentState } = computeStateWrapper();
 
-          this.updateSubscriptionIfExists(subscriptionId, {
-            subscriptionId,
-            currentState: newStateWrapper.state,
-            selector,
-            config,
-            callback: setState,
+          this.updateSubscriptionArgs(subscriptionId, {
+            currentState,
           });
 
           // update the current state without re-rendering the component
-          stateWrapper.state = newStateWrapper.state;
+          stateWrapper.state = currentState;
 
-          return newStateWrapper.state;
+          return currentState;
         })(),
         this.getStateOrchestrator(),
         this.config.metadata ?? null,
@@ -471,7 +501,6 @@ export class GlobalStore<
      * Extended properties and methods of the hook
      */
     hook.stateControls = this.stateControls;
-
     hook.createSelectorHook = this.createSelectorHook;
 
     return hook as unknown as StateHook<State, PublicStateMutator, Metadata>;
@@ -493,14 +522,19 @@ export class GlobalStore<
       isEqualRoot: mainIsEqualRoot,
       isEqual: mainIsEqualFun,
     }: Omit<UseHookConfig<RootDerivate, RootState>, 'dependencies'> = {}
-  ) => {
-    const subscribers: Map<string, SubscriberParameters> = new Map();
-    const useHook = this as unknown as StateHook<RootState, StateMutator, Metadata>;
+  ): StateHook<RootDerivate, StateMutator, Metadata> => {
+    const [rootStateRetriever, rootMutator, metadataRetriever] = this.stateControls() as unknown as [
+      StateGetter<RootState>,
+      StateMutator,
+      MetadataGetter<Metadata>
+    ];
 
-    const [rootStateRetriever, rootMutator, metadataRetriever] = useHook.stateControls();
-
-    let root = rootStateRetriever();
+    let root = rootStateRetriever() as unknown as RootState;
     let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever()) as unknown as RootDerivate;
+
+    // derivate states do not have lifecycle methods or actions
+    const childStore = new GlobalStore(rootDerivate);
+    const [childStateRetriever, setChildState] = childStore.stateControls();
 
     // keeps the root state and the derivate state in sync
     rootStateRetriever<Subscribe>((subscribe) => {
@@ -520,261 +554,29 @@ export class GlobalStore<
 
           rootDerivate = newRootDerivate;
 
-          subscribers.forEach((subscriber) => {
-            subscriber.callback({ state: rootDerivate });
-          });
+          setChildState(newRootDerivate);
         },
-        {
-          skipFirst: true,
-        }
+        { skipFirst: true }
       );
     });
 
-    const createChangesSubscriber = ({
-      callback,
-      selector,
-      config,
-    }: {
-      selector?: SelectorCallback<unknown, unknown>;
-      callback: SubscribeCallback<unknown>;
-      config: SubscribeCallbackConfig<unknown>;
-    }) => {
-      const initialState = (selector ?? ((s) => s))(rootDerivate);
+    const useChildHook = childStore.getHook();
 
-      const stateWrapper = {
-        state: initialState,
-      };
-
-      const subscriptionCallback: SubscriptionCallback = ({ state }: { state: unknown }) => {
-        stateWrapper.state = state;
-
-        callback(state);
-      };
-
-      if (!config?.skipFirst) {
-        callback(initialState);
-      }
-
-      return {
-        stateWrapper,
-        subscriptionCallback,
-      };
-    };
-
-    const addNewSubscriber = (subscriptionId: string, args: SubscriberParameters) => {
-      subscribers.set(subscriptionId, args);
-    };
-
-    const updateSubscriptionIfExists = (subscriptionId: string, item: SubscriberParameters): void => {
-      if (!subscribers.has(subscriptionId)) return;
-
-      Object.assign(subscribers.get(subscriptionId), item);
-    };
-
-    const stateRetriever = ((subscriberCallback) => {
-      if (!subscriberCallback) return rootDerivate;
-
-      const changesSubscribers: string[] = [];
-
-      const subscribe = ((param1, param2, param3) => {
-        const hasExplicitSelector = typeof param2 === 'function';
-
-        const selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<unknown, unknown>;
-
-        const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
-
-        const config = (hasExplicitSelector ? param3 : param2) as SubscribeCallbackConfig<unknown>;
-
-        const { subscriptionCallback, stateWrapper } = createChangesSubscriber({
-          selector,
-          callback,
-          config,
-        });
-
-        const subscriptionId = uniqueId();
-
-        addNewSubscriber(subscriptionId, {
-          subscriptionId,
-          selector,
-          config,
-          currentState: stateWrapper.state,
-          callback: subscriptionCallback,
-        });
-
-        changesSubscribers.push(subscriptionId);
-      }) as SubscribeToEmitter<RootDerivate>;
-
-      subscriberCallback(subscribe);
-
-      if (!changesSubscribers.length) {
-        throwNoSubscribersWereAdded();
-      }
-
-      return () => {
-        for (let index = 0; index < changesSubscribers.length; index++) {
-          const subscriber = changesSubscribers[index];
-
-          subscribers.delete(subscriber);
-        }
-      };
-    }) as StateGetter<RootDerivate>;
-
-    const newHook = (<
-      SelectorResult,
-      Derivate = SelectorResult extends never ? RootDerivate : SelectorResult
-    >(
-      selector?: (root: RootDerivate) => SelectorResult,
+    const useChildHookWrapper = ((
+      selector?: <SelectorResult>(root: RootDerivate) => SelectorResult,
       config: UseHookConfig<any, any> = {}
     ) => {
-      const computeStateWrapper = () => {
-        if (selector) {
-          const derivedState = selector(rootDerivate);
+      const [childState] = useChildHook<RootDerivate>(selector, config);
 
-          return {
-            state: derivedState as unknown as Derivate,
-          };
-        }
-
-        return {
-          state: rootDerivate as unknown as Derivate,
-        };
-      };
-
-      const [stateWrapper, setState] = useState<{
-        state: Derivate;
-      }>(computeStateWrapper);
-
-      const subscriptionIdRef = useRef<string>(null);
-
-      useEffect(() => {
-        if (subscriptionIdRef.current === null) {
-          const subscriptionId = uniqueId();
-
-          subscriptionIdRef.current = subscriptionId;
-        }
-
-        const subscriptionId = subscriptionIdRef.current;
-
-        if (!subscribers.has(subscriptionId)) {
-          // create a new subscriber just once
-          addNewSubscriber(subscriptionId, {
-            subscriptionId,
-            currentState: stateWrapper.state,
-            selector,
-            config,
-            callback: setState as SubscriptionCallback,
-          });
-        }
-
-        // strick mode will trigger the useEffect twice, we need to ensure the subscription is always updated
-        this.updateSubscriptionIfExists(subscriptionId, {
-          subscriptionId,
-          currentState: stateWrapper.state,
-          selector,
-          config,
-          callback: setState as SubscriptionCallback,
-        });
-
-        const unsubscribe = stateRetriever<Subscribe>((subscribe) => {
-          let previousRootDerivate = rootDerivate;
-
-          subscribe((newRootDerivate) => {
-            if (!subscribers.has(subscriptionIdRef.current)) return;
-
-            const subscription = subscribers.get(subscriptionIdRef.current);
-            const isRootDerivateEqual = (subscription.config?.isEqualRoot ?? Object.is)(
-              previousRootDerivate,
-              newRootDerivate
-            );
-
-            if (isRootDerivateEqual) return;
-
-            previousRootDerivate = newRootDerivate;
-
-            const derivate = (subscription.selector ?? ((s) => s))(rootDerivate) as Derivate;
-
-            const isDerivateEqual = (subscription?.config.isEqual ?? Object.is)(
-              derivate,
-              subscription.currentState
-            );
-
-            if (isDerivateEqual) return;
-
-            subscription.currentState = derivate;
-
-            subscription.callback({
-              state: derivate,
-            });
-          });
-        });
-
-        return () => {
-          unsubscribe();
-          subscribers.delete(subscriptionId);
-        };
-      }, []);
-
-      const subscriptionId = subscriptionIdRef.current;
-      const subscriptionParameters = subscribers.get(subscriptionId);
-      const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
-        dependencies: config.dependencies,
-      };
-
-      // ensure the subscription id is always updated with the last callbacks and configurations
-      updateSubscriptionIfExists(subscriptionId, {
-        subscriptionId,
-        currentState: stateWrapper.state,
-        selector,
-        config,
-        callback: setState as SubscriptionCallback,
-      });
-
-      return [
-        (() => {
-          // if it is the first render we just return the state
-          // if there is no selector we just return the state
-          if (!selector || !subscriptionId) return stateWrapper.state;
-
-          const { dependencies: newDependencies } = config;
-
-          // if the dependencies are the same we don't need to compute the state
-          if (currentDependencies === newDependencies) return stateWrapper.state;
-
-          const isLengthEqual = currentDependencies?.length === newDependencies?.length;
-          const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
-
-          // if values are the same we don't need to compute the state
-          if (isSameValues) return stateWrapper.state;
-
-          // if the dependencies are different we need to compute the state
-          const newStateWrapper = computeStateWrapper();
-
-          updateSubscriptionIfExists(subscriptionId, {
-            subscriptionId,
-            currentState: newStateWrapper.state,
-            selector,
-            config,
-            callback: setState as SubscriptionCallback,
-          });
-
-          // update the current state without re-rendering the component
-          stateWrapper.state = newStateWrapper.state;
-
-          return newStateWrapper.state;
-        })(),
-        rootMutator,
-        metadataRetriever,
-      ];
+      // child state do not expose any sort of data manipulation
+      // all the state mutations will be derived from the root state
+      return [childState, rootMutator, metadataRetriever];
     }) as unknown as StateHook<RootDerivate, StateMutator, Metadata>;
 
-    newHook.stateControls = () => [stateRetriever, rootMutator, metadataRetriever];
-    newHook.createSelectorHook = this.createSelectorHook.bind(newHook);
+    useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
+    useChildHookWrapper.createSelectorHook = this.createSelectorHook.bind(useChildHookWrapper);
 
-    Object.assign(newHook, {
-      subscribers: subscribers,
-    });
-
-    return newHook;
+    return useChildHookWrapper;
   };
 
   /**
@@ -798,13 +600,15 @@ export class GlobalStore<
    * @returns {StateMutator} - The state setter or the actions map
    * */
   protected getStateOrchestrator = (): PublicStateMutator => {
-    return (() => {
-      if (this.actions) {
-        return this.actions;
-      }
+    return Object.assign(
+      (() => {
+        if (this.actions) {
+          return this.actions;
+        }
 
-      return this.setStateWrapper;
-    })() as PublicStateMutator;
+        return this.setStateWrapper;
+      })()
+    ) as PublicStateMutator;
   };
 
   /**
