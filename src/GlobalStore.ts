@@ -377,11 +377,19 @@ export class GlobalStore<
 
       // handles the subscription lifecycle
       useEffect(() => {
+        // id is created just once
         if (subscriptionIdRef.current === null) {
           const subscriptionId = uniqueId();
 
           subscriptionIdRef.current = subscriptionId;
 
+          this.executeOnSubscribed();
+        }
+
+        const subscriptionId = subscriptionIdRef.current;
+
+        // if the subscription was deleted by the strict mode we need to recreate it
+        if (!this.subscribers.has(subscriptionId)) {
           // create a new subscriber just once
           this.addNewSubscriber(subscriptionId, {
             subscriptionId,
@@ -390,13 +398,9 @@ export class GlobalStore<
             config,
             callback: setState,
           });
-
-          this.executeOnSubscribed();
         }
 
-        const subscriptionId = subscriptionIdRef.current;
-
-        // strick mode will trigger the useEffect twice, we need to ensure the subscription is always updated
+        // if the strict mode triggers the useEffect twice we need to ensure the subscription is always updated
         this.updateSubscriptionIfExists(subscriptionId, {
           subscriptionId,
           currentState: stateWrapper.state,
@@ -620,7 +624,7 @@ export class GlobalStore<
       Derivate = SelectorResult extends never ? RootDerivate : SelectorResult
     >(
       selector?: (root: RootDerivate) => SelectorResult,
-      { isEqualRoot, isEqual, ...config }: UseHookConfig<any, any> = {}
+      config: UseHookConfig<any, any> = {}
     ) => {
       const computeStateWrapper = () => {
         if (selector) {
