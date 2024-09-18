@@ -1,17 +1,17 @@
 import { createDecoupledPromise } from 'cancelable-promise-jq';
 import { Subscribe } from '../src/GlobalStore.types';
 import { combineAsyncGetters } from '../src/GlobalStore.combiners';
-import { createGlobalStateWithDecoupledFuncs } from '../src/GlobalStore.functionHooks';
+import { createGlobalState } from '../src/GlobalStore.functionHooks';
 
 describe('combiners', () => {
   it('should combine two global states', () => {
-    const [, getter1, setter1] = createGlobalStateWithDecoupledFuncs({
+    const [getter1, setter1] = createGlobalState({
       a: 1,
-    });
+    }).stateControls();
 
-    const [, getter2] = createGlobalStateWithDecoupledFuncs({
+    const [getter2] = createGlobalState({
       b: 2,
-    });
+    }).stateControls();
 
     const [useDerivate, getter] = combineAsyncGetters(
       {

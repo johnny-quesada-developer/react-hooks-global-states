@@ -8,7 +8,6 @@ import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 
 import {
   createCustomGlobalStateWithDecoupledFuncs,
-  createGlobalStateWithDecoupledFuncs,
   createGlobalState,
   createDerivate,
   createDerivateEmitter,
@@ -68,17 +67,7 @@ describe('with actions', () => {
         },
 
         increase(increase: number = 1) {
-          return ({
-            setState,
-            getState,
-            actions,
-          }: StoreTools<
-            number,
-            Metadata,
-            {
-              logModification: () => void;
-            }
-          >) => {
+          return ({ setState, getState, actions }: StoreTools<number, Metadata>) => {
             setState((state) => state + increase);
 
             actions.logModification();
@@ -88,17 +77,7 @@ describe('with actions', () => {
         },
 
         decrease(decrease: number = 1) {
-          return ({
-            setState,
-            getState,
-            actions,
-          }: StoreTools<
-            number,
-            Metadata,
-            {
-              logModification: () => void;
-            }
-          >) => {
+          return ({ setState, getState, actions }: StoreTools<number, Metadata>) => {
             setState((state) => state - decrease);
 
             actions.logModification();
@@ -479,7 +458,7 @@ describe('custom global hooks', () => {
 
     const logSpy = jest.fn();
 
-    const [useCount, getCount, $actions] = createGlobalStateWithDecoupledFuncs(1, {
+    const useCount = createGlobalState(1, {
       metadata: {
         test: true,
       },
@@ -505,6 +484,8 @@ describe('custom global hooks', () => {
         },
       } as const,
     });
+
+    const [getCount, $actions] = useCount.stateControls();
 
     let [state, actions] = useCount();
 
@@ -552,11 +533,13 @@ describe('custom global hooks', () => {
       count: 1,
     };
 
-    const [useCount, getCount, setCount] = createGlobal(initialState, {
+    const useCount = createGlobal(initialState, {
       config: {
         someExtraInfo: 'someExtraInfo',
       },
     });
+
+    const [getCount, setCount] = useCount.stateControls();
 
     expect(onInitSpy).toBeCalledTimes(1);
     expect(onChangeSpy).toBeCalledTimes(0);
@@ -682,10 +665,12 @@ describe('custom global hooks', () => {
 
 describe('getter subscriptions', () => {
   it('should subscribe to changes from getter', () => {
-    const [_, getter, setter] = createGlobalStateWithDecoupledFuncs({
+    const useHook = createGlobalState({
       a: 3,
       b: 2,
     });
+
+    const [getter, setter] = useHook.stateControls();
 
     const state = getter();
 
@@ -756,7 +741,8 @@ describe('create fragment', () => {
       c: 3,
     };
 
-    const [useData, getter, setter] = createGlobalStateWithDecoupledFuncs(initialState);
+    const useData = createGlobalState(initialState);
+    const [getter, setter] = useData.stateControls();
 
     expect(useData).toBeInstanceOf(Function);
     expect(getter).toBeInstanceOf(Function);
@@ -814,7 +800,8 @@ describe('create fragment', () => {
       c: 3,
     };
 
-    const [useData, getter, setter] = createGlobalStateWithDecoupledFuncs(initialState);
+    const useData = createGlobalState(initialState);
+    const [getter, setter] = useData.stateControls();
 
     expect(useData).toBeInstanceOf(Function);
     expect(getter).toBeInstanceOf(Function);
@@ -873,5 +860,66 @@ describe('create fragment', () => {
       ...state,
       secondRound: true,
     }));
+  });
+
+  it('should create global state with function builder parameters', () => {
+    expect.assertions(9);
+
+    const logSpy = jest.fn();
+
+    const useCount = createGlobalState(
+      1,
+      () => ({
+        log: (message: string) => {
+          return () => {
+            logSpy(message);
+          };
+        },
+        increase: () => {
+          return ({ setState }) => {
+            setState((state) => state + 1);
+
+            $actions.log('increase');
+          };
+        },
+        decrease: () => {
+          return ({ setState }) => {
+            setState((state) => state - 1);
+
+            $actions.log('decrease');
+          };
+        },
+      }),
+      {
+        metadata: {
+          test: true,
+        },
+      }
+    );
+
+    const [getCount, $actions] = useCount.stateControls();
+
+    let [state, actions] = useCount();
+
+    expect(state).toEqual(1);
+    expect(logSpy).toBeCalledTimes(0);
+
+    actions.increase();
+
+    expect(getCount()).toEqual(2);
+    expect(logSpy).toBeCalledTimes(1);
+    expect(logSpy).toBeCalledWith('increase');
+
+    actions.decrease();
+
+    expect(getCount()).toEqual(1);
+    expect(logSpy).toBeCalledTimes(2);
+    expect(logSpy).toBeCalledWith('decrease');
+
+    $actions.increase();
+
+    const count = getCount();
+
+    expect(count).toEqual(2);
   });
 });

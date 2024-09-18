@@ -238,9 +238,15 @@ const initialState = {
 
 type State = typeof initialState;
 
-export const useContacts = createGlobalState(initialState, {
+export const useContacts = createGlobalState(
+  initialState,
+  {
+    onInit: async ({ setState }: StoreTools<State>) => {
+      // fetch contacts
+    },
+  },
   // this are the actions available for this state
-  actions: {
+  {
     setFilter(filter: string) {
       return ({ setState }: StoreTools<State>) => {
         setState((state) => ({
@@ -249,11 +255,8 @@ export const useContacts = createGlobalState(initialState, {
         }));
       };
     },
-  } as const, // as const is necessary for the correct typing
-  onInit: async ({ setState }: StoreTools<State>) => {
-    // fetch contacts
-  },
-});
+  }
+);
 ```
 
 That's it! In this updated version, the **useContacts** hook will no longer return [**state**, **stateMutator:Setter<State>**] but instead will return [**state**, **stateMutator:ActionCollectionResult<State>**]. This change will provide a more intuitive and convenient way to access and interact with the state and its associated actions.
@@ -319,31 +322,29 @@ Here's an example of adding multiple actions to the state and utilizing one acti
 ```ts
 import { createGlobalState } from 'react-hooks-global-states';
 
-export const useCount = createGlobalState(0, {
-  actions: {
-    log: (currentValue: string) => {
-      return ({ getState }: StoreTools<number>): void => {
-        console.log(`Current Value: ${getState()}`);
-      };
-    },
+export const useCount = createGlobalState(0, () => ({
+  log: (currentValue: string) => {
+    return ({ getState }: StoreTools<number>): void => {
+      console.log(`Current Value: ${getState()}`);
+    };
+  },
 
-    increase(value: number = 1) {
-      return ({ getState, setState, actions }: StoreTools<number>) => {
-        setState((count) => count + value);
+  increase(value: number = 1) {
+    return ({ getState, setState, actions }: StoreTools<number>) => {
+      setState((count) => count + value);
 
-        actions.log(message);
-      };
-    },
+      actions.log(message);
+    };
+  },
 
-    decrease(value: number = 1) {
-      return ({ getState, setState, actions }: StoreTools<number>) => {
-        setState((count) => count - value);
+  decrease(value: number = 1) {
+    return ({ getState, setState, actions }: StoreTools<number>) => {
+      setState((count) => count - value);
 
-        actions.log(message);
-      };
-    },
-  } as const,
-});
+      actions.log(message);
+    };
+  },
+}));
 ```
 
 Notice that the **StoreTools** will contain a reference to the generated actions API. From there, you'll be able to access all actions from inside another one... the **StoreTools** is generic and allow your to set an interface for getting the typing on the actions.
@@ -427,29 +428,27 @@ const initialState: CounterState = {
   count: 0,
 };
 
-export const [useCounterContext, CounterProvider] = createStatefulContext(initialState, {
-  actions: {
-    increase: (value: number = 1) => {
-      return ({ setState }: StoreTools<CounterState>) => {
-        setState((state) => ({
-          ...state,
-          count: state.count + value,
-        }));
-      };
-    },
-    decrease: (value: number = 1) => {
-      return ({ setState }: StoreTools<CounterState>) => {
-        setState((state) => ({
-          ...state,
-          count: state.count - value,
-        }));
-      };
-    },
-  } as const,
-});
+export const [useCounterContext, CounterProvider] = createStatefulContext(initialState, () => ({
+  increase: (value: number = 1) => {
+    return ({ setState }: StoreTools<CounterState>) => {
+      setState((state) => ({
+        ...state,
+        count: state.count + value,
+      }));
+    };
+  },
+  decrease: (value: number = 1) => {
+    return ({ setState }: StoreTools<CounterState>) => {
+      setState((state) => ({
+        ...state,
+        count: state.count - value,
+      }));
+    };
+  },
+}));
 ```
 
-And just like with regular global hooks, now instead of a setState function, the hook will return the collection of actions:
+And just like with regular global hooks, now instead of a setState function, the hook will return the collection of actions
 
 ```tsx
 const MyComponent = () => {
@@ -808,7 +807,7 @@ onSubscribed?: (parameters: StateConfigCallbackParam<TState, TMetadata, TActions
 computePreventStateChange?: (parameters: StateChangesParam<TState, TMetadata, TActions>) => boolean;
 ```
 
-You can pass this callbacks between on the second parameter of the builders like **createGlobalState**
+You can pass this callbacks on the config objects when building a **createGlobalState**
 
 ```ts
 const useData = createGlobalState(
@@ -916,7 +915,7 @@ const storage = new GlobalStore(0, {
   },
 });
 
-const [getState, _, getMetadata] = storage.getHookDecoupled();
+const [getState, _, getMetadata] = storage.stateControls();
 const useState = storage.getHook();
 ```
 

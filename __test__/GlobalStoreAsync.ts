@@ -3,30 +3,25 @@ import { GlobalStoreAbstract } from '../src/GlobalStoreAbstract';
 import {
   ActionCollectionConfig,
   GlobalStoreConfig,
-  StateChangesParam,
-  StateConfigCallbackParam,
-  StateSetter,
+  StateChanges,
+  StoreTools,
 } from '../src/GlobalStore.types';
 
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
-import { createCustomGlobalStateWithDecoupledFuncs } from '../src/GlobalStore.functionHooks';
+import { createCustomGlobalState } from '../src/GlobalStore.functionHooks';
 
 export const { fakeAsyncStorage: asyncStorage } = getFakeAsyncStorage();
 
 export class GlobalStore<
-  TState,
-  TMetadata extends {
+  State,
+  Metadata extends {
     asyncStorageKey?: string;
     isAsyncStorageReady?: boolean;
-  } | null = null,
-  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> extends GlobalStoreAbstract<TState, TMetadata, TStateMutator> {
-  constructor(
-    state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
-    actionsConfig: TStateMutator | null = null
-  ) {
+  } = {},
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {} = null
+> extends GlobalStoreAbstract<State, Metadata, ActionsConfig> {
+  constructor(state: State, config?: GlobalStoreConfig<State, Metadata>, actionsConfig?: ActionsConfig) {
     super(state, config, actionsConfig);
 
     this.initialize();
@@ -37,7 +32,7 @@ export class GlobalStore<
     setMetadata,
     getMetadata,
     getState,
-  }: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => {
+  }: StoreTools<State, Metadata>) => {
     const metadata = getMetadata();
     const asyncStorageKey = metadata?.asyncStorageKey;
 
@@ -56,17 +51,14 @@ export class GlobalStore<
       return setState(state, { forceUpdate: true });
     }
 
-    const items = formatFromStore<TState>(storedItem, {
+    const items = formatFromStore<State>(storedItem, {
       jsonParse: true,
     });
 
     setState(items, { forceUpdate: true });
   };
 
-  protected onChange = ({
-    getMetadata,
-    getState,
-  }: StateChangesParam<TState, TMetadata, NonNullable<TStateMutator>>) => {
+  protected onChange = ({ getMetadata, getState }: StoreTools<State, Metadata> & StateChanges<State>) => {
     const asyncStorageKey = getMetadata()?.asyncStorageKey;
 
     if (!asyncStorageKey) return;
@@ -89,7 +81,7 @@ type HookConfig = {
   asyncStorageKey?: string;
 };
 
-export const createGlobalState = createCustomGlobalStateWithDecoupledFuncs<BaseMetadata, HookConfig>({
+export const createGlobalState = createCustomGlobalState<BaseMetadata, HookConfig>({
   onInitialize: async ({ setState, setMetadata }, config) => {
     setMetadata((metadata) => ({
       ...(metadata ?? {}),

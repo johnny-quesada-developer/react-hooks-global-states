@@ -19,7 +19,7 @@ describe('GlobalStoreAsync Basics', () => {
         },
       });
 
-      const [getState, _, getMetadata] = storage.getHookDecoupled();
+      const [getState, _, getMetadata] = storage.stateControls();
 
       const onStateChanged = (storage as any).onStateChanged;
       onStateChanged.bind(storage);
@@ -70,12 +70,15 @@ describe('createGlobalState', () => {
     setTimeout(async () => {
       const { promise: onStateChangedPromise, resolve: onStateChangedResolve } = createDecoupledPromise();
 
-      const [useData] = createGlobalState(new Map<string, number>(), {
+      const useData = createGlobalState(new Map<string, number>(), {
         config: {
           asyncStorageKey: 'data',
         },
+        metadata: {
+          propFromMetadata: 0,
+        },
         onStateChanged: onStateChangedResolve,
-      });
+      } as const);
 
       let [data, setData, metadata] = useData();
 
@@ -107,10 +110,12 @@ describe('createGlobalState', () => {
 
 describe('getter subscriptions custom global state', () => {
   it('should subscribe to changes from getter', () => {
-    const [_, getter, setter] = createGlobalState({
+    const useHook = createGlobalState({
       a: 3,
       b: 2,
     });
+
+    const [getter, setter] = useHook.stateControls();
 
     const state = getter();
 

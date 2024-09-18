@@ -1,9 +1,9 @@
 import {
-  StateSetter,
-  StateConfigCallbackParam,
-  StateChangesParam,
   ActionCollectionConfig,
   GlobalStoreConfig,
+  StoreTools,
+  BaseMetadata,
+  StateChanges,
 } from './GlobalStore.types';
 
 import { GlobalStore } from './GlobalStore';
@@ -15,39 +15,23 @@ import { GlobalStore } from './GlobalStore';
  * You can use this class to create a store with async storage.
  */
 export abstract class GlobalStoreAbstract<
-  TState,
-  TMetadata = null,
-  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> extends GlobalStore<TState, TMetadata, TStateMutator> {
-  constructor(
-    state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
-    actionsConfig: TStateMutator | null = null
-  ) {
+  State,
+  Metadata extends BaseMetadata,
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {} = null
+> extends GlobalStore<State, Metadata, ActionsConfig> {
+  constructor(state: State, config: GlobalStoreConfig<State, Metadata>, actionsConfig: ActionsConfig) {
     super(state, config, actionsConfig);
   }
 
-  protected onInit = (parameters: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => {
-    this.onInitialize(parameters);
+  protected onInit = (args: StoreTools<State, Metadata>) => {
+    this.onInitialize(args);
   };
 
-  protected onStateChanged = (parameters: StateChangesParam<TState, TMetadata, TStateMutator>) => {
-    this.onChange(parameters);
+  protected onStateChanged = (args: StoreTools<State, Metadata> & StateChanges<State>) => {
+    this.onChange(args);
   };
 
-  protected abstract onInitialize: ({
-    setState,
-    setMetadata,
-    getMetadata,
-    getState,
-    actions,
-  }: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => void;
+  protected abstract onInitialize: (args: StoreTools<State, Metadata>) => void;
 
-  protected abstract onChange: ({
-    setState,
-    setMetadata,
-    getMetadata,
-    getState,
-    actions,
-  }: StateChangesParam<TState, TMetadata, TStateMutator>) => void;
+  protected abstract onChange: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
 }
