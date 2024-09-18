@@ -410,7 +410,7 @@ export class GlobalStore<
         });
 
         return () => {
-          this.subscribers.delete(subscriptionIdRef.current);
+          this.subscribers.delete(subscriptionId);
         };
       }, []);
 
@@ -651,7 +651,11 @@ export class GlobalStore<
           const subscriptionId = uniqueId();
 
           subscriptionIdRef.current = subscriptionId;
+        }
 
+        const subscriptionId = subscriptionIdRef.current;
+
+        if (!subscribers.has(subscriptionId)) {
           // create a new subscriber just once
           addNewSubscriber(subscriptionId, {
             subscriptionId,
@@ -661,8 +665,6 @@ export class GlobalStore<
             callback: setState as SubscriptionCallback,
           });
         }
-
-        const subscriptionId = subscriptionIdRef.current;
 
         // strick mode will trigger the useEffect twice, we need to ensure the subscription is always updated
         this.updateSubscriptionIfExists(subscriptionId, {
@@ -677,6 +679,8 @@ export class GlobalStore<
           let previousRootDerivate = rootDerivate;
 
           subscribe((newRootDerivate) => {
+            if (!subscribers.has(subscriptionIdRef.current)) return;
+
             const subscription = subscribers.get(subscriptionIdRef.current);
             const isRootDerivateEqual = (subscription.config?.isEqualRoot ?? Object.is)(
               previousRootDerivate,
@@ -706,7 +710,7 @@ export class GlobalStore<
 
         return () => {
           unsubscribe();
-          subscribers.delete(subscriptionIdRef.current);
+          subscribers.delete(subscriptionId);
         };
       }, []);
 
