@@ -187,7 +187,7 @@ export interface CreateContext {
 }
 
 export const createContext = ((initialValue, ...args: any[]) => {
-  const context = React.createContext(initialValue);
+  const context = React.createContext(null);
 
   const useContext = () => {
     return React.useContext<StateHook<any, any, any>>(context);
