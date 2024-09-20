@@ -147,22 +147,22 @@ interface CreateGlobalState {
 export const createGlobalState = ((state, ...args) => {
   const isBuilderFunction = typeof args[0] === 'function';
 
-  const { config, actions } = (() => {
+  const { config, actionsConfig } = (() => {
     if (isBuilderFunction) {
       const builder = args[0];
       const config = args[1];
-      const actions = builder();
+      const actionsConfig = builder();
 
-      return { config, actions };
+      return { config, actionsConfig };
     }
 
     const config = args[0];
-    const actions = args[1] ?? config?.actions;
+    const actionsConfig = args[1] ?? config?.actions;
 
-    return { config, actions };
+    return { config, actionsConfig };
   })();
 
-  return new GlobalStore(state, config, actions).getHook();
+  return new GlobalStore(state, config, actionsConfig).getHook();
 }) as CreateGlobalState['createGlobalState'];
 
 /**

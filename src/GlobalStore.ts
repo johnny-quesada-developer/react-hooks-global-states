@@ -177,7 +177,6 @@ export class GlobalStore<
   ) => {
     const { selector, callback, currentState: currentChildState, config } = subscription;
 
-    debugger;
     // compare the root state, there should not be a re-render if the root state is the same
     if (!forceUpdate && (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(currentRootState, newRootState))
       return;

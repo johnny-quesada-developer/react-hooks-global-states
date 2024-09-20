@@ -52,10 +52,6 @@ export type StateHook<State, StateMutator, Metadata extends BaseMetadata> = (<De
     mainSelector?: (state: RootState) => RootSelectorResult,
     { isEqualRoot, isEqual }?: Omit<UseHookConfig<RootDerivate, RootState>, 'dependencies'>
   ) => StateHook<RootDerivate, StateMutator, Metadata>;
-
-  State: State;
-  StateMutator: StateMutator;
-  Metadata: Metadata;
 };
 
 export type MetadataSetter<Metadata extends BaseMetadata> = (
