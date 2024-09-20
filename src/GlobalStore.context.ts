@@ -90,7 +90,7 @@ export interface CreateContext {
        */
       computePreventStateChange?: (args: StoreAPI & StateChanges<Value>) => boolean;
 
-      onUnMount?: (args: StoreAPI) => void;
+      onUnMount?: () => void;
     }>
   ): readonly [
     Context<
@@ -144,7 +144,7 @@ export interface CreateContext {
        */
       computePreventStateChange?: (args: StoreAPI & StateChanges<Value>) => boolean;
 
-      onUnMount?: (args: StoreAPI) => void;
+      onUnMount?: () => void;
     }>,
     actions: ActionsConfig
   ): readonly [
