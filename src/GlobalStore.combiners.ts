@@ -15,6 +15,7 @@ import { useState, useEffect } from 'react';
 import { throwNoSubscribersWereAdded } from './GlobalStore';
 
 /**
+ * @deprecated will be removed in the next major version, use combineAsyncGettersEmitter instead
  * @description
  * This function allows you to create a derivate state by merging the state of multiple hooks.
  * The update of the derivate state is debounced to avoid unnecessary re-renders.
@@ -163,6 +164,7 @@ export const combineAsyncGettersEmitter = <
 export const combineRetrieverEmitterAsynchronously = combineAsyncGettersEmitter;
 
 /**
+ * @deprecated will be removed in the next major version use combineRetrieverAsynchronously
  * @description
  * This function allows you to create a derivate state by merging the state of multiple hooks.
  * The update of the derivate state is debounced to avoid unnecessary re-renders.

@@ -1,4 +1,4 @@
-import { isPrimitive, isDate, isNil } from "json-storage-formatter";
+import { isPrimitive, isDate, isNil } from 'json-storage-formatter';
 
 /**
  * Shallow compare two values and return true if they are equal.
@@ -21,7 +21,7 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
     isNil(value2) ||
     (isPrimitive(value1) && isPrimitive(value2)) ||
     (isDate(value1) && isDate(value2)) ||
-    (typeofValue1 === "function" && typeofValue2 === "function")
+    (typeofValue1 === 'function' && typeofValue2 === 'function')
   ) {
     return value1 === value2;
   }
@@ -89,10 +89,7 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
 /**
  * Debounce a function.
  */
-export const debounce = <T extends (...args: any[]) => any>(
-  callback: T,
-  delay: number = 0
-) => {
+export const debounce = <T extends (...args: any[]) => any>(callback: T, delay: number = 0) => {
   let timeout: NodeJS.Timeout;
 
   return (...args: Parameters<T>): void => {
@@ -104,6 +101,12 @@ export const debounce = <T extends (...args: any[]) => any>(
   };
 };
 
-export const uniqueId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-};
+export const uniqueId = (() => {
+  let counter = 0;
+
+  return (): string => {
+    if (counter === Number.MAX_SAFE_INTEGER) counter = 0;
+
+    return Date.now().toString(36) + (counter++).toString(36);
+  };
+})();

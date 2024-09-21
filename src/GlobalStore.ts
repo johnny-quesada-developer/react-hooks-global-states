@@ -344,6 +344,8 @@ export class GlobalStore<
     } as StoreAPI;
   };
 
+  protected lastSubscriptionId: string = null;
+
   /**
    * Returns the new subscription when added or false if the subscription was updated
    */
@@ -362,6 +364,7 @@ export class GlobalStore<
     this.executeOnSubscribed();
 
     this.subscribers.set(subscriptionId, item as SubscriberParameters);
+    this.lastSubscriptionId = subscriptionId;
 
     return item;
   };
