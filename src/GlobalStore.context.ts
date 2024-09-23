@@ -44,11 +44,9 @@ type Context<Value, PublicStateMutator, Metadata extends BaseMetadata> = (() => 
   >(
     this: Context<RootState, PublicStateMutator, Metadata>,
     mainSelector?: (state: Value) => RootSelectorResult,
-    {
-      isEqualRoot,
-      isEqual,
-      name,
-    }?: Omit<UseHookConfig<RootDerivate, Value>, 'dependencies'> & {
+    args?: {
+      isEqual?: (current: RootDerivate, next: RootDerivate) => boolean;
+      isEqualRoot?: (current: RootState, next: RootState) => boolean;
       name?: string;
     }
   ) => StateHook<RootDerivate, PublicStateMutator, Metadata>;

@@ -523,7 +523,12 @@ export class GlobalStore<
     {
       isEqualRoot: mainIsEqualRoot,
       isEqual: mainIsEqualFun,
-    }: Omit<UseHookConfig<RootDerivate, RootState>, 'dependencies'> = {}
+      name: selectorName,
+    }: {
+      isEqual?: (current: RootDerivate, next: RootDerivate) => boolean;
+      isEqualRoot?: (current: RootState, next: RootState) => boolean;
+      name?: string;
+    } = {}
   ): StateHook<RootDerivate, StateMutator, Metadata> => {
     const [rootStateRetriever, rootMutator, metadataRetriever] = this.stateControls() as unknown as [
       StateGetter<RootState>,
@@ -534,8 +539,26 @@ export class GlobalStore<
     let root = rootStateRetriever() as unknown as RootState;
     let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever()) as unknown as RootDerivate;
 
+    const _selectorName = (() => {
+      if (selectorName) return selectorName;
+
+      const parentName = metadataRetriever()?.name;
+      if (parentName) return `selected-from-${parentName}_${uniqueId()}`;
+
+      return null;
+    })();
+
+    const config = _selectorName
+      ? {
+          metadata: {
+            name: _selectorName,
+          },
+        }
+      : null;
+
     // derivate states do not have lifecycle methods or actions
-    const childStore = new GlobalStore(rootDerivate);
+    const childStore = new GlobalStore(rootDerivate, config);
+
     const [childStateRetriever, setChildState] = childStore.stateControls();
 
     // keeps the root state and the derivate state in sync
