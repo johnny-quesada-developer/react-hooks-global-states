@@ -187,6 +187,9 @@ export class GlobalStore<
     if (!forceUpdate && (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState))
       return;
 
+    // update the current state of the subscription
+    subscription.currentState = newChildState;
+
     // this in the case of the hooks is the setState function
     callback({ state: newChildState, identifier });
   };
