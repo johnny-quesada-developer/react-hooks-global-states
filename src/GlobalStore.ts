@@ -1,45 +1,37 @@
-import { shallowCompare, uniqueId } from './GlobalStore.utils';
-import { useEffect, useRef, useState } from 'react';
+import {
+  isRecord,
+  shallowCompare,
+  throwWrongKeyOnActionCollectionConfig,
+  uniqueId,
+  uniqueSymbol,
+  UniqueSymbol,
+  useConstantValueRef,
+} from './GlobalStore.utils';
+import { useEffect, useState } from 'react';
 
 import {
   ActionCollectionConfig,
   StateSetter,
-  GlobalStoreConfig,
+  GlobalStoreCallbacks,
   ActionCollectionResult,
   MetadataSetter,
   UseHookConfig,
   StateGetter,
-  SubscriberCallback,
   SubscribeCallbackConfig,
   SubscribeCallback,
   SelectorCallback,
   SubscriberParameters,
-  SubscriptionCallback,
-  SubscribeToEmitter,
   MetadataGetter,
   StateHook,
-  Subscribe,
   BaseMetadata,
   StateChanges,
   StoreTools,
+  ObservableFragment,
 } from './GlobalStore.types';
-
-const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
-  throw new Error(`[WRONG CONFIGURATION!]: Every key inside the storeActionsConfig must be a higher order function that returns a function \n[${action_key}]: key is not a valid function, try something like this: \n{\n
-    ${action_key}: (param) => ({ setState, getState, setMetadata, getMetadata, actions }) => {\n
-      setState((state) => ({ ...state, ...param }))\n
-    }\n
-}\n`);
-};
-
-export const throwNoSubscribersWereAdded = () => {
-  throw new Error(
-    'No new subscribers were added, please make sure to add at least one subscriber with the subscribe method'
-  );
-};
+import { isFunction, isNil, isString } from 'json-storage-formatter';
 
 type DebugProps = {
-  REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<any, any>, state, config, actionsConfig) => void;
+  REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown, unknown, unknown>) => void;
 };
 
 /**
@@ -47,90 +39,61 @@ type DebugProps = {
  * */
 export class GlobalStore<
   State,
-  Metadata extends BaseMetadata,
-  ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {} = null,
-  StoreAPI = {
-    setMetadata: MetadataSetter<Metadata>;
-    setState: StateSetter<State>;
-    getState: StateGetter<State>;
-    getMetadata: () => Metadata;
-    actions: any;
-  },
-  PublicStateMutator = ActionsConfig extends null
+  Metadata extends BaseMetadata | unknown,
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | undefined | unknown,
+  PublicStateMutator = keyof ActionsConfig extends never | undefined
     ? StateSetter<State>
-    : ActionCollectionResult<State, Metadata, ActionsConfig>
+    : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
 > {
-  /**
-   * list of all the subscribers setState functions
-   * @template {State} TState - The type of the state object
-   * */
+  protected _name: string;
+
+  public actionsConfig: ActionsConfig | null = null;
+  public callbacks: GlobalStoreCallbacks<State, Metadata> | null = null;
+
+  public metadata: Metadata;
+  public actions: ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>> | null = null;
+
   public subscribers: Map<string, SubscriberParameters> = new Map();
 
-  /**
-   * Actions of the store
-   */
-  public actions?: ActionsConfig extends null
-    ? null
-    : ActionCollectionResult<State, Metadata, ActionsConfig> = null;
-
-  protected config: GlobalStoreConfig<State, Metadata> = {
-    metadata: null,
-  };
-
-  /**
-   * execute when the store is initialized
-   */
-  protected onInit?: (args: StoreAPI) => void;
-
-  protected onStateChanged?: (args: StoreAPI & StateChanges<State>) => void;
-
-  protected onSubscribed?: (args: StoreAPI) => void;
-
-  /**
-   * Every time a state change is triggered and before the state is updated, it allows to prevent the state change by returning true
-   */
-  protected computePreventStateChange?: (parameters: StoreAPI & StateChanges<State>) => boolean;
-
-  /**
-   * We use a wrapper in order to be able to force the state update when necessary even with primitive types
-   */
-  protected stateWrapper: {
+  public stateWrapper: {
     state: State;
   };
 
-  /**
-   * @deprecated direct modifications of the state could end up in unexpected behaviors
-   */
-  protected get state(): State {
-    return this.stateWrapper.state;
-  }
-
   constructor(state: State);
-
-  constructor(state: State, config: GlobalStoreConfig<State, Metadata>);
-
-  constructor(state: State, config: GlobalStoreConfig<State, Metadata>, actionsConfig: ActionsConfig);
 
   constructor(
     state: State,
-    config?: GlobalStoreConfig<State, Metadata>,
-    protected actionsConfig: ActionsConfig = null
+    args: {
+      metadata?: Metadata;
+      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      actions?: ActionsConfig;
+      name?: string;
+    }
+  );
+
+  constructor(
+    state: State,
+    args: {
+      metadata?: Metadata;
+      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      actions?: ActionsConfig;
+      name?: string;
+    } = { metadata: {} as Metadata }
   ) {
+    const { metadata, callbacks, actions, name: storeName } = args;
+
     this.stateWrapper = {
       state,
     };
 
-    this.config = {
-      metadata: null,
-      ...(config ?? {}),
-    };
+    this._name = storeName ?? uniqueId();
+    this.metadata = metadata ?? ({} as Metadata);
+    this.callbacks = callbacks ?? null;
+    this.actionsConfig = actions ?? null;
 
-    if ((globalThis as unknown as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      (globalThis as unknown as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(
-        this as unknown as GlobalStore<any, any>,
-        state,
-        config,
-        actionsConfig
+    if ((globalThis as Record<string, unknown> as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
+      (globalThis as Record<string, unknown> as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(
+        this as unknown as GlobalStore<unknown, unknown, unknown>
       );
     }
 
@@ -140,81 +103,103 @@ export class GlobalStore<
     (this as GlobalStore<State, Metadata, ActionsConfig>).initialize();
   }
 
+  protected onInit?: (args: StoreTools<State, Metadata>) => void;
+  protected onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
+  protected onSubscribed?: (args: StoreTools<State, Metadata>) => void;
+  protected computePreventStateChange?: (
+    parameters: StoreTools<State, Metadata> & StateChanges<State>
+  ) => boolean;
+
   protected initialize = async () => {
-    /**
-     * actions map is created just once after the initialization
-     */
-    if (this.actionsConfig) {
-      this.actions = this.getStoreActionsMap() as ActionsConfig extends null
-        ? null
-        : ActionCollectionResult<State, Metadata, ActionsConfig>;
+    const shouldCreateActionsMap = Object.keys(this.actionsConfig ?? {}).length > 0;
+
+    if (shouldCreateActionsMap) {
+      this.actions = this.getStoreActionsMap();
     }
 
     const { onInit } = this;
-    const { onInit: onInitFromConfig } = this.config;
+    const { onInit: onInitFromConfig } = this.callbacks ?? {};
 
     if (!onInit && !onInitFromConfig) return;
 
     const parameters = this.getConfigCallbackParam();
 
     onInit?.(parameters);
-    onInitFromConfig?.(parameters as StoreTools<State, Metadata, ActionsConfig>);
+    if (!isNil(onInitFromConfig)) onInitFromConfig?.(parameters);
   };
 
   protected executeSetStateForSubscriber = (
     subscription: SubscriberParameters,
-    {
-      forceUpdate,
-      newRootState,
-      currentRootState,
-      identifier,
-    }: {
-      forceUpdate: boolean;
+    args: {
+      forceUpdate: boolean | undefined;
       newRootState: State;
-      currentRootState: State;
-      identifier: string;
+      currentRootState: State | UniqueSymbol;
+      identifier: string | undefined;
     }
-  ) => {
+  ): {
+    didUpdate: boolean;
+  } => {
     const { selector, callback, currentState: currentChildState, config } = subscription;
 
     // compare the root state, there should not be a re-render if the root state is the same
-    if (!forceUpdate && (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(currentRootState, newRootState))
-      return;
+    if (
+      !args.forceUpdate &&
+      (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(args.currentRootState, args.newRootState)
+    ) {
+      return { didUpdate: false };
+    }
 
-    const newChildState = selector ? selector(newRootState) : newRootState;
+    const newChildState = selector ? selector(args.newRootState) : args.newRootState;
 
-    // compare the result after the selector is executed
-    if (!forceUpdate && (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState))
-      return;
+    // compare the state of the selected part of the state, there should not be a re-render if the state is the same
+    if (
+      !args.forceUpdate &&
+      (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState)
+    ) {
+      return { didUpdate: false };
+    }
 
     // update the current state of the subscription
-    subscription.currentState = newChildState;
+    this.partialUpdateSubscription(subscription.subscriptionId, {
+      currentState: newChildState,
+    });
 
-    // this in the case of the hooks is the setState function
-    callback({ state: newChildState, identifier });
+    // execute the callback associated with the subscription
+    // the callback could be an observer event or a setState function
+    callback(
+      {
+        state: newChildState,
+      },
+      {
+        identifier: args.identifier,
+      }
+    );
+
+    return { didUpdate: true };
   };
 
   /**
    * set the state and update all the subscribers
    * @param {StateSetter<State>} setter - The setter function or the value to set
    * */
-  protected setState = ({
-    state: newRootState,
-    forceUpdate,
-    identifier,
-  }: {
-    state: State;
-    forceUpdate: boolean;
-    identifier?: string;
-  }) => {
+  protected setState = (
+    {
+      state: newRootState,
+    }: {
+      state: State;
+    },
+    { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string }
+  ) => {
     const { state: currentRootState } = this.stateWrapper;
 
-    // update the main state
+    const shouldUpdate = forceUpdate || !Object.is(currentRootState, newRootState);
+    if (!shouldUpdate) return;
+
     this.stateWrapper = {
       state: newRootState,
     };
 
-    const subscribers = Array.from(this.subscribers.values());
+    const subscribers = this.subscribers.values();
 
     const args = {
       forceUpdate,
@@ -223,10 +208,7 @@ export class GlobalStore<
       identifier,
     };
 
-    // update all the subscribers
-    for (let index = 0; index < subscribers.length; index++) {
-      const subscription = subscribers[index];
-
+    for (const subscription of subscribers) {
       this.executeSetStateForSubscriber(subscription, args);
     }
   };
@@ -236,106 +218,56 @@ export class GlobalStore<
    * @param {MetadataSetter<Metadata>} setter - The setter function or the value to set
    * */
   protected setMetadata: MetadataSetter<Metadata> = (setter) => {
-    const isSetterFunction = typeof setter === 'function';
+    const metadata = isFunction(setter) ? setter(this.metadata) : setter;
 
-    const metadata = isSetterFunction
-      ? (setter as (state: Metadata) => Metadata)(this.config.metadata ?? null)
-      : setter;
-
-    this.config = {
-      ...(this.config ?? {}),
-      metadata,
-    };
+    this.metadata = metadata;
   };
 
-  protected getMetadata = () => this.config.metadata ?? null;
+  protected getMetadata = () => this.metadata;
 
-  protected createChangesSubscriber = ({
-    callback,
-    selector,
-    config,
-  }: {
-    selector?: SelectorCallback<unknown, unknown>;
-    callback: SubscribeCallback<unknown>;
-    config: SubscribeCallbackConfig<unknown>;
-  }) => {
+  public getState = ((
+    param1?: SubscribeCallback<unknown> | SelectorCallback<unknown, unknown>,
+    param2?: SubscribeCallback<unknown>,
+    param3?: SubscribeCallbackConfig<unknown>
+  ) => {
+    // if there is no subscription callback return the state
+    if (!param1) return this.stateWrapper.state;
+
+    const hasExplicitSelector = isFunction(param2);
+
+    const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
+
+    const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
+
+    const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
+
     const initialState = selector ? selector(this.stateWrapper.state) : this.stateWrapper.state;
-
-    const stateWrapper = {
-      state: initialState,
-    };
-
-    const subscriptionCallback: SubscriptionCallback = ({ state }: { state: unknown }) => {
-      stateWrapper.state = state;
-
-      callback(state);
-    };
 
     if (!config?.skipFirst) {
       callback(initialState);
     }
 
-    return {
-      stateWrapper,
-      subscriptionCallback,
-    };
-  };
+    const subscriptionId = uniqueId();
 
-  protected getState = (<TCallback extends SubscriberCallback<State> | null>(
-    subscriberCallback?: TCallback
-  ) => {
-    // if there is no subscription callback return the state
-    if (!subscriberCallback) return this.stateWrapper.state;
-
-    const changesSubscribers: string[] = [];
-
-    const subscribe = ((param1, param2, param3) => {
-      const hasExplicitSelector = typeof param2 === 'function';
-
-      const selector = (hasExplicitSelector ? param1 : null) as SelectorCallback<unknown, unknown>;
-
-      const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
-
-      const config = (hasExplicitSelector ? param3 : param2) as SubscribeCallbackConfig<unknown>;
-
-      const { subscriptionCallback, stateWrapper } = this.createChangesSubscriber({
-        selector,
-        callback,
-        config,
-      });
-
-      const subscriptionId = uniqueId();
-
-      this.updateSubscriptionArgs(subscriptionId, {
-        subscriptionId,
-        selector,
-        config,
-        currentState: stateWrapper.state,
-        callback: subscriptionCallback,
-      });
-
-      changesSubscribers.push(subscriptionId);
-    }) as SubscribeToEmitter<State>;
-
-    subscriberCallback(subscribe);
-
-    if (!changesSubscribers.length) {
-      throwNoSubscribersWereAdded();
-    }
+    this.setOrUpdateSubscription({
+      subscriptionId,
+      selector,
+      config,
+      currentState: initialState,
+      callback: ({ state }: { state: unknown }) => callback(state),
+      isSetStateCallback: false,
+    });
 
     return () => {
-      for (let index = 0; index < changesSubscribers.length; index++) {
-        const subscriber = changesSubscribers[index];
-
-        this.subscribers.delete(subscriber);
-      }
+      this.subscribers.delete(subscriptionId);
     };
   }) as StateGetter<State>;
 
   /**
-   * get the parameters object to pass to the callback functions (onInit, onStateChanged, onSubscribed, computePreventStateChange)
+   * get the parameters object to pass to the callback functions:
+   * onInit, onStateChanged, onSubscribed, computePreventStateChange
    * */
-  protected getConfigCallbackParam = (): StoreAPI => {
+  public getConfigCallbackParam = (): StoreTools<State, Metadata> => {
     const { setMetadata, getMetadata, getState, actions, setStateWrapper } = this;
 
     return {
@@ -344,43 +276,57 @@ export class GlobalStore<
       getState,
       setState: setStateWrapper,
       actions,
-    } as StoreAPI;
+    };
   };
 
-  protected lastSubscriptionId: string = null;
+  protected lastSubscriptionId: string | null = null;
 
-  /**
-   * Returns the new subscription when added or false if the subscription was updated
-   */
-  protected updateSubscriptionArgs = (subscriptionId: string, item: Partial<SubscriberParameters>) => {
+  protected setOrUpdateSubscription = (
+    subscription: SubscriberParameters
+  ): {
+    isNewSubscription?: boolean;
+  } => {
+    const { subscriptionId } = subscription;
     // before the useEffect is triggered the first time the subscriptionId is null
-    if (!subscriptionId) return false;
+    if (!subscriptionId) return { isNewSubscription: false };
 
-    // updates the subscriber parameters
-    if (this.subscribers.has(subscriptionId)) {
-      Object.assign(this.subscribers.get(subscriptionId), item);
+    const currentItem = this.subscribers.get(subscriptionId);
 
-      return false;
+    if (isRecord(currentItem)) {
+      Object.assign(currentItem, subscription);
+
+      return { isNewSubscription: false };
     }
 
     // new component was subscribed
     this.executeOnSubscribed();
 
-    this.subscribers.set(subscriptionId, item as SubscriberParameters);
+    this.subscribers.set(subscriptionId, subscription);
     this.lastSubscriptionId = subscriptionId;
 
-    return item;
+    return { isNewSubscription: true };
+  };
+
+  protected partialUpdateSubscription = (
+    subscriptionId: string,
+    values: Partial<SubscriberParameters>
+  ): void => {
+    const subscription = this.subscribers.get(subscriptionId);
+
+    if (!isRecord(subscription)) return;
+
+    Object.assign(subscription, values);
   };
 
   protected executeOnSubscribed = () => {
     const { onSubscribed } = this;
-    const { onSubscribed: onSubscribedFromConfig } = this.config;
+    const onSubscribedFromConfig = this.callbacks?.onSubscribed;
 
     if (onSubscribed || onSubscribedFromConfig) {
       const parameters = this.getConfigCallbackParam();
 
       onSubscribed?.(parameters);
-      onSubscribedFromConfig?.(parameters as StoreTools<State, Metadata, ActionsConfig>);
+      onSubscribedFromConfig?.(parameters);
     }
   };
 
@@ -389,79 +335,81 @@ export class GlobalStore<
    * @returns {[State, StateMutator, Metadata]} - The state, the state setter or the actions map, the metadata
    * */
   public getHook = () => {
-    const hook = <S = State>(selector?: SelectorCallback<State, S>, config: UseHookConfig<S, State> = {}) => {
-      const subscriptionIdRef = useRef<string>(null);
+    const useHook = (
+      selector?: SelectorCallback<unknown, unknown>,
+      config: UseHookConfig<unknown, unknown> = {}
+    ) => {
+      const hooksProps = useConstantValueRef<{
+        subscriptionId: string | null;
+        tempInitialRootState: State | UniqueSymbol;
+      }>(() => ({
+        subscriptionId: null,
+        tempInitialRootState: this.stateWrapper.state,
+      }));
 
-      const computeStateWrapper = () => {
-        // the initial root state is needed to check if the state has changed before the subscription is fully committed
-        // this applies for both hooks and selectorHooks
-        // validating the subscriptionId prevents keeping the reference alive after the state is changed
-        const initialRootState = subscriptionIdRef.current === null ? this.stateWrapper.state : null;
-
+      const computeChildState = (): {
+        state: unknown;
+      } => {
         if (selector) {
-          const derivedState = selector(this.stateWrapper.state);
-
           return {
-            state: derivedState,
-            initialRootState,
+            state: selector(this.stateWrapper.state),
           };
         }
 
-        return {
-          state: this.stateWrapper.state,
-          initialRootState,
-        };
+        return this.stateWrapper;
       };
 
-      const [stateWrapper, setState] = useState<{
-        state: unknown;
-        initialRootState?: State;
-      }>(computeStateWrapper);
+      const [stateWrapper, setState] = useState(computeChildState);
 
       // handles the subscription lifecycle
       useEffect(() => {
-        // id is created just once
-        if (subscriptionIdRef.current === null) {
-          subscriptionIdRef.current = uniqueId();
+        if (isNil(hooksProps.current)) return;
+        if (isNil(hooksProps.current.subscriptionId)) {
+          hooksProps.current.subscriptionId = uniqueId();
         }
 
-        const subscriptionId = subscriptionIdRef.current;
-
-        // if the strict mode triggers the useEffect twice we need to ensure the subscription is always updated
-        const newSubscription = this.updateSubscriptionArgs(subscriptionId, {
+        const subscriptionId = hooksProps.current.subscriptionId;
+        const subscription: SubscriberParameters = {
           subscriptionId,
           currentState: stateWrapper.state,
           selector,
           config,
           callback: setState,
-        });
+          isSetStateCallback: true,
+        };
 
-        // if it is a new subscription we need to update the state
-        // there could be changes on state before the subscription is fully committed
-        if (newSubscription) {
+        const { isNewSubscription } = this.setOrUpdateSubscription(subscription);
+
+        if (isNewSubscription) {
           // the state could have been changing before the subscription was fully committed
-          this.executeSetStateForSubscriber(newSubscription as SubscriberParameters, {
+          this.executeSetStateForSubscriber(subscription, {
             forceUpdate: false,
             newRootState: this.stateWrapper.state,
-            currentRootState: stateWrapper.initialRootState,
-            identifier: null,
+            currentRootState: hooksProps.current.tempInitialRootState,
+            identifier: 'on mount state update',
           });
+
+          // The initial root state is required to verify if the state has changed before the subscription is fully established.
+          // This is applicable for both hooks and selectorHooks.
+          // once the subscription is established we can set the initial root state to an empty symbol
+          hooksProps.current.tempInitialRootState = uniqueSymbol;
         }
 
         return () => {
           this.subscribers.delete(subscriptionId);
         };
+        // this effect should only run on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
 
-      const subscriptionId = subscriptionIdRef.current;
+      const subscriptionId = isString(hooksProps.current) ? hooksProps.current : '';
       const subscriptionParameters = this.subscribers.get(subscriptionId);
       const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
         dependencies: config.dependencies,
       };
 
       // ensure the subscription id is always updated with the last callbacks and configurations
-      this.updateSubscriptionArgs(subscriptionId, {
-        subscriptionId,
+      this.partialUpdateSubscription(subscriptionId, {
         currentState: stateWrapper.state,
         selector,
         config,
@@ -469,46 +417,69 @@ export class GlobalStore<
       });
 
       return [
-        (() => {
-          // if it is the first render we just return the state
-          // if there is no selector we just return the state
-          if (!selector || !subscriptionId) return stateWrapper.state;
-
-          const { dependencies: newDependencies } = config;
-
-          // if the dependencies are the same we don't need to compute the state
-          if (currentDependencies === newDependencies) return stateWrapper.state;
-
-          const isLengthEqual = currentDependencies?.length === newDependencies?.length;
-          const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
-
-          // if values are the same we don't need to compute the state
-          if (isSameValues) return stateWrapper.state;
-
-          // if the dependencies are different we need to compute the state
-          const { state: currentState } = computeStateWrapper();
-
-          this.updateSubscriptionArgs(subscriptionId, {
-            currentState,
-          });
-
-          // update the current state without re-rendering the component
-          stateWrapper.state = currentState;
-
-          return currentState;
-        })(),
+        this.computeSelectedState({
+          selector,
+          subscriptionId,
+          config,
+          currentDependencies,
+          computeChildState,
+          stateWrapperRef: stateWrapper,
+        }),
         this.getStateOrchestrator(),
-        this.config.metadata ?? null,
-      ] as [state: S, setter: PublicStateMutator, metadata: Metadata];
+        this.metadata,
+      ];
     };
 
     /**
      * Extended properties and methods of the hook
      */
-    hook.stateControls = this.stateControls;
-    hook.createSelectorHook = this.createSelectorHook;
+    useHook.stateControls = this.stateControls;
+    useHook.createSelectorHook = this.createSelectorHook;
+    useHook.createObservable = this.createObservable;
 
-    return hook as unknown as StateHook<State, PublicStateMutator, Metadata>;
+    return useHook as unknown as StateHook<State, PublicStateMutator, Metadata>;
+  };
+
+  protected computeSelectedState = ({
+    selector,
+    subscriptionId,
+    config,
+    currentDependencies,
+    computeChildState,
+    stateWrapperRef,
+  }: {
+    selector: SelectorCallback<unknown, unknown> | undefined;
+    subscriptionId: string;
+    config: UseHookConfig<unknown, unknown>;
+    currentDependencies: unknown[] | undefined;
+    computeChildState: () => { state: unknown };
+    stateWrapperRef: { state: unknown };
+  }) => {
+    if (!selector || !subscriptionId) return stateWrapperRef.state;
+
+    const { dependencies: newDependencies } = config;
+
+    // if the dependencies are the same we don't need to compute the state
+    if (currentDependencies === newDependencies) return stateWrapperRef.state;
+
+    const isLengthEqual = currentDependencies?.length === newDependencies?.length;
+    const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
+
+    // if values are the same we don't need to compute the state
+    if (isSameValues) return stateWrapperRef.state;
+
+    // if the dependencies are different we need to compute the state
+    const { state: currentState } = computeChildState();
+
+    this.partialUpdateSubscription(subscriptionId, {
+      currentState,
+    });
+
+    // update the current state without re-rendering the component
+    // when the there is a selector the stare wrapper is a different object reference
+    stateWrapperRef.state = currentState;
+
+    return currentState;
   };
 
   /**
@@ -522,7 +493,7 @@ export class GlobalStore<
     RootSelectorResult,
     RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
   >(
-    mainSelector?: (state: RootState) => RootSelectorResult,
+    mainSelector: (state: RootState) => RootSelectorResult,
     {
       isEqualRoot: mainIsEqualRoot,
       isEqual: mainIsEqualFun,
@@ -539,87 +510,70 @@ export class GlobalStore<
       MetadataGetter<Metadata>
     ];
 
-    let root = rootStateRetriever() as unknown as RootState;
-    let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever()) as unknown as RootDerivate;
-
-    const _selectorName = (() => {
-      if (selectorName) return selectorName;
-
-      const parentName = metadataRetriever()?.name;
-      if (parentName) return `selected-from-${parentName}_${uniqueId()}`;
-
-      return null;
-    })();
-
-    const config = _selectorName
-      ? {
-          metadata: {
-            name: _selectorName,
-          },
-        }
-      : null;
+    let root = rootStateRetriever();
+    let rootDerivate = (mainSelector ?? ((s) => s))(root) as unknown as RootDerivate;
 
     // derivate states do not have lifecycle methods or actions
-    const childStore = new GlobalStore(rootDerivate, config);
+    const childStore = new GlobalStore(rootDerivate, {
+      name: selectorName ?? `${this._name}-${uniqueId()}`,
+    });
 
     const [childStateRetriever, setChildState] = childStore.stateControls();
 
     // keeps the root state and the derivate state in sync
-    rootStateRetriever<Subscribe>((subscribe) => {
-      subscribe(
-        (newRoot) => {
-          const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
+    rootStateRetriever(
+      (newRoot) => {
+        const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
 
-          if (isRootEqual) return;
+        if (isRootEqual) return;
 
-          root = newRoot;
+        root = newRoot;
 
-          const newRootDerivate = mainSelector(newRoot) as unknown as RootDerivate;
+        const newRootDerivate = mainSelector(newRoot) as unknown as RootDerivate;
+        const isRootDerivateEqual = (mainIsEqualFun ?? Object.is)(rootDerivate, newRootDerivate);
 
-          const isRootDerivateEqual = (mainIsEqualFun ?? Object.is)(rootDerivate, newRootDerivate);
+        if (isRootDerivateEqual) return;
 
-          if (isRootDerivateEqual) return;
+        rootDerivate = newRootDerivate;
 
-          rootDerivate = newRootDerivate;
-
-          setChildState(newRootDerivate);
-        },
-        { skipFirst: true }
-      );
-    });
+        setChildState(newRootDerivate);
+      },
+      { skipFirst: true }
+    );
 
     const useChildHook = childStore.getHook();
 
     const useChildHookWrapper = ((
-      selector?: <SelectorResult>(root: RootDerivate) => SelectorResult,
-      config: UseHookConfig<any, any> = {}
+      selector?: (root: unknown) => unknown,
+      config?: UseHookConfig<unknown, unknown>
     ) => {
-      const [childState] = useChildHook<RootDerivate>(selector, config);
+      const [childState] = isFunction(selector) ? useChildHook(selector, config) : useChildHook();
 
-      // child state do not expose any sort of data manipulation
+      // child state do not expose specific state controls instead inherit from the root state
       // all the state mutations will be derived from the root state
       return [childState, rootMutator, metadataRetriever];
-    }) as unknown as StateHook<RootDerivate, StateMutator, Metadata>;
+    }) as unknown as StateHook<unknown, unknown, unknown>;
 
     useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
-    useChildHookWrapper.createSelectorHook = this.createSelectorHook.bind(useChildHookWrapper);
 
-    return useChildHookWrapper;
+    useChildHookWrapper.createSelectorHook = this.createSelectorHook.bind(
+      useChildHookWrapper
+    ) as typeof useChildHookWrapper.createSelectorHook;
+
+    useChildHookWrapper.createObservable = this.createObservable.bind(useChildHookWrapper);
+
+    return useChildHookWrapper as StateHook<RootDerivate, StateMutator, Metadata>;
   };
 
-  /**
-   * Returns an array with the a function to get the state, the state setter or the actions map, and a function to get the metadata
-   * @returns {[() => State, StateMutator, () => Metadata]} - The state getter, the state setter or the actions map, the metadata getter
-   * */
   public stateControls = () => {
     const stateOrchestrator = this.getStateOrchestrator();
 
     const { getMetadata, getState } = this;
 
     return [getState, stateOrchestrator, getMetadata] as [
-      StateGetter<State>,
-      typeof stateOrchestrator,
-      MetadataGetter<Metadata>
+      retriever: StateGetter<State>,
+      mutator: typeof stateOrchestrator,
+      metadata: MetadataGetter<Metadata>
     ];
   };
 
@@ -628,36 +582,13 @@ export class GlobalStore<
    * @returns {StateMutator} - The state setter or the actions map
    * */
   protected getStateOrchestrator = (): PublicStateMutator => {
-    return Object.assign(
-      (() => {
-        if (this.actions) {
-          return this.actions;
-        }
+    return (() => {
+      if (this.actions) {
+        return this.actions;
+      }
 
-        return this.setStateWrapper;
-      })()
-    ) as PublicStateMutator;
-  };
-
-  /**
-   * Calculate whenever or not we should compute the callback parameters on the state change
-   * @returns {boolean} - True if we should compute the callback parameters on the state change
-   * */
-  protected hasStateCallbacks = (): boolean => {
-    const { computePreventStateChange, onStateChanged } = this;
-
-    const {
-      computePreventStateChange: computePreventStateChangeFromConfig,
-      onStateChanged: onStateChangedFromConfig,
-    } = this.config;
-
-    const preventStateChangesCalls = computePreventStateChange || computePreventStateChangeFromConfig;
-
-    const stateChangeCalls = onStateChanged || onStateChangedFromConfig;
-
-    const shouldComputeParameter = preventStateChangesCalls || stateChangeCalls;
-
-    return !!shouldComputeParameter;
+      return this.setStateWrapper;
+    })() as PublicStateMutator;
   };
 
   /**
@@ -667,10 +598,9 @@ export class GlobalStore<
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
   protected setStateWrapper: StateSetter<State> = (setter, { forceUpdate, identifier } = {}) => {
-    const isSetterFunction = typeof setter === 'function';
     const previousState = this.stateWrapper.state;
 
-    const newState = isSetterFunction ? (setter as (state: State) => State)(previousState) : setter;
+    const newState = isFunction(setter) ? (setter as (state: State) => State)(previousState) : setter;
 
     // if the state didn't change, we don't need to do anything
     if (!forceUpdate && Object.is(this.stateWrapper.state, newState)) return;
@@ -686,30 +616,30 @@ export class GlobalStore<
       previousState,
       state: newState,
       identifier,
-    } as unknown as StoreAPI & StateChanges<State>;
+    } as StoreTools<State, Metadata> & StateChanges<State>;
 
     const { computePreventStateChange } = this;
-    const { computePreventStateChange: computePreventStateChangeFromConfig } = this.config;
+    const computePreventStateChangeFromConfig = this.callbacks?.computePreventStateChange;
 
-    // check if the state change should be prevented
     if (computePreventStateChange || computePreventStateChangeFromConfig) {
-      const preventStateChange =
+      const shouldPreventStateChange =
         computePreventStateChange?.(callbackParameter) ||
         computePreventStateChangeFromConfig?.(
           callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>
         );
 
-      if (preventStateChange) return;
+      if (shouldPreventStateChange) return;
     }
 
-    this.setState({
-      forceUpdate,
-      identifier,
-      state: newState,
-    });
+    this.setState(
+      {
+        state: newState,
+      },
+      { forceUpdate, identifier }
+    );
 
     const { onStateChanged } = this;
-    const { onStateChanged: onStateChangedFromConfig } = this.config;
+    const onStateChangedFromConfig = this.callbacks?.onStateChanged;
 
     if (!onStateChanged && !onStateChangedFromConfig) return;
 
@@ -723,46 +653,135 @@ export class GlobalStore<
    * This creates a map of actions that can be used to modify or interact with the state
    * @returns {ActionCollectionResult<State, Metadata, StateMutator>} - The actions map result of the configuration object passed to the constructor
    * */
-  protected getStoreActionsMap = (): ActionCollectionResult<State, Metadata, ActionsConfig> => {
-    if (!this.actionsConfig) return null;
+  public getStoreActionsMap = (): null | ActionCollectionResult<
+    State,
+    Metadata,
+    NonNullable<ActionsConfig>
+  > => {
+    if (!isRecord(this.actionsConfig)) return null;
 
     const { actionsConfig, setMetadata, setStateWrapper, getState, getMetadata } = this;
-
     const actionsKeys = Object.keys(actionsConfig);
 
     // we bind the functions to the actions object to allow reusing actions in the same api config by using the -this- keyword
-    const actions: ActionCollectionResult<State, Metadata, ActionsConfig> = actionsKeys.reduce(
-      (accumulator, action_key) => {
-        Object.assign(accumulator, {
-          [action_key](...parameters: unknown[]) {
-            const actionConfig = actionsConfig[action_key];
-            const action = actionConfig.apply(actions, parameters);
-            const actionIsNotAFunction = typeof action !== 'function';
+    const actions = actionsKeys.reduce((accumulator, action_key) => {
+      Object.assign(accumulator, {
+        [action_key](...parameters: unknown[]) {
+          const actionConfig = actionsConfig[action_key] as (
+            ...args: unknown[]
+          ) => (...args: unknown[]) => unknown;
 
-            // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
-            if (actionIsNotAFunction) {
-              throwWrongKeyOnActionCollectionConfig(action_key);
-            }
+          const action = actionConfig.apply(actions, parameters);
+          const actionIsNotAFunction = typeof action !== 'function';
 
-            // executes the actions bringing access to the state setter and a copy of the state
-            const result = action.call(actions, {
-              setState: setStateWrapper,
-              getState,
-              setMetadata,
-              getMetadata,
-              actions: actions,
-            });
+          // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
+          if (actionIsNotAFunction) {
+            throwWrongKeyOnActionCollectionConfig(action_key);
+          }
 
-            // we return the result of the actions to the invoker
-            return result;
-          },
-        });
+          // executes the actions bringing access to the state setter and a copy of the state
+          const result = action.call(actions, {
+            setState: setStateWrapper as StateSetter<unknown>,
+            getState,
+            setMetadata: setMetadata as MetadataSetter<BaseMetadata>,
+            getMetadata: getMetadata as MetadataGetter<BaseMetadata>,
+            actions: actions,
+          });
 
-        return accumulator;
-      },
-      {} as ActionCollectionResult<State, Metadata, ActionsConfig>
-    );
+          // we return the result of the actions to the invoker
+          return result;
+        },
+      });
+
+      return accumulator;
+    }, {} as ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>);
 
     return actions;
   };
+
+  public createObservable<Fragment>(
+    mainSelector: (state: State) => Fragment,
+    {
+      isEqualRoot: mainIsEqualRoot,
+      isEqual: mainIsEqualFun,
+      name: selectorName,
+    }: {
+      isEqual?: (current: Fragment, next: Fragment) => boolean;
+      isEqualRoot?: (current: State, next: State) => boolean;
+      name?: string;
+    } = {}
+  ): ObservableFragment<Fragment> {
+    const [rootStateRetriever] = this.stateControls() as unknown as [StateGetter<State>];
+    const subscriptions: (() => void)[] = [];
+
+    let root = rootStateRetriever();
+    let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever());
+
+    rootStateRetriever(
+      (newRoot) => {
+        const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
+
+        if (isRootEqual) return;
+
+        root = newRoot;
+
+        const newRootDerivate = mainSelector(newRoot);
+        const isRootDerivateEqual = (mainIsEqualFun ?? Object.is)(rootDerivate, newRootDerivate);
+
+        if (isRootDerivateEqual) return;
+
+        rootDerivate = newRootDerivate;
+
+        subscriptions.forEach((update) => update());
+      },
+      { skipFirst: true }
+    );
+
+    const getFragment = (
+      param1?: SubscribeCallback<unknown> | SelectorCallback<unknown, unknown>,
+      param2?: SubscribeCallback<unknown>,
+      param3?: SubscribeCallbackConfig<unknown>
+    ) => {
+      debugger;
+      // if there is no subscription callback return the state
+      if (!param1) return rootDerivate;
+
+      const hasExplicitSelector = isFunction(param2);
+      const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
+      const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
+      const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
+      const executeCallback = () => callback(selector ? selector(rootDerivate) : rootDerivate);
+
+      if (!config?.skipFirst) {
+        executeCallback();
+      }
+
+      const subscription = () => {
+        executeCallback();
+      };
+
+      subscriptions.push(subscription);
+
+      return () => {
+        subscriptions.splice(subscriptions.indexOf(subscription), 1);
+      };
+    };
+
+    const observable = getFragment as ObservableFragment<Fragment>;
+
+    observable._name = `${this._name}-${selectorName ?? uniqueId()}`;
+
+    observable.createObservable = this.createObservable.bind(
+      observable
+    ) as unknown as typeof observable.createObservable;
+
+    // parasite the state controls to allow endless observables
+    (
+      observable as unknown as {
+        stateControls: () => Readonly<[retriever: StateGetter<Fragment>]>;
+      }
+    ).stateControls = () => [observable];
+
+    return observable;
+  }
 }

@@ -1,17 +1,15 @@
-import React from "react";
+import React from 'react';
 
 beforeEach(() => {
-  spyOn(React, "useState").and.callFake(((initialState) => {
-    const value =
-      typeof initialState === "function" ? initialState() : initialState;
+  spyOn(React, 'useState').and.callFake(((initialState) => {
+    const value = typeof initialState === 'function' ? initialState() : initialState;
 
     const setState = jest.fn(
       (() => {
         let state;
 
         return jest.fn((setter) => {
-          const newState =
-            typeof setter === "function" ? setter(state) : setter;
+          const newState = typeof setter === 'function' ? setter(state) : setter;
 
           state = newState;
         });
@@ -55,13 +53,13 @@ beforeEach(() => {
     return value;
   });
 
-  spyOn(React, "useEffect").and.callFake(mockMemo);
+  spyOn(React, 'useEffect').and.callFake(mockMemo);
 
-  spyOn(React, "useLayoutEffect").and.callFake(mockMemo);
+  spyOn(React, 'useLayoutEffect').and.callFake(mockMemo);
 
-  spyOn(React, "useMemo").and.callFake(mockMemo);
+  spyOn(React, 'useMemo').and.callFake(mockMemo);
 
-  spyOn(React, "useRef").and.callFake(mockUseRef);
+  spyOn(React, 'useRef').and.callFake(mockUseRef);
 });
 
 afterEach(() => {

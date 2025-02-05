@@ -1,6 +1,5 @@
 import { createDecoupledPromise } from 'cancelable-promise-jq';
 import { formatToStore } from 'json-storage-formatter';
-import { Subscribe, SubscriberCallback } from '../src/GlobalStore.types';
 import { GlobalStore, asyncStorage, createGlobalState } from './GlobalStoreAsync';
 
 describe('GlobalStoreAsync Basics', () => {
@@ -13,8 +12,8 @@ describe('GlobalStoreAsync Basics', () => {
       const { promise: onStateChangedPromise, resolve: onStateChangedResolve } = createDecoupledPromise();
 
       const storage = new GlobalStore(0, {
+        asyncStorageKey: 'counter',
         metadata: {
-          asyncStorageKey: 'counter',
           isAsyncStorageReady: false,
         },
       });
@@ -77,12 +76,14 @@ describe('createGlobalState', () => {
         metadata: {
           propFromMetadata: 0,
         },
-        onStateChanged: onStateChangedResolve,
-      } as const);
+        callbacks: {
+          onStateChanged: onStateChangedResolve,
+        },
+      });
 
       let [data, setData, metadata] = useData();
 
-      expect(metadata.isAsyncStorageReady).toBe(null);
+      expect(metadata.isAsyncStorageReady).toBe(undefined);
 
       await onStateChangedPromise;
 
@@ -128,22 +129,20 @@ describe('getter subscriptions custom global state', () => {
     const subscriptionSpy = jest.fn();
     const subscriptionDerivateSpy = jest.fn();
 
-    const callback = jest.fn(((subscribe) => {
-      subscribe((state) => {
-        subscriptionSpy(state);
-      });
+    const callback1 = jest.fn((state) => {
+      subscriptionSpy(state);
+    });
 
-      subscribe(
-        (state) => {
-          return state.a;
-        },
-        (derivate) => {
-          subscriptionDerivateSpy(derivate);
-        }
-      );
-    }) as SubscriberCallback<typeof state>);
+    const callback2 = jest.fn((state) => {
+      return state.a;
+    });
 
-    const removeSubscription = getter<Subscribe>(callback);
+    const removeSubscriptions = [
+      getter(callback1),
+      getter(callback2, (derivate) => {
+        subscriptionDerivateSpy(derivate);
+      }),
+    ];
 
     expect(subscriptionSpy).toBeCalledTimes(1);
     expect(subscriptionSpy).toBeCalledWith(state);
@@ -165,7 +164,7 @@ describe('getter subscriptions custom global state', () => {
     // the derivate should not be called since it didn't change
     expect(subscriptionDerivateSpy).toBeCalledTimes(1);
 
-    removeSubscription();
+    removeSubscriptions.forEach((remove) => remove());
 
     setter((state) => ({
       ...state,

@@ -3,26 +3,22 @@ import {
   UnsubscribeCallback,
   SelectorCallback,
   UseHookConfig,
-  Subscribe,
   SubscribeCallback,
   SubscribeCallbackConfig,
-  SubscribeToEmitter,
-  SubscriberCallback,
   StateHook,
+  BaseMetadata,
 } from './GlobalStore.types';
 import { debounce, shallowCompare } from './GlobalStore.utils';
 import { useState, useEffect } from 'react';
-import { throwNoSubscribersWereAdded } from './GlobalStore';
 
 /**
- * @deprecated will be removed in the next major version, use combineAsyncGettersEmitter instead
  * @description
  * This function allows you to create a derivate state by merging the state of multiple hooks.
  * The update of the derivate state is debounced to avoid unnecessary re-renders.
  * By default, the debounce delay is 0, but you can change it by passing a delay in milliseconds as the third parameter.
  * @returns a tuple with the following elements: [subscribe, getState, dispose]
  */
-export const combineAsyncGettersEmitter = <
+export const combineRetrieverEmitterAsynchronously = <
   TDerivate,
   TArguments extends StateGetter<unknown>[],
   TResults = {
@@ -61,13 +57,11 @@ export const combineAsyncGettersEmitter = <
     subscribers.forEach((childCallback) => childCallback());
   }, parameters?.config?.delay);
 
-  const getterSubscriptions = getters.map((useHook, index) =>
-    useHook<Subscribe>((subscribe) => {
-      subscribe((value) => {
-        dictionary.set(index, value);
+  const getterSubscriptions = getters.map((stateRetriever, index) =>
+    stateRetriever((value) => {
+      dictionary.set(index, value);
 
-        updateMainState();
-      });
+      updateMainState();
     })
   );
 
@@ -129,55 +123,48 @@ export const combineAsyncGettersEmitter = <
     };
   };
 
-  const stateGetter = (<TCallback extends SubscriberCallback<TDerivate> | null>($callback?: TCallback) => {
+  const stateGetter = ((
+    ...args: [
+      param1: SubscribeCallback<unknown> | SelectorCallback<unknown, unknown>,
+      param2?: SubscribeCallback<unknown> | SubscribeCallbackConfig<unknown>,
+      param3?: SubscribeCallbackConfig<unknown>
+    ]
+  ) => {
+    const [param1] = args;
+
     // if there is no subscription callback return the state
-    if (!$callback) return parentState;
+    if (!param1) return parentState;
 
-    const internalSubscribers: UnsubscribeCallback[] = [];
-
-    $callback(((...parameters) => {
-      internalSubscribers.push(subscribe(...parameters));
-    }) as SubscribeToEmitter<TDerivate>);
-
-    if (!internalSubscribers.length) {
-      throwNoSubscribersWereAdded();
-    }
-
-    return () => {
-      internalSubscribers.forEach((unsubscribe) => {
-        unsubscribe();
-
-        subscribers.delete(unsubscribe);
-      });
-    };
-  }) as StateGetter<TDerivate>;
+    return subscribe(...args);
+  }) as StateGetter<unknown>;
 
   return [
-    subscribe as SubscribeToEmitter<TDerivate>,
+    subscribe,
     stateGetter,
-    (() => {
+    () => {
       getterSubscriptions.forEach((unsubscribe) => unsubscribe());
-    }) as UnsubscribeCallback,
-  ] as [subscribe: SubscribeToEmitter<TDerivate>, getState: typeof stateGetter, dispose: UnsubscribeCallback];
+    },
+  ] as [subscribe: StateGetter<TDerivate>, getState: typeof stateGetter, dispose: UnsubscribeCallback];
 };
 
-export const combineRetrieverEmitterAsynchronously = combineAsyncGettersEmitter;
+// {
+//     [K in keyof TArguments]: TArguments[K] extends () => infer TResult
+//       ? Exclude<TResult, UnsubscribeCallback>
+//       : never;
+//   }
 
 /**
- * @deprecated will be removed in the next major version use combineRetrieverAsynchronously
  * @description
  * This function allows you to create a derivate state by merging the state of multiple hooks.
  * The update of the derivate state is debounced to avoid unnecessary re-renders.
  * By default, the debounce delay is 0, but you can change it by passing a delay in milliseconds as the third parameter.
  * @returns A tuple containing the subscribe function, the state getter and the dispose function
  */
-export const combineAsyncGetters = <
+export const combineRetrieverAsynchronously = <
   TDerivate,
-  TArguments extends StateGetter<unknown>[],
+  TArguments extends ReadonlyArray<StateGetter<unknown>>,
   TResults = {
-    [K in keyof TArguments]: TArguments[K] extends () => infer TResult
-      ? Exclude<TResult, UnsubscribeCallback>
-      : never;
+    [K in keyof TArguments]: TArguments[K] extends StateGetter<infer R> ? R : never;
   }
 >(
   parameters: {
@@ -188,10 +175,7 @@ export const combineAsyncGetters = <
   },
   ...args: TArguments
 ) => {
-  const [subscribe, getState, dispose] = combineAsyncGettersEmitter<TDerivate, TArguments, TResults>(
-    parameters,
-    ...args
-  );
+  const [subscribe, getState, dispose] = combineRetrieverEmitterAsynchronously(parameters, ...args);
 
   const useHook = (<State = TDerivate>(
     selector?: SelectorCallback<TDerivate, State>,
@@ -202,7 +186,7 @@ export const combineAsyncGetters = <
     const [state, setState] = useState<State>(() => {
       const parentState = getState();
 
-      return selector ? selector(parentState) : (parentState as unknown as State);
+      return selector ? selector(parentState as TDerivate) : (parentState as unknown as State);
     });
 
     useEffect(() => {
@@ -218,8 +202,8 @@ export const combineAsyncGetters = <
         (state) => {
           return selector ? selector(state) : (state as unknown as State);
         },
-        debounce((state) => {
-          const newState = selector ? selector(state) : (state as unknown as State);
+        debounce((state: State) => {
+          const newState = selector ? selector(state as unknown as TDerivate) : (state as State);
 
           if (compareCallback?.(state, newState)) return;
 
@@ -233,7 +217,7 @@ export const combineAsyncGetters = <
     }, []);
 
     return [state, null, null];
-  }) as unknown as StateHook<TDerivate, null, null>;
+  }) as unknown as StateHook<TDerivate, null, BaseMetadata>;
 
   return [useHook, getState, dispose] as [
     useHook: typeof useHook,
@@ -241,5 +225,3 @@ export const combineAsyncGetters = <
     dispose: UnsubscribeCallback
   ];
 };
-
-export const combineRetrieverAsynchronously = combineAsyncGetters;

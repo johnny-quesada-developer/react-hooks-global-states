@@ -1,29 +1,20 @@
 export type StateSetter<State> = (
   setter: State | ((state: State) => State),
-  /**
-   * This parameter indicate whether we should force the re-render of the subscribers even if the state is the same,
-   * Do
-   */
-  {
-    forceUpdate,
-  }?: {
+  meta?: {
     /**
      * @description you can add an identifier to the state call
      * this will show up in the devtools to help you identify from where the state change was called
      */
-    identifier?: string;
+    identifier?: string | undefined;
     /**
      * @deprecated forceUpdate normally should not be used inside components
      * Use this flag just in custom implementations of the global store
      */
-    forceUpdate?: boolean;
+    forceUpdate?: boolean | undefined;
   }
 ) => void;
 
-export type StateHook<State, StateMutator, Metadata extends BaseMetadata> = (<Derivate = State>(
-  selector?: (state: State) => Derivate,
-  config?: UseHookConfig<Derivate, State>
-) => Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>) & {
+export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | unknown> = {
   /**
    * @description Return the state controls of the hook
    * This selectors includes:
@@ -41,35 +32,58 @@ export type StateHook<State, StateMutator, Metadata extends BaseMetadata> = (<De
    * The selector hook will be evaluated only if the result of the selector changes and the equality function returns false
    * you can customize the equality function by passing the isEqualRoot and isEqual parameters
    */
-  createSelectorHook: <
-    RootState,
-    StateMutator,
-    Metadata extends BaseMetadata,
-    RootSelectorResult,
-    RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
-  >(
-    this: StateHook<RootState, StateMutator, Metadata>,
-    mainSelector?: (state: RootState) => RootSelectorResult,
-    {
-      isEqualRoot,
-      isEqual,
-      name,
-    }?: Omit<UseHookConfig<RootDerivate, RootState>, 'dependencies'> & {
+  createSelectorHook: <Derivate>(
+    this: StateHook<State, StateMutator, Metadata>,
+    selector: (state: State) => Derivate,
+    args?: Omit<UseHookConfig<Derivate, State>, 'dependencies'> & {
       name?: string;
     }
-  ) => StateHook<RootDerivate, StateMutator, Metadata>;
+  ) => StateHook<Derivate, StateMutator, Metadata>;
+
+  createObservable: <Fragment>(
+    this: StateHook<State, StateMutator, Metadata>,
+    mainSelector: (state: State) => Fragment,
+    args?: {
+      isEqual?: (current: Fragment, next: Fragment) => boolean;
+      isEqualRoot?: (current: State, next: State) => boolean;
+      name?: string;
+    }
+  ) => ObservableFragment<Fragment>;
 };
 
-export type MetadataSetter<Metadata extends BaseMetadata> = (
+export type ObservableFragment<State> = StateGetter<State> & {
+  createObservable: <Fragment>(
+    this: ObservableFragment<State>,
+    mainSelector: (state: State) => Fragment,
+    args?: {
+      isEqual?: (current: Fragment, next: Fragment) => boolean;
+      isEqualRoot?: (current: State, next: State) => boolean;
+      name?: string;
+    }
+  ) => ObservableFragment<Fragment>;
+
+  _name: string | undefined;
+};
+
+export interface StateHook<State, StateMutator, Metadata extends BaseMetadata | unknown>
+  extends HookExtensions<State, StateMutator, Metadata> {
+  (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]> &
+    HookExtensions<State, StateMutator, Metadata>;
+
+  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
+    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
+  > &
+    HookExtensions<Derivate, StateMutator, Metadata>;
+}
+
+export type MetadataSetter<Metadata extends BaseMetadata | unknown> = (
   setter: Metadata | ((metadata: Metadata) => Metadata)
 ) => void;
 
 export type StateChanges<State> = {
   state: State;
-
-  previousState?: State;
-
-  identifier?: string;
+  previousState: State | undefined;
+  identifier: string | undefined;
 };
 
 /**
@@ -77,61 +91,50 @@ export type StateChanges<State> = {
  **/
 export type StoreTools<
   State,
-  Metadata extends BaseMetadata = BaseMetadata,
-  Actions = Record<string, (...args: any[]) => void>
+  Metadata extends BaseMetadata | unknown = BaseMetadata,
+  Actions extends undefined | unknown | Record<string, (...args: any[]) => any> = unknown
 > = {
   setMetadata: MetadataSetter<Metadata>;
-
   setState: StateSetter<State>;
-
   getState: StateGetter<State>;
-
   getMetadata: () => Metadata;
-
   actions: Actions;
 };
 
 /**
  * contract for the storeActionsConfig configuration
  */
-export interface ActionCollectionConfig<State, Metadata extends BaseMetadata> {
-  readonly [key: string]: (
-    ...parameters: any[]
-  ) => (
-    storeTools: StoreTools<State, Metadata, Record<string, (...parameters: any[]) => unknown | void>>
-  ) => unknown | void;
+export interface ActionCollectionConfig<
+  State,
+  Metadata extends BaseMetadata | unknown,
+  ThisAPI = Record<string, (...parameters: any[]) => unknown>
+> {
+  readonly [key: string]: {
+    (this: ThisAPI, ...parameters: any[]): (
+      this: ThisAPI,
+      storeTools: StoreTools<State, Metadata, Record<string, (...parameters: any[]) => unknown | void>>
+    ) => unknown | void;
+  };
 }
 
 export type ActionCollectionResult<
   State,
-  Metadata extends BaseMetadata,
+  Metadata extends BaseMetadata | unknown,
   ActionsConfig extends ActionCollectionConfig<State, Metadata>
 > = {
-  [key in keyof ActionsConfig]: (
-    ...params: Parameters<ActionsConfig[key]>
-  ) => ReturnType<ReturnType<ActionsConfig[key]>>;
+  [key in keyof ActionsConfig]: {
+    (...params: Parameters<ActionsConfig[key]>): ReturnType<ReturnType<ActionsConfig[key]>>;
+  };
 };
 
-export type GlobalStoreConfig<State, Metadata extends BaseMetadata> = {
-  /**
-   * non reactive information that you want to store in the store
-   * */
-  metadata?: Metadata;
-
+export type GlobalStoreCallbacks<State, Metadata extends BaseMetadata | unknown> = {
   onInit?: (args: StoreTools<State, Metadata>) => void;
-
   onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
-
   onSubscribed?: (args: StoreTools<State, Metadata>) => void;
-
   computePreventStateChange?: (args: StoreTools<State, Metadata> & StateChanges<State>) => boolean;
 };
 
-export type UseHookConfig<State, TRoot = any> = {
-  /**
-   * The callback to execute when the state is changed to check if the same really changed
-   * If the function is not provided the derived state will perform a shallow comparison
-   */
+export type UseHookConfig<State, TRoot = unknown> = {
   isEqual?: (current: State, next: State) => boolean;
   isEqualRoot?: (current: TRoot, next: TRoot) => boolean;
   dependencies?: unknown[];
@@ -152,89 +155,50 @@ export type SubscribeCallbackConfig<State> = UseHookConfig<State> & {
 export type SubscribeCallback<State> = (state: State) => void;
 
 /**
- * Callback function to subscribe to the store changes from a getter
+ * get the current state or subscribe to the state changes
  */
-export type SubscriberCallback<State> = (subscribe: SubscribeToEmitter<State>) => void;
+export type StateGetter<State> = {
+  (): State;
 
-/**
- * Callback function to get the current state of the store or to subscribe to the store changes
- * @template State - the type of the state
- * @param {SubscriberCallback<State> | null} callback - the callback function to subscribe to the store changes (optional)
- * use the methods subscribe and subscribeSelect to subscribe to the store changes
- * if you don't pass a callback function the hook will return the current state of the store
- * @returns {UnsubscribeCallback | State} result - the state or the unsubscribe callback if you pass a callback function
- */
-export type StateGetter<State> = <Subscription extends Subscribe | false = false>(
-  /**
-   * @param {SubscriberCallback<State> | null} callback - the callback function to subscribe to the store changes (optional)
-   * use the methods subscribe and subscribeSelect to subscribe to the store changes
-   */
-  callback?: Subscription extends Subscribe ? SubscriberCallback<State> : null
-) => Subscription extends Subscribe ? UnsubscribeCallback : State;
+  (subscription: SubscribeCallback<State>, config?: SubscribeCallbackConfig<State>): UnsubscribeCallback;
 
-export type BaseMetadata = {
-  name?: string;
-} & Record<string, any>;
+  <TDerivate>(
+    selector: SelectorCallback<State, TDerivate>,
+    subscription: SubscribeCallback<TDerivate>,
+    config?: SubscribeCallbackConfig<TDerivate>
+  ): UnsubscribeCallback;
+};
 
-export type MetadataGetter<Metadata extends BaseMetadata> = () => Metadata;
+export type BaseMetadata = Record<string, unknown>;
 
-/**
- * Constant value type to indicate that the getter is a subscription
- */
-export type Subscribe = true;
+export type MetadataGetter<Metadata extends BaseMetadata | unknown> = () => Metadata;
 
-export type CustomGlobalHookBuilderParams<TInheritMetadata extends BaseMetadata, TCustomConfig> = {
-  onInitialize: (args: StoreTools<any, TInheritMetadata>, config: TCustomConfig) => void;
-  onChange: (args: StoreTools<any, TInheritMetadata> & StateChanges<any>, config: TCustomConfig) => void;
+export type CustomGlobalHookBuilderParams<
+  TCustomConfig extends BaseMetadata | unknown,
+  Metadata extends BaseMetadata | unknown
+> = {
+  onInitialize?: (args: StoreTools<unknown, Metadata, unknown>, config: TCustomConfig | undefined) => void;
+  onChange?: (
+    args: StoreTools<unknown, Metadata, unknown> & StateChanges<unknown>,
+    config: TCustomConfig | undefined
+  ) => void;
 };
 
 export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
 
-/**
- * @description
- * Function to subscribe to the store changes
- * @returns {UnsubscribeCallback} result - Function to unsubscribe from the store
- */
-export type SubscribeToEmitter<State> = <
-  TParam1 extends SubscribeCallback<State> | SelectorCallback<State, unknown>,
-  TResult = ReturnType<TParam1>,
-  TConfig = TResult extends void | null | undefined | never
-    ? SubscribeCallbackConfig<State>
-    : SubscribeCallbackConfig<TResult>,
-  TParam2 extends SubscribeCallbackConfig<State> | SubscribeCallback<TResult> = TResult extends
-    | void
-    | null
-    | undefined
-    | never
-    ? TConfig
-    : SubscribeCallback<TResult>,
-  TParam3 = TResult extends void | null | undefined | never ? never : TConfig
->(
-  /**
-   * @description
-   * The callback function to subscribe to the store changes or a selector function to derive the state
-   */
-  param1: TParam1,
-
-  /**
-   * @description
-   * The configuration object or the callback function to subscribe to the store changes
-   */
-  param2?: TParam2,
-
-  /**
-   * @description
-   * The configuration object
-   */
-  param3?: TParam3
-) => UnsubscribeCallback;
-
 export type SubscriberParameters = {
   subscriptionId: string;
-  selector: SelectorCallback<any, any>;
-  config: UseHookConfig<any> | SubscribeCallbackConfig<any>;
+  selector: SelectorCallback<unknown, unknown> | undefined;
+  config: UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
   currentState: unknown;
-  callback: SubscriptionCallback;
+  callback:
+    | SubscriptionCallback
+    | React.Dispatch<
+        React.SetStateAction<{
+          state: unknown;
+        }>
+      >;
+  isSetStateCallback: boolean;
 };
 
 /**
@@ -244,6 +208,7 @@ export type SubscriberParameters = {
  * @param {unknown} params.state - The new state
  * @param {string} params.identifier - Optional identifier for the setState call
  */
-export type SubscriptionCallback = (params: { state: unknown; identifier?: string }) => void;
-
-export type SetStateCallback = (parameters: { state: unknown }) => void;
+export type SubscriptionCallback<State = unknown> = (
+  params: { state: State },
+  args: { identifier?: string }
+) => void;

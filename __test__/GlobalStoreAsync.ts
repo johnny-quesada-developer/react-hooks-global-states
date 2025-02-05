@@ -2,7 +2,7 @@ import { GlobalStoreAbstract } from '../src/GlobalStoreAbstract';
 
 import {
   ActionCollectionConfig,
-  GlobalStoreConfig,
+  GlobalStoreCallbacks,
   StateChanges,
   StoreTools,
 } from '../src/GlobalStore.types';
@@ -16,13 +16,26 @@ export const { fakeAsyncStorage: asyncStorage } = getFakeAsyncStorage();
 export class GlobalStore<
   State,
   Metadata extends {
-    asyncStorageKey?: string;
     isAsyncStorageReady?: boolean;
-  } = {},
-  ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {} = null
+  },
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | unknown
 > extends GlobalStoreAbstract<State, Metadata, ActionsConfig> {
-  constructor(state: State, config?: GlobalStoreConfig<State, Metadata>, actionsConfig?: ActionsConfig) {
-    super(state, config, actionsConfig);
+  public asyncStorageKey?: string;
+
+  constructor(
+    state: State,
+    args: {
+      metadata?: Metadata;
+      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      actions?: ActionsConfig;
+      name?: string;
+      asyncStorageKey?: string;
+    } = {}
+  ) {
+    const { asyncStorageKey, ...rest } = args;
+    super(state, rest);
+
+    this.asyncStorageKey = asyncStorageKey;
 
     this.initialize();
   }
@@ -33,12 +46,10 @@ export class GlobalStore<
     getMetadata,
     getState,
   }: StoreTools<State, Metadata>) => {
+    if (!this.asyncStorageKey) return;
+
     const metadata = getMetadata();
-    const asyncStorageKey = metadata?.asyncStorageKey;
-
-    if (!asyncStorageKey) return;
-
-    const storedItem = (await asyncStorage.getItem(asyncStorageKey)) as string;
+    const storedItem = (await asyncStorage.getItem(this.asyncStorageKey)) as string;
     setMetadata({
       ...metadata,
       isAsyncStorageReady: true,
@@ -58,8 +69,8 @@ export class GlobalStore<
     setState(items, { forceUpdate: true });
   };
 
-  protected onChange = ({ getMetadata, getState }: StoreTools<State, Metadata> & StateChanges<State>) => {
-    const asyncStorageKey = getMetadata()?.asyncStorageKey;
+  protected onChange = ({ getState }: StoreTools<State, Metadata> & StateChanges<State>) => {
+    const asyncStorageKey = this.asyncStorageKey;
 
     if (!asyncStorageKey) return;
 
@@ -73,19 +84,18 @@ export class GlobalStore<
   };
 }
 
-type BaseMetadata = {
-  isAsyncStorageReady?: boolean;
-};
-
-type HookConfig = {
-  asyncStorageKey?: string;
-};
-
-export const createGlobalState = createCustomGlobalState<BaseMetadata, HookConfig>({
+export const createGlobalState = createCustomGlobalState<
+  {
+    asyncStorageKey?: string;
+  },
+  {
+    isAsyncStorageReady?: boolean;
+  }
+>({
   onInitialize: async ({ setState, setMetadata }, config) => {
     setMetadata((metadata) => ({
       ...(metadata ?? {}),
-      isAsyncStorageReady: null,
+      isAsyncStorageReady: undefined,
     }));
 
     const asyncStorageKey = config?.asyncStorageKey;
@@ -99,7 +109,7 @@ export const createGlobalState = createCustomGlobalState<BaseMetadata, HookConfi
     }));
 
     if (storedItem === null) {
-      return setState((state) => state, { forceUpdate: true });
+      return setState((state: unknown) => state, { forceUpdate: true });
     }
 
     const parsed = formatFromStore(storedItem, {

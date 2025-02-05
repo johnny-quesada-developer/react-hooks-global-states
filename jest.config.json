@@ -1,10 +1,6 @@
 {
-  "testEnvironment": "node",
-  "collectCoverageFrom": [
-    "./src/*.ts",
-    "./__tests__/*.tsx",
-    "./__tests__/*.ts"
-  ],
+  "testEnvironment": "jsdom",
+  "collectCoverageFrom": ["./src/*.ts", "./__tests__/*.tsx", "./__tests__/*.ts"],
   "coverageDirectory": "./coverage",
   "coverageReporters": ["text", "html"],
   "setupFilesAfterEnv": ["./jestSetup.ts"],

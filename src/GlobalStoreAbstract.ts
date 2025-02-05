@@ -1,10 +1,4 @@
-import {
-  ActionCollectionConfig,
-  GlobalStoreConfig,
-  StoreTools,
-  BaseMetadata,
-  StateChanges,
-} from './GlobalStore.types';
+import { ActionCollectionConfig, StoreTools, BaseMetadata, StateChanges } from './GlobalStore.types';
 
 import { GlobalStore } from './GlobalStore';
 
@@ -16,13 +10,9 @@ import { GlobalStore } from './GlobalStore';
  */
 export abstract class GlobalStoreAbstract<
   State,
-  Metadata extends BaseMetadata,
-  ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {} = null
+  Metadata extends BaseMetadata | unknown,
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | unknown
 > extends GlobalStore<State, Metadata, ActionsConfig> {
-  constructor(state: State, config: GlobalStoreConfig<State, Metadata>, actionsConfig: ActionsConfig) {
-    super(state, config, actionsConfig);
-  }
-
   protected onInit = (args: StoreTools<State, Metadata>) => {
     this.onInitialize(args);
   };

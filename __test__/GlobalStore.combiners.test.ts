@@ -1,6 +1,5 @@
 import { createDecoupledPromise } from 'cancelable-promise-jq';
-import { Subscribe } from '../src/GlobalStore.types';
-import { combineAsyncGetters } from '../src/GlobalStore.combiners';
+import { combineRetrieverAsynchronously } from '../src/GlobalStore.combiners';
 import { createGlobalState } from '../src/GlobalStore.functionHooks';
 
 describe('combiners', () => {
@@ -13,7 +12,7 @@ describe('combiners', () => {
       b: 2,
     }).stateControls();
 
-    const [useDerivate, getter] = combineAsyncGetters(
+    const [useDerivate, getter] = combineRetrieverAsynchronously(
       {
         selector: ([a, b]) => ({
           ...a,
@@ -33,21 +32,19 @@ describe('combiners', () => {
       b: 2,
     });
 
-    let unsubscribe = getter<Subscribe>((subscribe) => {
-      subscribe(
-        (state) => {
-          return state.a;
-        },
-        (state) => {
-          expect(getter()).toEqual({
-            a: 1,
-            b: 2,
-          });
+    let unsubscribe = getter(
+      (state) => {
+        return state.a;
+      },
+      (state) => {
+        expect(getter()).toEqual({
+          a: 1,
+          b: 2,
+        });
 
-          expect(state).toEqual(1);
-        }
-      );
-    });
+        expect(state).toEqual(1);
+      }
+    );
 
     unsubscribe();
 
@@ -67,24 +64,22 @@ describe('combiners', () => {
 
     const decouplePromise = createDecoupledPromise();
 
-    unsubscribe = getter<Subscribe>((subscribe) => {
-      subscribe(
-        (state) => {
-          expect(state).toBe(getter());
+    unsubscribe = getter(
+      (state) => {
+        expect(state).toBe(getter());
 
-          expect(getter()).toEqual({
-            a: 3,
-            b: 2,
-          });
+        expect(getter()).toEqual({
+          a: 3,
+          b: 2,
+        });
 
-          unsubscribe();
-          decouplePromise.resolve();
-        },
-        {
-          skipFirst: true,
-        }
-      );
-    });
+        unsubscribe();
+        decouplePromise.resolve();
+      },
+      {
+        skipFirst: true,
+      }
+    );
 
     return decouplePromise.promise;
   });

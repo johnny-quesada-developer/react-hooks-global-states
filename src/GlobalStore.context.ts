@@ -1,4 +1,4 @@
-import { uniqueId } from './GlobalStore.utils';
+import { uniqueId, uniqueSymbol } from './GlobalStore.utils';
 import { GlobalStore } from './GlobalStore';
 import {
   ActionCollectionConfig,
@@ -6,14 +6,15 @@ import {
   StateSetter,
   ActionCollectionResult,
   StateGetter,
-  StateChanges,
   BaseMetadata,
   MetadataSetter,
+  GlobalStoreCallbacks,
   UseHookConfig,
 } from './GlobalStore.types';
 import React, { PropsWithChildren, useEffect, useImperativeHandle, useMemo } from 'react';
+import { isFunction, isNil } from 'json-storage-formatter';
 
-export type ProviderAPI<Value, Metadata> = {
+export type ContextProviderAPI<Value, Metadata extends BaseMetadata | unknown> = {
   setMetadata: MetadataSetter<Metadata>;
   setState: StateSetter<Value>;
   getState: StateGetter<Value>;
@@ -21,28 +22,24 @@ export type ProviderAPI<Value, Metadata> = {
   actions: Record<string, (...args: any[]) => void>;
 };
 
-type Provider<Value, Metadata extends BaseMetadata = BaseMetadata> = React.FC<
+export type ContextProvider<Value, Metadata extends BaseMetadata | unknown> = React.FC<
   PropsWithChildren<{
     value?: Value | ((initialValue: Value) => Value);
-    ref?: React.MutableRefObject<ProviderAPI<Value, Metadata>>;
+    ref?: React.RefObject<ContextProviderAPI<Value, Metadata>>;
   }>
 >;
 
-type Context<Value, PublicStateMutator, Metadata extends BaseMetadata> = (() => StateHook<
+export type ContextHook<
   Value,
   PublicStateMutator,
-  Metadata
->) & {
-  /**
-   * Allows you to create a selector hooks
-   * This hooks only works when contained in the scope of the provider
-   */
+  Metadata extends BaseMetadata | unknown
+> = (() => StateHook<Value, PublicStateMutator, Metadata>) & {
   createSelectorHook: <
     RootState,
     RootSelectorResult,
     RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
   >(
-    this: Context<RootState, PublicStateMutator, Metadata>,
+    this: ContextHook<RootState, PublicStateMutator, Metadata>,
     mainSelector?: (state: Value) => RootSelectorResult,
     args?: {
       isEqual?: (current: RootDerivate, next: RootDerivate) => boolean;
@@ -53,238 +50,136 @@ type Context<Value, PublicStateMutator, Metadata extends BaseMetadata> = (() => 
 };
 
 export interface CreateContext {
-  createContext<Value>(
-    state: Value
-  ): readonly [
-    Context<Value, StateSetter<Value>, BaseMetadata>,
-    Provider<Context<Value, StateSetter<Value>, BaseMetadata>>
+  <Value, Hook = ContextHook<Value, StateSetter<Value>, BaseMetadata>>(builder: () => Value): readonly [
+    Hook,
+    ContextProvider<Hook, BaseMetadata>
   ];
 
-  createContext<
-    Value,
-    Metadata extends BaseMetadata,
-    ActionsConfig extends ActionCollectionConfig<Value, Metadata> | {} | null = null,
-    StoreAPI = {
-      setMetadata: MetadataSetter<Metadata>;
-      setState: StateSetter<Value>;
-      getState: StateGetter<Value>;
-      getMetadata: () => Metadata;
-      actions: ActionsConfig extends null ? null : Record<string, (...args: any[]) => void>;
+  <Value, Metadata extends BaseMetadata | unknown, Hook = ContextHook<Value, StateSetter<Value>, Metadata>>(
+    builder: () => Value,
+    args: {
+      name?: string;
+      metadata?: unknown;
+      callbacks?: GlobalStoreCallbacks<Value, Metadata> & { onUnMount?: () => void };
     }
-  >(
-    state: Value,
-    config: Readonly<{
-      /**
-       * @deprecated We needed to move the actions parameter as a third argument to fix several issues with the type inference of the actions
-       */
-      actions?: ActionsConfig;
+  ): readonly [Hook, ContextProvider<Hook, Metadata>];
 
-      /**
-       * Non reactive information about the state
-       */
-      metadata?: Metadata;
-
-      /**
-       * executes immediately after the store is created
-       * */
-      onInit?: (args: StoreAPI) => void;
-
-      onStateChanged?: (args: StoreAPI & StateChanges<Value>) => void;
-      onSubscribed?: (args: StoreAPI) => void;
-
-      /**
-       * callback function called every time the state is about to change and it allows you to prevent the state change
-       */
-      computePreventStateChange?: (args: StoreAPI & StateChanges<Value>) => boolean;
-
-      onUnMount?: () => void;
-    }>
-  ): readonly [
-    Context<
-      Value,
-      ActionsConfig extends null
-        ? StateSetter<Value>
-        : ActionCollectionResult<Value, Metadata, ActionsConfig>,
-      Metadata
-    >,
-    Provider<
-      Context<
-        Value,
-        ActionsConfig extends null
-          ? StateSetter<Value>
-          : ActionCollectionResult<Value, Metadata, ActionsConfig>,
-        Metadata
-      >,
-      Metadata
-    >
-  ];
-
-  createContext<
+  <
     Value,
-    Metadata extends BaseMetadata,
+    Metadata extends BaseMetadata | unknown,
     ActionsConfig extends ActionCollectionConfig<Value, Metadata>,
-    StoreAPI = {
-      setMetadata: MetadataSetter<Metadata>;
-      setState: StateSetter<Value>;
-      getState: StateGetter<Value>;
-      getMetadata: () => Metadata;
-      actions: Record<string, (...args: any[]) => void>;
-    }
+    PublicStateMutator = keyof ActionsConfig extends never | undefined
+      ? StateSetter<Value>
+      : ActionCollectionResult<Value, Metadata, NonNullable<ActionsConfig>>,
+    Hook = ContextHook<Value, PublicStateMutator, Metadata>
   >(
-    state: Value,
-    config: Readonly<{
-      /**
-       * Non reactive information about the state
-       */
-      metadata?: Metadata;
+    builder: () => Value,
+    args: {
+      name?: string;
+      metadata?: unknown;
+      callbacks?: GlobalStoreCallbacks<Value, Metadata> & { onUnMount?: () => void };
+      actions?: ActionCollectionConfig<Value, Metadata>;
+    }
+  ): readonly [Hook, ContextProvider<Hook, Metadata>];
 
-      /**
-       * executes immediately after the store is created
-       * */
-      onInit?: (args: StoreAPI) => void;
-
-      onStateChanged?: (args: StoreAPI & StateChanges<Value>) => void;
-      onSubscribed?: (args: StoreAPI) => void;
-
-      /**
-       * callback function called every time the state is about to change and it allows you to prevent the state change
-       */
-      computePreventStateChange?: (args: StoreAPI & StateChanges<Value>) => boolean;
-
-      onUnMount?: () => void;
-    }>,
-    actions: ActionsConfig
-  ): readonly [
-    Context<Value, ActionCollectionResult<Value, Metadata, ActionsConfig>, Metadata>,
-    Provider<Context<Value, ActionCollectionResult<Value, Metadata, ActionsConfig>, Metadata>>
-  ];
-
-  createContext<
+  <
     Value,
-    Metadata extends BaseMetadata,
+    Metadata extends BaseMetadata | unknown,
     ActionsConfig extends ActionCollectionConfig<Value, Metadata>,
-    StoreAPI = {
-      setMetadata: MetadataSetter<Metadata>;
-      setState: StateSetter<Value>;
-      getState: StateGetter<Value>;
-      getMetadata: () => Metadata;
-    }
+    Hook = ContextHook<Value, ActionCollectionResult<Value, Metadata, ActionsConfig>, Metadata>
   >(
-    state: Value,
-    builder: () => ActionsConfig,
-    config?: Readonly<{
-      /**
-       * Non reactive information about the state
-       */
-      metadata?: Metadata;
-
-      /**
-       * executes immediately after the store is created
-       * */
-      onInit?: (args: StoreAPI) => void;
-
-      onStateChanged?: (args: StoreAPI & StateChanges<Value>) => void;
-      onSubscribed?: (args: StoreAPI) => void;
-
-      /**
-       * callback function called every time the state is about to change and it allows you to prevent the state change
-       */
-      computePreventStateChange?: (args: StoreAPI & StateChanges<Value>) => boolean;
-
-      onUnMount?: () => void;
-    }>
-  ): readonly [
-    Context<Value, ActionCollectionResult<Value, Metadata, ActionsConfig>, Metadata>,
-    Provider<Context<Value, ActionCollectionResult<Value, Metadata, ActionsConfig>, Metadata>>
-  ];
+    builder: () => Value,
+    args: {
+      name?: string;
+      metadata?: unknown;
+      callbacks?: GlobalStoreCallbacks<Value, Metadata> & { onUnMount?: () => void };
+      actions: ActionCollectionConfig<Value, Metadata>;
+    }
+  ): readonly [Hook, ContextProvider<Hook, Metadata>];
 }
 
-export const createContext = ((initialValue, ...args: any[]) => {
+export const createContext = ((
+  // a builder function that returns the initial state
+  // a builder reduce the risk of having multiple context with the same state reference
+  stateBuilder: () => unknown,
+  args: {
+    name?: string;
+    metadata?: unknown;
+    callbacks?: GlobalStoreCallbacks<unknown, unknown> & { onUnMount?: () => void };
+    actions?: ActionCollectionConfig<unknown, unknown>;
+  }
+) => {
+  // when using createSelectorHook we need to keep track of the parent hook
+  // each parent hook can have multiple child selector hooks
   const selectorHooksByParentHook: Map<
-    StateHook<any, any, any>,
-    Map<string, StateHook<any, any, any>>
+    StateHook<unknown, unknown, unknown>,
+    Map<string, StateHook<unknown, unknown, unknown>>
   > = new Map();
 
-  const context = React.createContext(null);
+  const getSelectorsMap = (hook: StateHook<unknown, unknown, unknown>) => {
+    if (!selectorHooksByParentHook.has(hook)) {
+      selectorHooksByParentHook.set(hook, new Map());
+    }
 
-  const useContext = () => {
-    return React.useContext<StateHook<any, any, any>>(context);
+    return selectorHooksByParentHook.get(hook) as Map<string, StateHook<unknown, unknown, unknown>>;
+  };
+
+  const context = React.createContext<StateHook<unknown, unknown, unknown> | typeof uniqueSymbol>(
+    uniqueSymbol
+  );
+
+  const useContext = (): StateHook<unknown, unknown, unknown> => {
+    const contextValue = React.useContext<StateHook<unknown, unknown, unknown> | typeof uniqueSymbol>(
+      context
+    );
+
+    if (contextValue === uniqueSymbol) {
+      throw new Error('context hooks need to be used inside a provider');
+    }
+
+    return contextValue;
   };
 
   /**
    * Store selectors are not created until the first time they are used
    */
-  useContext.createSelectorHook = (...createSelectorHookArgs: []) => {
+  useContext.createSelectorHook = (
+    selector: (state: unknown) => unknown,
+    args?: Omit<UseHookConfig<unknown, unknown>, 'dependencies'> & {
+      name?: string;
+    }
+  ) => {
     const selectorId = uniqueId();
 
     return (...hookArgs: []) => {
       const currentParentHook = useContext();
-      const selectorsMap = selectorHooksByParentHook.get(currentParentHook);
+      const selectorsMap = getSelectorsMap(currentParentHook);
 
       // one hook per selector and parent hook
-      if (!selectorsMap.has(selectorId)) {
-        selectorsMap.set(selectorId, currentParentHook.createSelectorHook(...createSelectorHookArgs));
+      if (selectorsMap.has(selectorId)) {
+        selectorsMap.set(selectorId, currentParentHook.createSelectorHook(selector, args));
       }
 
       const useSelectedHook = selectorsMap.get(selectorId);
+      if (isNil(useSelectedHook)) throw new Error('useSelectedHook is nil');
 
       return useSelectedHook(...hookArgs);
     };
   };
 
-  const Provider: Provider<any> = ({ children, value, ref }) => {
+  const Provider: ContextProvider<unknown, unknown> = ({ children, value, ref }) => {
     const { store, hook } = useMemo(() => {
-      const isBuilderFunction = typeof args[0] === 'function';
+      const value$ = (() => {
+        if (value === undefined) return stateBuilder();
+        if (isFunction(value)) return (value as (s: unknown) => unknown)(stateBuilder());
 
-      const { config, actionsConfig } = (() => {
-        if (isBuilderFunction) {
-          const builder = args[0];
-          const config = args[1];
-          const actionsConfig = builder();
-
-          return { config, actionsConfig };
-        }
-
-        const config = args[0];
-        const actionsConfig = args[1] ?? config?.actions;
-
-        return { config, actionsConfig };
+        return value;
       })();
 
-      const store = new GlobalStore(
-        (() => {
-          if (value) {
-            if (typeof value === 'function') return value(initialValue);
+      const store = new GlobalStore(value$, args);
 
-            return value;
-          }
-
-          return initialValue;
-        })(),
-        config,
-        actionsConfig
-      );
-
-      return { store, hook: store.getHook() };
+      return { store, hook: store.getHook() as StateHook<unknown, unknown, unknown> };
     }, []);
-
-    type Store = {
-      config: (typeof store)['config'] & {
-        onUnMount?: () => void;
-      };
-      getConfigCallbackParam: (typeof store)['getConfigCallbackParam'];
-      __onUnMountContext: (store: GlobalStore<any, any, any>, hook: StateHook<any, any, any>) => void;
-    };
-
-    useImperativeHandle(
-      ref,
-      () => {
-        if (!ref) return {} as ProviderAPI<any, any>;
-
-        return (store as unknown as Store).getConfigCallbackParam();
-      },
-      [store]
-    );
 
     if (!selectorHooksByParentHook.has(hook)) {
       selectorHooksByParentHook.set(hook, new Map());
@@ -294,13 +189,28 @@ export const createContext = ((initialValue, ...args: any[]) => {
       return () => {
         selectorHooksByParentHook.delete(hook);
 
-        (store as unknown as Store).config?.onUnMount?.();
-        (store as unknown as Store).__onUnMountContext?.(store, hook);
+        (store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
+
+        /**
+         * Required by the global hooks developer tools
+         */
+        (store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
+          store,
+          hook
+        );
       };
     }, []);
+
+    useImperativeHandle(
+      ref,
+      () => {
+        return (ref ? store.getConfigCallbackParam() : ref) as ContextProviderAPI<unknown, unknown>;
+      },
+      [store, ref]
+    );
 
     return React.createElement(context.Provider, { value: hook }, children);
   };
 
   return [useContext, Provider] as const;
-}) as unknown as CreateContext['createContext'];
+}) as CreateContext;

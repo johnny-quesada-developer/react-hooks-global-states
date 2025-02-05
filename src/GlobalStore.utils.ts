@@ -1,12 +1,6 @@
 import { isPrimitive, isDate, isNil } from 'json-storage-formatter';
+import { useRef } from 'react';
 
-/**
- * Shallow compare two values and return true if they are equal.
- * This function just compare the first level of the values.
- * @param value1
- * @param value2
- * @returns {boolean} true if the values are equal, false otherwise
- */
 export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;
   if (isEqual) return true;
@@ -70,6 +64,8 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
     }
   }
 
+  if (!isRecord(value1) || !isRecord(value2)) return value1 === value2;
+
   // for objects
   const keys1 = Object.keys(value1);
   const keys2 = Object.keys(value2);
@@ -86,10 +82,7 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
   return true;
 };
 
-/**
- * Debounce a function.
- */
-export const debounce = <T extends (...args: any[]) => any>(callback: T, delay: number = 0) => {
+export const debounce = <T extends (...args: Parameters<T>) => void>(callback: T, delay = 0) => {
   let timeout: NodeJS.Timeout;
 
   return (...args: Parameters<T>): void => {
@@ -101,12 +94,37 @@ export const debounce = <T extends (...args: any[]) => any>(callback: T, delay: 
   };
 };
 
-export const uniqueId = (() => {
+export const uniqueId = ((prefix: string = '') => {
   let counter = 0;
 
   return (): string => {
     if (counter === Number.MAX_SAFE_INTEGER) counter = 0;
 
-    return Date.now().toString(36) + (counter++).toString(36);
+    return prefix + Date.now().toString(36) + (counter++).toString(36);
   };
 })();
+
+export const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
+  throw new Error(`[WRONG CONFIGURATION!]: Every key inside the storeActionsConfig must be a higher order function that returns a function \n[${action_key}]: key is not a valid function, try something like this: \n{\n
+    ${action_key}: (param) => ({ setState, getState, setMetadata, getMetadata, actions }) => {\n
+      setState((state) => ({ ...state, ...param }))\n
+    }\n
+}\n`);
+};
+
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !isNil(value) && typeof value === 'object';
+
+export const uniqueSymbol = Symbol('unique');
+
+export type UniqueSymbol = typeof uniqueSymbol;
+
+export const useConstantValueRef = <T>(initializer: () => T) => {
+  const ref = useRef<typeof uniqueSymbol | T>(uniqueSymbol);
+
+  if (ref.current === uniqueSymbol) {
+    ref.current = initializer();
+  }
+
+  return ref as React.RefObject<T>;
+};
