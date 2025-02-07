@@ -1,5 +1,5 @@
 import { GlobalStore } from '../src/GlobalStore';
-import { CancelablePromise, createDecoupledPromise } from 'cancelable-promise-jq';
+import { CancelablePromise, createDecoupledPromise } from 'easy-cancelable-promise';
 import { StoreTools } from '../src/GlobalStore.types';
 import { useState, useEffect } from 'react';
 import { formatFromStore, formatToStore, isNil } from 'json-storage-formatter';

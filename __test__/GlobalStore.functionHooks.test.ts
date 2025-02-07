@@ -1,4 +1,4 @@
-import { createDecoupledPromise } from 'cancelable-promise-jq';
+import { createDecoupledPromise } from 'easy-cancelable-promise';
 
 import { StoreTools } from '../src/GlobalStore.types';
 

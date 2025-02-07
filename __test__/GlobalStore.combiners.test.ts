@@ -1,4 +1,4 @@
-import { createDecoupledPromise } from 'cancelable-promise-jq';
+import { createDecoupledPromise } from 'easy-cancelable-promise';
 import { combineRetrieverAsynchronously } from '../src/GlobalStore.combiners';
 import { createGlobalState } from '../src/GlobalStore.functionHooks';
 

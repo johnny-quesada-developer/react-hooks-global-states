@@ -2336,13 +2336,6 @@ camelcase@^6.0.0:
   resolved "https://registry.yarnpkg.com/camelcase/-/camelcase-6.3.0.tgz#5685b95eb209ac9c0c177467778c9c84df58ba9a"
   integrity sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==
 
-cancelable-promise-jq@^2.6.1:
-  version "2.6.1"
-  resolved "https://registry.yarnpkg.com/cancelable-promise-jq/-/cancelable-promise-jq-2.6.1.tgz#675afa5c812d452c78d33ee2990e12c9e71c0291"
-  integrity sha512-zjbhoOHVxM2afgmwu6+NXD/O61GsLOn82VbFdUQQf/L+0EWkiSHwoeHBET+LSldVDPPVWjsi3V6OLQCLwoZfGg==
-  dependencies:
-    easy-cancelable-promise "^1.0.1"
-
 caniuse-lite@^1.0.30001449:
   version "1.0.30001450"
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001450.tgz#022225b91200589196b814b51b1bbe45144cf74f"

@@ -1,4 +1,4 @@
-import { createDecoupledPromise } from 'cancelable-promise-jq';
+import { createDecoupledPromise } from 'easy-cancelable-promise';
 import { formatToStore } from 'json-storage-formatter';
 import { GlobalStore, asyncStorage, createGlobalState } from './GlobalStoreAsync';
 
