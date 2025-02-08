@@ -742,7 +742,6 @@ export class GlobalStore<
       param2?: SubscribeCallback<unknown>,
       param3?: SubscribeCallbackConfig<unknown>
     ) => {
-      debugger;
       // if there is no subscription callback return the state
       if (!param1) return rootDerivate;
 
