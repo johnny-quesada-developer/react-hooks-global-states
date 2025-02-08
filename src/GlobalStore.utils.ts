@@ -94,10 +94,10 @@ export const debounce = <T extends (...args: Parameters<T>) => void>(callback: T
   };
 };
 
-export const uniqueId = ((prefix: string = '') => {
+export const uniqueId = (() => {
   let counter = 0;
 
-  return (): string => {
+  return (prefix: string = ''): string => {
     if (counter === Number.MAX_SAFE_INTEGER) counter = 0;
 
     return prefix + Date.now().toString(36) + (counter++).toString(36);

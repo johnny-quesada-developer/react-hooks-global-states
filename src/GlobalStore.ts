@@ -86,7 +86,7 @@ export class GlobalStore<
       state,
     };
 
-    this._name = storeName ?? uniqueId();
+    this._name = storeName ?? uniqueId('gs:');
     this.metadata = metadata ?? ({} as Metadata);
     this.callbacks = callbacks ?? null;
     this.actionsConfig = actions ?? null;
@@ -244,7 +244,7 @@ export class GlobalStore<
       callback(initialState);
     }
 
-    const subscriptionId = uniqueId();
+    const subscriptionId = uniqueId('gs:');
 
     this.setOrUpdateSubscription({
       subscriptionId,
@@ -362,7 +362,7 @@ export class GlobalStore<
       useEffect(() => {
         if (isNil(hooksProps.current)) return;
         if (isNil(hooksProps.current.subscriptionId)) {
-          hooksProps.current.subscriptionId = uniqueId();
+          hooksProps.current.subscriptionId = uniqueId('ss:');
         }
 
         const subscriptionId = hooksProps.current.subscriptionId;
@@ -512,7 +512,7 @@ export class GlobalStore<
 
     // derivate states do not have lifecycle methods or actions
     const childStore = new GlobalStore(rootDerivate, {
-      name: selectorName ?? `${this._name}-${uniqueId()}`,
+      name: selectorName ?? uniqueId('sh:'),
     });
 
     const [childStateRetriever, setChildState] = childStore.stateControls();
@@ -765,7 +765,7 @@ export class GlobalStore<
 
     const observable = getFragment as ObservableFragment<Fragment>;
 
-    observable._name = `${this._name}-${selectorName ?? uniqueId()}`;
+    observable._name = selectorName ?? uniqueId('ob:');
 
     observable.createObservable = this.createObservable.bind(
       observable

@@ -117,11 +117,7 @@ export const createContext = ((
   > = new Map();
 
   const getSelectorsMap = (hook: StateHook<unknown, unknown, unknown>) => {
-    if (!selectorHooksByParentHook.has(hook)) {
-      selectorHooksByParentHook.set(hook, new Map());
-    }
-
-    return selectorHooksByParentHook.get(hook) as Map<string, StateHook<unknown, unknown, unknown>>;
+    return selectorHooksByParentHook.get(hook) ?? selectorHooksByParentHook.set(hook, new Map()).get(hook)!;
   };
 
   const context = React.createContext<StateHook<unknown, unknown, unknown> | typeof uniqueSymbol>(
@@ -149,14 +145,14 @@ export const createContext = ((
       name?: string;
     }
   ) => {
-    const selectorId = uniqueId();
+    const selectorId = uniqueId('cs:');
 
     return (...hookArgs: []) => {
       const currentParentHook = useContext();
       const selectorsMap = getSelectorsMap(currentParentHook);
 
       // one hook per selector and parent hook
-      if (selectorsMap.has(selectorId)) {
+      if (!selectorsMap.has(selectorId)) {
         selectorsMap.set(selectorId, currentParentHook.createSelectorHook(selector, args));
       }
 
@@ -204,7 +200,7 @@ export const createContext = ((
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? store.getConfigCallbackParam() : ref) as ContextProviderAPI<unknown, unknown>;
+        return (ref ? store.getConfigCallbackParam() : {}) as ContextProviderAPI<unknown, unknown>;
       },
       [store, ref]
     );
