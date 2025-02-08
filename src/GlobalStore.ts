@@ -144,7 +144,7 @@ export class GlobalStore<
     // compare the root state, there should not be a re-render if the root state is the same
     if (
       !args.forceUpdate &&
-      (config?.isEqualRoot ?? ((a, b) => Object.is(a, b)))(args.currentRootState, args.newRootState)
+      (config?.isEqualRoot ?? ((a, b) => a === b))(args.currentRootState, args.newRootState)
     ) {
       return { didUpdate: false };
     }
@@ -152,10 +152,7 @@ export class GlobalStore<
     const newChildState = selector ? selector(args.newRootState) : args.newRootState;
 
     // compare the state of the selected part of the state, there should not be a re-render if the state is the same
-    if (
-      !args.forceUpdate &&
-      (config?.isEqual ?? ((a, b) => Object.is(a, b)))(currentChildState, newChildState)
-    ) {
+    if (!args.forceUpdate && (config?.isEqual ?? ((a, b) => a === b))(currentChildState, newChildState)) {
       return { didUpdate: false };
     }
 
@@ -192,7 +189,7 @@ export class GlobalStore<
   ) => {
     const { state: currentRootState } = this.stateWrapper;
 
-    const shouldUpdate = forceUpdate || !Object.is(currentRootState, newRootState);
+    const shouldUpdate = forceUpdate || currentRootState !== newRootState;
     if (!shouldUpdate) return;
 
     this.stateWrapper = {
@@ -603,7 +600,7 @@ export class GlobalStore<
     const newState = isFunction(setter) ? (setter as (state: State) => State)(previousState) : setter;
 
     // if the state didn't change, we don't need to do anything
-    if (!forceUpdate && Object.is(this.stateWrapper.state, newState)) return;
+    if (!forceUpdate && this.stateWrapper.state === newState) return;
 
     const { setMetadata, getMetadata, getState, actions, setState } = this;
 
