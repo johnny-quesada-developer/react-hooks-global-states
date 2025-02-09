@@ -549,12 +549,19 @@ describe('custom global hooks', () => {
     };
 
     const useCount = createGlobal(initialState, {
+      actions: {
+        setCount: (count: number) => {
+          return ({ setState }) => {
+            setState({ count });
+          };
+        },
+      },
       config: {
         someExtraInfo: 'someExtraInfo',
       },
     });
 
-    const [getCount, setCount] = useCount.stateControls();
+    const [getCount, actions1] = useCount.stateControls();
 
     expect(onInitSpy).toBeCalledTimes(1);
     expect(onChangeSpy).toBeCalledTimes(0);
@@ -562,10 +569,11 @@ describe('custom global hooks', () => {
       someExtraInfo: 'someExtraInfo',
     });
 
-    let [state, setState, metadata] = useCount();
+    let [state, actions, metadata] = useCount();
 
     expect(state).toEqual(initialState);
-    expect(setState).toBeInstanceOf(Function);
+    expect(actions1).toBe(actions);
+    expect(actions.setCount).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
     expect(onInitSpy).toBeCalledTimes(1);
@@ -573,23 +581,20 @@ describe('custom global hooks', () => {
 
     expect(getCount()).toEqual(initialState);
 
-    setCount({
-      count: 2,
-    });
+    actions.setCount(2);
 
-    expect(getCount()).toEqual({
-      count: 2,
-    });
+    expect(getCount()).toEqual({ count: 2 });
 
     expect(onInitSpy).toBeCalledTimes(1);
     expect(onChangeSpy).toBeCalledTimes(1);
 
-    [state, setState, metadata] = useCount();
+    [state, actions, metadata] = useCount();
 
     expect(state).toEqual({
       count: 2,
     });
-    expect(setState).toBeInstanceOf(Function);
+
+    expect(actions.setCount).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
     expect(onInitSpy).toBeCalledTimes(1);
@@ -807,9 +812,6 @@ describe('create fragment', () => {
         test: true,
       },
       actions: {
-        metadata: {
-          test: true,
-        },
         log: (message: string) => {
           return () => {
             logSpy(message);
@@ -829,7 +831,7 @@ describe('create fragment', () => {
             $actions.log('decrease');
           };
         },
-      },
+      } as const,
     });
 
     const [getCount, $actions] = useCount.stateControls();

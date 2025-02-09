@@ -422,7 +422,7 @@ const initialState: CounterState = {
   count: 0,
 };
 
-export const [useCounterContext, CounterProvider] = createStatefulContext(initialState, () => ({
+export const [useCounterContext, CounterProvider] = createContext(initialState, () => ({
   increase: (value: number = 1) => {
     return ({ setState }: StoreTools<CounterState>) => {
       setState((state) => ({
@@ -651,29 +651,18 @@ Creating a global hook that connects to an asyncStorage is made incredibly easy 
 This function returns a new global state builder wrapped with the desired custom implementation, allowing you to get creative! Le'ts see and example:
 
 ```ts
-import { formatFromStore, formatToStore, createCustomGlobalState } = 'react-hooks-global-states'
-
-// Optional configuration available for the consumers of the builder
-type HookConfig = {
-  asyncStorageKey?: string;
-};
-
-// This is the base metadata that all the stores created from the builder will have.
-type BaseMetadata = {
-  isAsyncStorageReady?: boolean;
-};
-
 export const createGlobalState = createCustomGlobalState<
-  BaseMetadata,
-  HookConfig
+  {
+    asyncStorageKey?: string;
+  },
+  {
+    isAsyncStorageReady?: boolean;
+  }
 >({
-  /**
-   * This function executes immediately after the global state is created, before the invocations of the hook
-   */
   onInitialize: async ({ setState, setMetadata }, config) => {
     setMetadata((metadata) => ({
       ...(metadata ?? {}),
-      isAsyncStorageReady: null,
+      isAsyncStorageReady: undefined,
     }));
 
     const asyncStorageKey = config?.asyncStorageKey;
@@ -681,14 +670,13 @@ export const createGlobalState = createCustomGlobalState<
 
     const storedItem = (await asyncStorage.getItem(asyncStorageKey)) as string;
 
-    // update the metadata, remember, metadata is not reactive
     setMetadata((metadata) => ({
       ...metadata,
       isAsyncStorageReady: true,
     }));
 
     if (storedItem === null) {
-      return setState((state) => state, { forceUpdate: true });
+      return setState((state: unknown) => state, { forceUpdate: true });
     }
 
     const parsed = formatFromStore(storedItem, {
@@ -733,10 +721,10 @@ That's correct! If you add an **asyncStorageKey** to the state configuration, th
 Let's see how to use this async storage hook into our components:
 
 ```ts
-const [todos, setTodos, metadata] = useTodos();
+const [todos, setTodos, {isAsyncStorageReady}] = useTodos();
 
 return (<>
-  {metadata.isAsyncStorageReady ? <TodoList todos={todos} /> : <Text>Loading...</Text>}
+  {isAsyncStorageReady ? <TodoList todos={todos} /> : <Text>Loading...</Text>}
 <>);
 ```
 
@@ -808,58 +796,58 @@ const useData = createGlobalState(
     metadata: {
       someExtraInformation: 'someExtraInformation',
     },
-    // onSubscribed: (StateConfigCallbackParam) => {},
-    // onInit // etc
-    computePreventStateChange: ({ state, previousState }) => {
-      const prevent = isEqual(state, previousState);
+    callbacks: {
+      // onSubscribed: (StateConfigCallbackParam) => {},
+      // onInit // etc
+      computePreventStateChange: ({ state, previousState }) => {
+        const prevent = isEqual(state, previousState);
 
-      return prevent;
+        return prevent;
+      },
     },
   }
 );
 ```
 
-Finally, if you have a very specific necessity but still want to use the global hooks, you can extend the **GlobalStoreAbstract** class. This will give you even more control over the state and the lifecycle of the global state.
+Finally, if you have a very specific necessity but still want to use the global hooks, you can extend the **GlobalStoreAbstract** class.
 
 Let's see an example again with the **asyncStorage** custom global hook but with the abstract class.
 
 ```ts
 export class GlobalStore<
-  TState,
-  TMetadata extends {
-    asyncStorageKey?: string;
+  State,
+  Metadata extends {
     isAsyncStorageReady?: boolean;
-  } | null = null,
-  TStateMutator extends ActionCollectionConfig<TState, TMetadata> | StateSetter<TState> = StateSetter<TState>
-> extends GlobalStoreAbstract<TState, TMetadata, TStateMutator> {
-  constructor(
-    state: TState,
-    config: GlobalStoreConfig<TState, TMetadata, TStateMutator> = {},
-    actionsConfig: TStateMutator | null = null
-  ) {
-    super(state, config, actionsConfig);
+  },
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | unknown
+> extends GlobalStoreAbstract<State, Metadata, ActionsConfig> {
+  public asyncStorageKey?: string;
 
+  constructor(
+    state: State,
+    args: {
+      metadata?: Metadata;
+      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      actions?: ActionsConfig;
+      name?: string;
+      asyncStorageKey?: string;
+    } = {}
+  ) {
+    super(state, args);
+    this.asyncStorageKey = args.asyncStorageKey;
     this.initialize();
   }
 
   protected onInitialize = async ({
     setState,
     setMetadata,
-    getMetadata,
     getState,
-  }: StateConfigCallbackParam<TState, TMetadata, TStateMutator>) => {
-    setMetadata({
-      ...(metadata ?? {}),
-      isAsyncStorageReady: null,
-    });
+  }: StoreTools<State, Metadata>) => {
+    if (!this.asyncStorageKey) return;
 
-    const metadata = getMetadata();
-    const asyncStorageKey = metadata?.asyncStorageKey;
+    const storedItem = (await asyncStorage.getItem(this.asyncStorageKey)) as string | null;
 
-    if (!asyncStorageKey) return;
-
-    const storedItem = (await asyncStorage.getItem(asyncStorageKey)) as string;
-    setMetadata({
+    setMetadata((metadata) => {
       ...metadata,
       isAsyncStorageReady: true,
     });
@@ -871,19 +859,15 @@ export class GlobalStore<
       return setState(state, { forceUpdate: true });
     }
 
-    const items = formatFromStore<TState>(storedItem, {
+    const items = formatFromStore<State>(storedItem, {
       jsonParse: true,
     });
 
     setState(items, { forceUpdate: true });
   };
 
-  protected onChange = ({
-    getMetadata,
-    getState,
-  }: StateChangesParam<TState, TMetadata, NonNullable<TStateMutator>>) => {
-    const asyncStorageKey = getMetadata()?.asyncStorageKey;
-
+  protected onChange = ({ getState }: StoreTools<State, Metadata> & StateChanges<State>) => {
+    const asyncStorageKey = this.asyncStorageKey;
     if (!asyncStorageKey) return;
 
     const state = getState();
@@ -900,17 +884,16 @@ export class GlobalStore<
 Then, from an instance of the global store, you will be able to access the hooks.
 
 ```ts
-const storage = new GlobalStore(0, {
-  metadata: {
+const useCount = new GlobalStore(1, {
+  config: {
     asyncStorageKey: 'counter',
-    isAsyncStorageReady: false,
   },
-});
+}).getHook();
 
-const [getState, _, getMetadata] = storage.stateControls();
-const useState = storage.getHook();
+const [stateRetriever, stateMutator, getMetadata] = useCount.stateControls();
+
+// into a component
+const [state, setState, { isAsyncStorageReady }] = useCount();
 ```
-
-### **Note**: The GlobalStore class is still available in the package in case you were already extending from it.
 
 # That's it for now!! hope you enjoy coding!!

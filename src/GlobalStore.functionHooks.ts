@@ -55,7 +55,7 @@ export const createGlobalState = ((
     callbacks?: GlobalStoreCallbacks<unknown, unknown>;
     actions?: ActionCollectionConfig<unknown, unknown>;
   }
-) => new GlobalStore(state, args).getHook()) as unknown as CreateGlobalState;
+) => new GlobalStore(state, args).getHook()) as CreateGlobalState;
 
 export interface CustomCreateGlobalState<
   TCustomConfig extends BaseMetadata | unknown,
@@ -63,15 +63,23 @@ export interface CustomCreateGlobalState<
 > {
   <State>(state: State): StateHook<State, StateSetter<State>, BaseMetadata>;
 
-  <State, Metadata extends BaseMetadata | unknown>(
+  <
+    State,
+    Metadata extends BaseMetadata | unknown,
+    ActionsConfig extends ActionCollectionConfig<State, InheritMetadata & Metadata> | null | {},
+    PublicStateMutator = keyof ActionsConfig extends never | undefined
+      ? StateSetter<State>
+      : ActionCollectionResult<State, InheritMetadata & Metadata, NonNullable<ActionsConfig>>
+  >(
     state: State,
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, InheritMetadata & Metadata>;
+      actions?: ActionsConfig;
       config?: TCustomConfig;
     }
-  ): StateHook<State, StateSetter<State>, BaseMetadata>;
+  ): StateHook<State, PublicStateMutator, InheritMetadata & Metadata>;
 
   <
     State,
@@ -82,11 +90,15 @@ export interface CustomCreateGlobalState<
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
-      actions?: ActionsConfig;
+      callbacks?: GlobalStoreCallbacks<State, InheritMetadata & Metadata>;
+      actions: ActionsConfig;
       config?: TCustomConfig;
     }
-  ): StateHook<State, ActionCollectionResult<State, InheritMetadata & Metadata, ActionsConfig>, Metadata>;
+  ): StateHook<
+    State,
+    ActionCollectionResult<State, InheritMetadata & Metadata, ActionsConfig>,
+    InheritMetadata & Metadata
+  >;
 }
 
 /**
@@ -99,35 +111,32 @@ export const createCustomGlobalState = <
   onInitialize,
   onChange,
 }: CustomGlobalHookBuilderParams<TCustomConfig, InheritMetadata>) => {
-  return (<
-    State,
-    Metadata extends InheritMetadata | unknown,
-    ActionsConfig extends Readonly<ActionCollectionConfig<State, InheritMetadata & Metadata>>
-  >(
-    state: State,
-    args?: {
+  return ((
+    state: unknown,
+    {
+      callbacks,
+      ...args
+    }: {
       name?: string;
-      metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, InheritMetadata & Metadata>;
-      actions?: ActionCollectionConfig<State, InheritMetadata & Metadata>;
-      config: TCustomConfig;
-    }
+      metadata?: unknown;
+      callbacks?: GlobalStoreCallbacks<unknown, unknown>;
+      actions?: ActionCollectionConfig<unknown, unknown>;
+      config?: TCustomConfig;
+    } = {}
   ) => {
-    return createGlobalState<State, InheritMetadata & Metadata, ActionsConfig>(state, {
+    return createGlobalState(state, {
+      ...args,
       callbacks: {
-        ...args?.callbacks,
-        onInit: (callBackParameters) => {
-          onInitialize?.(callBackParameters as StoreTools<unknown, InheritMetadata>, args?.config);
-          args?.callbacks?.onInit?.(callBackParameters);
+        ...(callbacks ?? {}),
+        onInit: (callBackParameters: StoreTools<any, any>) => {
+          onInitialize?.(callBackParameters, args?.config);
+          callbacks?.onInit?.(callBackParameters);
         },
-        onStateChanged: (callBackParameters) => {
-          onChange?.(
-            callBackParameters as StoreTools<unknown, InheritMetadata> & StateChanges<State>,
-            args?.config
-          );
-          args?.callbacks?.onStateChanged?.(callBackParameters);
+        onStateChanged: (callBackParameters: StoreTools<any, any> & StateChanges<unknown>) => {
+          onChange?.(callBackParameters, args?.config);
+          callbacks?.onStateChanged?.(callBackParameters);
         },
       },
-    });
+    } as Parameters<typeof createGlobalState>[1]);
   }) as CustomCreateGlobalState<TCustomConfig, InheritMetadata>;
 };
