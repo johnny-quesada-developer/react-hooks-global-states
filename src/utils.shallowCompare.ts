@@ -1,5 +1,7 @@
-import { isPrimitive, isDate, isNil } from 'json-storage-formatter';
-import { useRef } from 'react';
+import { isPrimitive } from 'json-storage-formatter/isPrimitive';
+import { isDate } from 'json-storage-formatter/isDate';
+import { isNil } from 'json-storage-formatter/isNil';
+import { isRecord } from './utils.isRecord';
 
 export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;
@@ -80,51 +82,4 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
   }
 
   return true;
-};
-
-export const debounce = <T extends (...args: Parameters<T>) => void>(callback: T, delay = 0) => {
-  let timeout: NodeJS.Timeout;
-
-  return (...args: Parameters<T>): void => {
-    if (timeout) clearTimeout(timeout);
-
-    timeout = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  };
-};
-
-export const uniqueId = (() => {
-  let counter = 0;
-
-  return (prefix: string = ''): string => {
-    if (counter === Number.MAX_SAFE_INTEGER) counter = 0;
-
-    return prefix + Date.now().toString(36) + (counter++).toString(36);
-  };
-})();
-
-export const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
-  throw new Error(`[WRONG CONFIGURATION!]: Every key inside the storeActionsConfig must be a higher order function that returns a function \n[${action_key}]: key is not a valid function, try something like this: \n{\n
-    ${action_key}: (param) => ({ setState, getState, setMetadata, getMetadata, actions }) => {\n
-      setState((state) => ({ ...state, ...param }))\n
-    }\n
-}\n`);
-};
-
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  !isNil(value) && typeof value === 'object';
-
-export const uniqueSymbol = Symbol('unique');
-
-export type UniqueSymbol = typeof uniqueSymbol;
-
-export const useConstantValueRef = <T>(initializer: () => T) => {
-  const ref = useRef<typeof uniqueSymbol | T>(uniqueSymbol);
-
-  if (ref.current === uniqueSymbol) {
-    ref.current = initializer();
-  }
-
-  return ref as React.RefObject<T>;
 };

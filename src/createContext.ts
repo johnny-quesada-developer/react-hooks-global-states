@@ -1,4 +1,4 @@
-import { uniqueId, uniqueSymbol } from './GlobalStore.utils';
+import React, { PropsWithChildren, useEffect, useImperativeHandle, useMemo } from 'react';
 import { GlobalStore } from './GlobalStore';
 import {
   ActionCollectionConfig,
@@ -10,9 +10,11 @@ import {
   MetadataSetter,
   GlobalStoreCallbacks,
   UseHookConfig,
-} from './GlobalStore.types';
-import React, { PropsWithChildren, useEffect, useImperativeHandle, useMemo } from 'react';
-import { isFunction, isNil } from 'json-storage-formatter';
+} from './types';
+import { isFunction } from 'json-storage-formatter/isFunction';
+import { isNil } from 'json-storage-formatter/isNil';
+import { uniqueId } from './utils.uniqueId';
+import { uniqueSymbol } from './utils.uniqueSymbol';
 
 export type ContextProviderAPI<Value, Metadata extends BaseMetadata | unknown> = {
   setMetadata: MetadataSetter<Metadata>;
@@ -54,15 +56,6 @@ export interface CreateContext {
     Hook,
     ContextProvider<Hook, BaseMetadata>
   ];
-
-  <Value, Metadata extends BaseMetadata | unknown, Hook = ContextHook<Value, StateSetter<Value>, Metadata>>(
-    builder: () => Value,
-    args: {
-      name?: string;
-      metadata?: unknown;
-      callbacks?: GlobalStoreCallbacks<Value, Metadata> & { onUnMount?: () => void };
-    }
-  ): readonly [Hook, ContextProvider<Hook, Metadata>];
 
   <
     Value,

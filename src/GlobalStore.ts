@@ -1,14 +1,4 @@
-import {
-  isRecord,
-  shallowCompare,
-  throwWrongKeyOnActionCollectionConfig,
-  uniqueId,
-  uniqueSymbol,
-  UniqueSymbol,
-  useConstantValueRef,
-} from './GlobalStore.utils';
 import { useEffect, useState } from 'react';
-
 import {
   ActionCollectionConfig,
   StateSetter,
@@ -27,8 +17,16 @@ import {
   StateChanges,
   StoreTools,
   ObservableFragment,
-} from './GlobalStore.types';
-import { isFunction, isNil, isString } from 'json-storage-formatter';
+} from './types';
+import { isFunction } from 'json-storage-formatter/isFunction';
+import { isNil } from 'json-storage-formatter/isNil';
+import { isString } from 'json-storage-formatter/isString';
+import { isRecord } from './utils.isRecord';
+import { shallowCompare } from './utils.shallowCompare';
+import { throwWrongKeyOnActionCollectionConfig } from './utils.throwWrongKeyOnActionCollectionConfig';
+import { uniqueId } from './utils.uniqueId';
+import { UniqueSymbol, uniqueSymbol } from './utils.uniqueSymbol';
+import { useConstantValueRef } from './utils.useConstantValueRef';
 
 type DebugProps = {
   REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown, unknown, unknown>) => void;

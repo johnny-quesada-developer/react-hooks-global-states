@@ -1,12 +1,13 @@
 import { createDecoupledPromise } from 'easy-cancelable-promise';
 
-import { StoreTools } from '../src/GlobalStore.types';
+import { StoreTools } from '../src/types';
 
 import { useState } from 'react';
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 
-import { createGlobalState, createCustomGlobalState } from '../src/GlobalStore.functionHooks';
+import { createGlobalState } from '../src/functionHooks.createGlobalState';
+import { createCustomGlobalState } from '../src/functionHooks.createCustomGlobalState';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {

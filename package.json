@@ -1,11 +1,13 @@
 {
   "name": "react-hooks-global-states",
-  "version": "5.0.1",
+  "version": "6.0.0",
   "description": "This is a package to easily handling global-state across your react-components No-redux",
-  "main": "lib/bundle.js",
-  "types": "lib/src/index.d.ts",
+  "main": "./bundle.js",
+  "types": "./index.d.ts",
+  "sideEffects": false,
   "files": [
-    "lib"
+    "./*.js",
+    "./*.d.ts"
   ],
   "scripts": {
     "test:debug": "node --inspect-brk node_modules/.bin/jest --watch --runInBand",
@@ -16,7 +18,8 @@
     "version": "npm run format && git add -A src",
     "postversion": "git push && git push --tags",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx --max-warnings=0",
-    "lint:fix": "eslint --fix src  --ext .js,.jsx,.ts,.tsx --max-warnings=0"
+    "lint:fix": "eslint --fix src  --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "clean": "find . -maxdepth 1 -type f \\( -name '*.js' -o -name '*.d.ts' \\) ! -name 'webpack.config.js' -exec rm {} +"
   },
   "repository": {
     "type": "git",
@@ -80,6 +83,6 @@
     }
   },
   "dependencies": {
-    "json-storage-formatter": "^1.1.2"
+    "json-storage-formatter": "^2.0.5"
   }
 }

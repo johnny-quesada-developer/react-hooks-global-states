@@ -1,16 +1,31 @@
 const path = require('path');
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
   mode: 'production',
   entry: {
     bundle: './src/index.ts',
+    createContext: './src/createContext.ts',
+    GlobalStore: './src/GlobalStore.ts',
+    GlobalStoreAbstract: './src/GlobalStoreAbstract.ts',
+    createCustomGlobalState: './src/functionHooks.createCustomGlobalState.ts',
+    createGlobalState: './src/functionHooks.createGlobalState.ts',
+    combineRetrieverAsynchronously: './src/combiners.combineRetrieverAsynchronously.ts',
+    combineRetrieverEmitterAsynchronously: './src/combiners.combineRetrieverEmitterAsynchronously.ts',
+    types: './src/types.ts',
+    debounce: './src/utils.debounce.ts',
+    isRecord: './src/utils.isRecord.ts',
+    shallowCompare: './src/utils.shallowCompare.ts',
+    throwWrongKeyOnActionCollectionConfig: './src/utils.throwWrongKeyOnActionCollectionConfig.ts',
+    uniqueId: './src/utils.uniqueId.ts',
+    uniqueSymbol: './src/utils.uniqueSymbol.ts',
+    useConstantValueRef: './src/utils.useConstantValueRef.ts',
   },
   externals: {
     react: 'react',
   },
   output: {
-    path: path.resolve(__dirname, 'lib'),
+    path: path.resolve(__dirname),
     filename: ({ chunk: { name } }) => {
       return `${name}.js`;
     },
@@ -51,9 +66,17 @@ module.exports = {
       },
     ],
   },
-  plugins: [
-    new CleanWebpackPlugin({
-      cleanAfterEveryBuildPatterns: ['**/__test__/**'],
-    }),
-  ],
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        extractComments: false,
+        terserOptions: {
+          format: {
+            comments: false,
+          },
+        },
+      }),
+    ],
+  },
 };
