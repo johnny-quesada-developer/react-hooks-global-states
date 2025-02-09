@@ -1,13 +1,13 @@
 {
   "name": "react-hooks-global-states",
-  "version": "6.0.0",
+  "version": "6.0.2",
   "description": "This is a package to easily handling global-state across your react-components No-redux",
   "main": "./bundle.js",
   "types": "./index.d.ts",
   "sideEffects": false,
   "files": [
-    "./*.js",
-    "./*.d.ts"
+    "*.js",
+    "*.d.ts"
   ],
   "scripts": {
     "test:debug": "node --inspect-brk node_modules/.bin/jest --watch --runInBand",
@@ -72,17 +72,20 @@
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",
     "webpack": "^5.76.3",
-    "webpack-cli": "^5.0.1"
+    "webpack-cli": "^5.0.1",
+    "json-storage-formatter": "^2.0.5"
   },
   "peerDependencies": {
-    "react": ">=17.0.0"
+    "react": ">=17.0.0",
+    "json-storage-formatter": "^2.0.5"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": false
+    },
+    "json-storage-formatter": {
+      "optional": false
     }
   },
-  "dependencies": {
-    "json-storage-formatter": "^2.0.5"
-  }
+  "dependencies": {}
 }
