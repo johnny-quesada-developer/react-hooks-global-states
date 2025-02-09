@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { uniqueSymbol } from './utils.uniqueSymbol';
+import { uniqueSymbol } from './uniqueSymbol';
 
 export const useConstantValueRef = <T>(initializer: () => T) => {
   const ref = useRef<typeof uniqueSymbol | T>(uniqueSymbol);

@@ -5,7 +5,7 @@ import { ActionCollectionConfig, GlobalStoreCallbacks, StateChanges, StoreTools 
 import { formatFromStore } from 'json-storage-formatter/formatFromStore';
 import { formatToStore } from 'json-storage-formatter/formatToStore';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
-import { createCustomGlobalState } from '../src/functionHooks.createCustomGlobalState';
+import { createCustomGlobalState } from '../src/createCustomGlobalState';
 
 export const { fakeAsyncStorage: asyncStorage } = getFakeAsyncStorage();
 

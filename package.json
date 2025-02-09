@@ -1,10 +1,92 @@
 {
   "name": "react-hooks-global-states",
-  "version": "6.0.2",
+  "version": "6.0.6",
   "description": "This is a package to easily handling global-state across your react-components No-redux",
   "main": "./bundle.js",
   "types": "./index.d.ts",
   "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./bundle.js",
+      "require": "./bundle.js",
+      "types": "./index.d.ts"
+    },
+    "./createContext": {
+      "import": "./createContext.js",
+      "require": "./createContext.js",
+      "types": "./createContext.d.ts"
+    },
+    "./GlobalStore": {
+      "import": "./GlobalStore.js",
+      "require": "./GlobalStore.js",
+      "types": "./GlobalStore.d.ts"
+    },
+    "./GlobalStoreAbstract": {
+      "import": "./GlobalStoreAbstract.js",
+      "require": "./GlobalStoreAbstract.js",
+      "types": "./GlobalStoreAbstract.d.ts"
+    },
+    "./createCustomGlobalState": {
+      "import": "./createCustomGlobalState.js",
+      "require": "./createCustomGlobalState.js",
+      "types": "./createCustomGlobalState.d.ts"
+    },
+    "./createGlobalState": {
+      "import": "./createGlobalState.js",
+      "require": "./createGlobalState.js",
+      "types": "./createGlobalState.d.ts"
+    },
+    "./combineRetrieverAsynchronously": {
+      "import": "./combineRetrieverAsynchronously.js",
+      "require": "./combineRetrieverAsynchronously.js",
+      "types": "./combineRetrieverAsynchronously.d.ts"
+    },
+    "./combineRetrieverEmitterAsynchronously": {
+      "import": "./combineRetrieverEmitterAsynchronously.js",
+      "require": "./combineRetrieverEmitterAsynchronously.js",
+      "types": "./combineRetrieverEmitterAsynchronously.d.ts"
+    },
+    "./types": {
+      "import": "./types.js",
+      "require": "./types.js",
+      "types": "./types.d.ts"
+    },
+    "./debounce": {
+      "import": "./debounce.js",
+      "require": "./debounce.js",
+      "types": "./debounce.d.ts"
+    },
+    "./isRecord": {
+      "import": "./isRecord.js",
+      "require": "./isRecord.js",
+      "types": "./isRecord.d.ts"
+    },
+    "./shallowCompare": {
+      "import": "./shallowCompare.js",
+      "require": "./shallowCompare.js",
+      "types": "./shallowCompare.d.ts"
+    },
+    "./throwWrongKeyOnActionCollectionConfig": {
+      "import": "./throwWrongKeyOnActionCollectionConfig.js",
+      "require": "./throwWrongKeyOnActionCollectionConfig.js",
+      "types": "./throwWrongKeyOnActionCollectionConfig.d.ts"
+    },
+    "./uniqueId": {
+      "import": "./uniqueId.js",
+      "require": "./uniqueId.js",
+      "types": "./uniqueId.d.ts"
+    },
+    "./uniqueSymbol": {
+      "import": "./uniqueSymbol.js",
+      "require": "./uniqueSymbol.js",
+      "types": "./uniqueSymbol.d.ts"
+    },
+    "./useConstantValueRef": {
+      "import": "./useConstantValueRef.js",
+      "require": "./useConstantValueRef.js",
+      "types": "./useConstantValueRef.d.ts"
+    }
+  },
   "files": [
     "*.js",
     "*.d.ts"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { combineRetrieverEmitterAsynchronously } from './combiners.combineRetrieverEmitterAsynchronously';
+import { combineRetrieverEmitterAsynchronously } from './combineRetrieverEmitterAsynchronously';
 import {
   StateGetter,
   UnsubscribeCallback,
@@ -8,8 +8,8 @@ import {
   StateHook,
   BaseMetadata,
 } from './types';
-import { debounce } from './utils.debounce';
-import { shallowCompare } from './utils.shallowCompare';
+import { debounce } from './debounce';
+import { shallowCompare } from './shallowCompare';
 
 /**
  * @description

@@ -1,6 +1,6 @@
 import { createDecoupledPromise } from 'easy-cancelable-promise';
-import { combineRetrieverAsynchronously } from '../src/combiners.combineRetrieverAsynchronously';
-import { createGlobalState } from '../src/functionHooks.createGlobalState';
+import { combineRetrieverAsynchronously } from '../src/combineRetrieverAsynchronously';
+import { createGlobalState } from '../src/createGlobalState';
 
 describe('combiners', () => {
   it('should combine two global states', () => {

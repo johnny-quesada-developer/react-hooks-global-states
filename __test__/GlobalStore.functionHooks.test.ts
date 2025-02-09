@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 
-import { createGlobalState } from '../src/functionHooks.createGlobalState';
-import { createCustomGlobalState } from '../src/functionHooks.createCustomGlobalState';
+import { createGlobalState } from '../src/createGlobalState';
+import { createCustomGlobalState } from '../src/createCustomGlobalState';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {

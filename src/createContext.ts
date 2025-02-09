@@ -13,8 +13,8 @@ import {
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
-import { uniqueId } from './utils.uniqueId';
-import { uniqueSymbol } from './utils.uniqueSymbol';
+import { uniqueId } from './uniqueId';
+import { uniqueSymbol } from './uniqueSymbol';
 
 export type ContextProviderAPI<Value, Metadata extends BaseMetadata | unknown> = {
   setMetadata: MetadataSetter<Metadata>;

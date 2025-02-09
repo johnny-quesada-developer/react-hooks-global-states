@@ -27,21 +27,21 @@ export { GlobalStore } from './GlobalStore';
 export { GlobalStoreAbstract } from './GlobalStoreAbstract';
 
 // functions
-export { createGlobalState } from './functionHooks.createGlobalState';
-export { createCustomGlobalState } from './functionHooks.createCustomGlobalState';
+export { createGlobalState } from './createGlobalState';
+export { createCustomGlobalState } from './createCustomGlobalState';
 
 // utils
-export { shallowCompare } from './utils.shallowCompare';
-export { debounce } from './utils.debounce';
-export { uniqueId } from './utils.uniqueId';
-export { throwWrongKeyOnActionCollectionConfig } from './utils.throwWrongKeyOnActionCollectionConfig';
-export { isRecord } from './utils.isRecord';
-export { uniqueSymbol, UniqueSymbol } from './utils.uniqueSymbol';
-export { useConstantValueRef } from './utils.useConstantValueRef';
+export { shallowCompare } from './shallowCompare';
+export { debounce } from './debounce';
+export { uniqueId } from './uniqueId';
+export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
+export { isRecord } from './isRecord';
+export { uniqueSymbol, UniqueSymbol } from './uniqueSymbol';
+export { useConstantValueRef } from './useConstantValueRef';
 
 // combiners
-export { combineRetrieverAsynchronously } from './combiners.combineRetrieverAsynchronously';
-export { combineRetrieverEmitterAsynchronously } from './combiners.combineRetrieverEmitterAsynchronously';
+export { combineRetrieverAsynchronously } from './combineRetrieverAsynchronously';
+export { combineRetrieverEmitterAsynchronously } from './combineRetrieverEmitterAsynchronously';
 
 // context
 export {

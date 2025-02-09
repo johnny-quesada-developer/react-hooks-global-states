@@ -1,7 +1,7 @@
 import { isPrimitive } from 'json-storage-formatter/isPrimitive';
 import { isDate } from 'json-storage-formatter/isDate';
 import { isNil } from 'json-storage-formatter/isNil';
-import { isRecord } from './utils.isRecord';
+import { isRecord } from './isRecord';
 
 export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;

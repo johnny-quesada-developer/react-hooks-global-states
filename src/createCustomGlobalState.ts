@@ -1,4 +1,4 @@
-import { createGlobalState } from './functionHooks.createGlobalState';
+import { createGlobalState } from './createGlobalState';
 
 import {
   ActionCollectionConfig,

@@ -21,12 +21,12 @@ import {
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
 import { isString } from 'json-storage-formatter/isString';
-import { isRecord } from './utils.isRecord';
-import { shallowCompare } from './utils.shallowCompare';
-import { throwWrongKeyOnActionCollectionConfig } from './utils.throwWrongKeyOnActionCollectionConfig';
-import { uniqueId } from './utils.uniqueId';
-import { UniqueSymbol, uniqueSymbol } from './utils.uniqueSymbol';
-import { useConstantValueRef } from './utils.useConstantValueRef';
+import { isRecord } from './isRecord';
+import { shallowCompare } from './shallowCompare';
+import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
+import { uniqueId } from './uniqueId';
+import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
+import { useConstantValueRef } from './useConstantValueRef';
 
 type DebugProps = {
   REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown, unknown, unknown>) => void;

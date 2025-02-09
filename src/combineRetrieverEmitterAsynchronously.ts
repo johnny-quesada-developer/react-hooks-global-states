@@ -1,5 +1,5 @@
-import { debounce } from './utils.debounce';
-import { shallowCompare } from './utils.shallowCompare';
+import { debounce } from './debounce';
+import { shallowCompare } from './shallowCompare';
 import {
   StateGetter,
   UnsubscribeCallback,
