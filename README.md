@@ -23,7 +23,7 @@ The best part? **react-hooks-global-states** is compatible with both **React** a
 We are gonna create a global state hook **useCount** with one line of code.
 
 ```ts
-import { createGlobalState } from 'react-hooks-global-states';
+import { createGlobalState } from 'react-hooks-global-states/createGlobalState';
 
 export const useCount = createGlobalState(0);
 ```
@@ -45,7 +45,7 @@ Isn't it cool? It works just like a regular **useState**. Notice the only differ
 What if you already have a global state that you want to subscribe to, but you don't want your component to listen to all the changes of the state, only a small portion of it? Let's create a more complex **state**
 
 ```ts
-import { createGlobalState } from 'react-hooks-global-states';
+import { createGlobalState } from 'react-hooks-global-states/createGlobalState';
 
 export const useContacts = createGlobalState({
   isLoading: true,
@@ -228,32 +228,29 @@ Is common and often necessary to restrict the manipulation of state to a specifi
 By defining a custom API for the **useContacts**, we can encapsulate and expose only the necessary actions or operations that are allowed to modify the state. This provides a controlled interface for interacting with the state, ensuring that modifications stick to the desired restrictions.
 
 ```ts
-import { createGlobalState } from 'react-hooks-global-states';
-
-const initialState = {
-  isLoading: true,
-  filter: '',
-  items: [] as Contact[],
-};
-
-type State = typeof initialState;
+import { createGlobalState } from 'react-hooks-global-states/createGlobalState';
 
 export const useContacts = createGlobalState(
-  initialState,
   {
-    onInit: async ({ setState }: StoreTools<State>) => {
-      // fetch contacts
-    },
+    isLoading: true,
+    filter: '',
+    items: [] as Contact[],
   },
-  // this are the actions available for this state
   {
-    setFilter(filter: string) {
-      return ({ setState }: StoreTools<State>) => {
-        setState((state) => ({
-          ...state,
-          filter,
-        }));
-      };
+    callbacks: {
+      onInit: ({ setState }) => {
+        // fetch contacts
+      },
+      actions: {
+        setFilter(filter: string) {
+          return ({ setState }) => {
+            setState((state) => ({
+              ...state,
+              filter,
+            }));
+          };
+        },
+      },
     },
   }
 );
@@ -276,7 +273,7 @@ Yeah, that's it! All the **derived states** and **emitters** (we will talk about
 If you need to access the global state outside of a component or a hook without subscribing to state changes, or even inside a **ClassComponent**, you can use:
 
 ```tsx
-useContacts.stateControls: () => [stateRetriever: StateGetter<State>, stateMutator: Setter<State>|ActionCollectionResult<State>, metadataRetriever: Metadata];
+useContacts.stateControls: () => [stateRetriever, stateMutator, metadataRetriever];
 
 // example:
 const [getContacts, setContacts] = useContacts.stateControls();
@@ -297,18 +294,16 @@ Additionally, to subscribe to state changes, you can pass a callback function as
  * This not only allows you to retrieve the current value of the state...
  * but also enables you to subscribe to any changes in the state or a portion of it
  */
-const removeSubscriptionGroup = contactsRetriever<Subscribe>((subscribe) => {
-  subscribe((state) => {
-    console.log('state changed: ', state);
-  });
-
-  subscribe(
-    (state) => state.isLoading,
-    (isLoading) => {
-      console.log('is loading changed', isLoading);
-    }
-  );
+const unsubscribe1 = contactsRetriever((state) => {
+  console.log('state changed: ', state);
 });
+
+const unsubscribe2 = contactsRetriever(
+  (state) => state.isLoading,
+  (isLoading) => {
+    console.log('is loading changed', isLoading);
+  }
+);
 ```
 
 That's great, isn't it? everything stays synchronized with the original state!!
@@ -320,31 +315,33 @@ Let's add more actions to the state and explore how to use one action from insid
 Here's an example of adding multiple actions to the state and utilizing one action within another:
 
 ```ts
-import { createGlobalState } from 'react-hooks-global-states';
+import { createGlobalState } from 'react-hooks-global-states/createGlobalState';
 
-export const useCount = createGlobalState(0, () => ({
-  log: (currentValue: string) => {
-    return ({ getState }: StoreTools<number>): void => {
-      console.log(`Current Value: ${getState()}`);
-    };
+export const useCount = createGlobalState(0, {
+  actions: {
+    log: (currentValue: string) => {
+      return ({ getState }): void => {
+        console.log(`Current Value: ${getState()}`);
+      };
+    },
+
+    increase(value: number = 1) {
+      return ({ getState, setState, actions }) => {
+        setState((count) => count + value);
+
+        actions.log(message);
+      };
+    },
+
+    decrease(value: number = 1) {
+      return ({ getState, setState, actions }) => {
+        setState((count) => count - value);
+
+        actions.log(message);
+      };
+    },
   },
-
-  increase(value: number = 1) {
-    return ({ getState, setState, actions }: StoreTools<number>) => {
-      setState((count) => count + value);
-
-      actions.log(message);
-    };
-  },
-
-  decrease(value: number = 1) {
-    return ({ getState, setState, actions }: StoreTools<number>) => {
-      setState((count) => count - value);
-
-      actions.log(message);
-    };
-  },
-}));
+});
 ```
 
 Notice that the **StoreTools** will contain a reference to the generated actions API. From there, you'll be able to access all actions from inside another one... the **StoreTools** is generic and allow your to set an interface for getting the typing on the actions.
@@ -358,6 +355,8 @@ Notice that the **StoreTools** will contain a reference to the generated actions
 Forget about the boilerplate of creating a context... with **createContext** it's straightforward and powerful. You can create a context and provider with one line of code.
 
 ```tsx
+import { createGlobalState } from 'react-hooks-global-states/createContext';
+
 export const [useCounterContext, CounterProvider] = createContext(2);
 ```
 
@@ -412,34 +411,31 @@ const MyComponent = () => {
 **createContext** also allows you to add custom actions to control the manipulation of the state inside the context
 
 ```tsx
-import { createContext } from 'react-global-state-hooks';
+import { createContext } from 'react-global-state-hooks/createContext';
 
-type CounterState = {
-  count: number;
-};
-
-const initialState: CounterState = {
-  count: 0,
-};
-
-export const [useCounterContext, CounterProvider] = createContext(initialState, () => ({
-  increase: (value: number = 1) => {
-    return ({ setState }: StoreTools<CounterState>) => {
-      setState((state) => ({
-        ...state,
-        count: state.count + value,
-      }));
-    };
-  },
-  decrease: (value: number = 1) => {
-    return ({ setState }: StoreTools<CounterState>) => {
-      setState((state) => ({
-        ...state,
-        count: state.count - value,
-      }));
-    };
-  },
-}));
+export const [useCounterContext, CounterProvider] = createContext(
+  { count: 0 },
+  {
+    actions: {
+      increase: (value: number = 1) => {
+        return ({ setState }) => {
+          setState((state) => ({
+            ...state,
+            count: state.count + value,
+          }));
+        };
+      },
+      decrease: (value: number = 1) => {
+        return ({ setState }) => {
+          setState((state) => ({
+            ...state,
+            count: state.count - value,
+          }));
+        };
+      },
+    },
+  }
+);
 ```
 
 And just like with regular global hooks, now instead of a setState function, the hook will return the collection of actions
@@ -449,286 +445,6 @@ Last but not least, you can still creating **selectorHooks** with the **createSe
 ```tsx
 const useIsEven = useCounterContext.createSelectorHook((count) => count % 2 === 0);
 ```
-
-# Emitters
-
-So, we have seen that we can subscribe a callback to state changes, create **selector hooks** from our global states. Guess what? We can also create derived **emitters** and subscribe callbacks to specific portions of the state. Let's review it:
-
-```ts
-const subscribeToFilter = createDerivateEmitter(contactsRetriever, ({ filter }) => ({
-  filter,
-}));
-```
-
-Cool, it's basically the same, but instead of using the **hook** as a parameter, we just have to use the **stateRetriever** as a parameter, and that will make the magic.
-
-Now we are able to add a callback that will be executed every time the state of the **filter** changes.
-
-```ts
-const removeFilterSubscription = subscribeToFilter<Subscribe>(({ filter }) => {
-  console.log(`The filter value changed: ${filter}`);
-});
-```
-
-By default, the callback will be executed once subscribed, using the current value of the state. If you want to avoid this initial call, you can pass an extra parameter to the **subscribe** function.
-
-```ts
-const removeFilterSubscription = subscribeToFilter<Subscribe>(
-  ({ filter }) => {
-    console.log(`The filter value changed: ${filter}`);
-  },
-  {
-    skipFirst: true,
-  }
-);
-```
-
-Also, of course, if you have an exceptional case where you want to derived/selected directly from the current **emitter**, you can add a **selector**. This allows you to fine-tune the emitted values based on your requirements
-
-```ts
-const removeFilterSubscription = subscribeToFilter<Subscribe>(
-  ({ filter }) => filter,
-  /**
-   *  Cause of the selector the filter now is an string
-   */
-  (filter) => {
-    console.log(`The filter value changed: ${filter}`);
-  },
-  {
-    skipFirst: true,
-    /**
-     * You can also override the default shallow comparison...
-     * or disable it completely by setting the isEqual callback to null.
-     */
-    isEqual: (a, b) => a === b,
-    // isEqual: null // this will avoid doing a shallow comparison
-  }
-);
-```
-
-And guess what again? You can also derive emitters from derived emitters without any trouble at all! It works basically the same. Let's see an example:
-
-```ts
-const subscribeToItems = createDerivateEmitter(contactsRetriever, ({ items }) => items);
-
-const subscribeToItemsLength = createDerivateEmitter(subscribeToItems, (items) => items.length);
-```
-
-The examples may seem a little silly, but they allow you to see the incredible things you can accomplish with these **derived states** and **emitters**. They open up a world of possibilities!
-
-# Combining stateRetriever
-
-What if you have two states and you want to combine them? You may have already guessed it right? ... you can create combined **emitters** and **hooks** from the hook **stateRetriever**.
-
-By utilizing the approach of combining **emitters** and **hooks**, you can effectively merge multiple states and make them shareable. This allows for better organization and simplifies the management of the combined states. You don't need to refactor everything; you just need to combine the **global state hooks** you already have. Let's see a simple example:
-
-First we are gonna create a couple of **global states**, and extract the **stateRetriever**.
-
-```ts
-const useHook1 = createGlobalState({
-  propA: 1,
-  propB: 2,
-});
-
-const [stateRetriever1, stateMutator1] = useHook1.stateControls();
-
-const useHook2 = createGlobalState({
-  propC: 3,
-  propD: 4,
-});
-
-const [, stateRetriever2] = useHook2.stateControls();
-```
-
-Okay, cool, the first state as **propA, propB** while the second one has **propC, propD**, let's combine them:
-
-```ts
-const [useCombinedHook, combinedStateRetriever] = combineAsyncGetters(
-  {
-    selector: ([state1, state2]) => ({
-      ...state1,
-      ...state2,
-    }),
-  },
-  stateRetriever1,
-  stateRetriever2
-);
-```
-
-Well, that's it! Now you have access to a **combinedStateRetriever** that will return the combined value of the two states. From this new **combinedStateRetriever**, you can retrieve the value or subscribe to its changes. Let'see:
-
-```ts
-const value = stateRetriever(); // { propA, propB, propC, propD }
-
-// subscribe to the new emitter
-const unsubscribeGroup = stateRetriever<Subscribe>((subscribe) => {
-  subscribe((state) => {
-    console.log(subscribe); // full state
-  });
-
-  // Please note that if you add a selector,
-  // the callback will only trigger if the result of the selector changes.
-  subscribe(
-    ({ propA, propD }) => ({ propA, propD }),
-    (derived) => {
-      console.log(derived); // { propA, propD }
-    }
-  );
-});
-```
-
-Regarding the newly created hook, **useCombinedHook**, you can seamlessly utilize it across all your components, just like your other **global state hooks**. This enables a consistent and familiar approach for accessing and managing the combined state within your application.
-
-```ts
-const [combinedState] = useCombinedHook();
-```
-
-The main difference with **combined hooks** compared to individual **global state hooks** is the absence of **metadata** and **actions**. Instead, combined hooks provide a condensed representation of the underlying global states using simple React functionality. This streamlined approach ensures lightweight usage, making it easy to access and manage the combined state within your components.
-
-### Let's explore some additional examples.
-
-Similar to your other **global state hooks**, **combined hooks** allow you to use **selectors** directly from consumer components. This capability eliminates the need to create an excessive number of reusable hooks if they are not truly necessary. By utilizing selectors, you can efficiently extract specific data from the **combined state** and utilize it within your components. This approach offers a more concise and focused way of accessing the required state values without the need for creating additional hooks unnecessarily.
-
-```ts
-const [fragment] = useCombinedHook(({ propA, propD }) => ({ propA, propD }));
-```
-
-Lastly, you have the flexibility to continue combining stateRetrievers if desired. This means you can extend the functionality of combined hooks by adding more stateRetrievers to merge additional states. By combining stateRetrievers in this way, you can create a comprehensive and unified representation of the combined states within your application. This approach allows for modular and scalable state management, enabling you to efficiently handle complex state compositions.
-
-Let's see an example:
-
-```ts
-const [useCombinedHook, combinedStateRetriever1] = combineAsyncGetters(
-  {
-    selector: ([state1, state2]) => ({
-      ...state1,
-      ...state2,
-    }),
-  },
-  stateRetriever1,
-  stateRetriever2
-);
-
-const useHook3 = createGlobalState({
-  propE: 1,
-  propF: 2,
-});
-
-const [stateRetriever3, stateMutator3] = useHook3.stateControls();
-
-const useIsLoading = createGlobalState(false);
-
-const [isLoadingStateRetriever, isLoadingMutator] = useIsLoading.stateControls();
-```
-
-Once we created another peace of state, we can combine it with our other **global hooks** and **emitters**
-
-```ts
-const [useCombinedHook2, combinedStateRetriever2] = combineAsyncGetters(
-  {
-    selector: ([state1, state2, isLoading]) => ({
-      ...state1,
-      ...state2,
-      isLoading,
-    }),
-  },
-  combinedStateRetriever1,
-  stateRetriever3,
-  isLoadingStateRetriever
-);
-```
-
-You have the freedom to combine as many global hooks as you wish. This means you can merge multiple states into a single cohesive unit by combining their respective hooks. This approach offers flexibility and scalability, allowing you to handle complex state compositions in a modular and efficient manner.
-
-### **Quick note**:
-
-Please be aware that the third parameter is a **dispose callback**, which can be particularly useful in **higher-order** functions when you want to release any resources associated with the hook. By invoking the dispose callback, the hook will no longer report any changes, ensuring that resources are properly cleaned up. This allows for efficient resource management and can be beneficial in scenarios where you need to handle resource cleanup or termination in a controlled manner.
-
-# Extending Global Hooks
-
-Creating a global hook that connects to an asyncStorage is made incredibly easy with the **createCustomGlobalState** function.
-
-This function returns a new global state builder wrapped with the desired custom implementation, allowing you to get creative! Le'ts see and example:
-
-```ts
-export const createGlobalState = createCustomGlobalState<
-  {
-    asyncStorageKey?: string;
-  },
-  {
-    isAsyncStorageReady?: boolean;
-  }
->({
-  onInitialize: async ({ setState, setMetadata }, config) => {
-    setMetadata((metadata) => ({
-      ...(metadata ?? {}),
-      isAsyncStorageReady: undefined,
-    }));
-
-    const asyncStorageKey = config?.asyncStorageKey;
-    if (!asyncStorageKey) return;
-
-    const storedItem = (await asyncStorage.getItem(asyncStorageKey)) as string;
-
-    setMetadata((metadata) => ({
-      ...metadata,
-      isAsyncStorageReady: true,
-    }));
-
-    if (storedItem === null) {
-      return setState((state: unknown) => state, { forceUpdate: true });
-    }
-
-    const parsed = formatFromStore(storedItem, {
-      jsonParse: true,
-    });
-
-    setState(parsed, { forceUpdate: true });
-  },
-
-  onChange: ({ getState }, config) => {
-    if (!config?.asyncStorageKey) return;
-
-    const state = getState();
-
-    const formattedObject = formatToStore(state, {
-      stringify: true,
-    });
-
-    asyncStorage.setItem(config.asyncStorageKey, formattedObject);
-  },
-});
-```
-
-It is important to use **forceUpdate** to force React to re-render our components and obtain the most recent state of the **metadata**. This is especially useful when working with primitive types, as it can be challenging to differentiate between a primitive value that originates from storage and one that does not.
-
-It is worth mentioning that the **onInitialize** function will be executed only once per global state.
-
-You can use to **formatToStore**, and **formatFromStore** to sanitize your data, These methods will help you transform objects into JSON strings and retrieve them back without losing any of the original data types. You will no longer encounter problems when **stringifying** Dates, Maps, Sets, and other complex data types. You could take a look in the API here: [json-storage-formatter](https://www.npmjs.com/package/json-storage-formatter).
-
-Let's see how to create a global state using our new builder:
-
-```ts
-const useTodos = createGlobalState(new Map<string, number>(), {
-  config: {
-    asyncStorageKey: 'todos',
-  },
-});
-```
-
-That's correct! If you add an **asyncStorageKey** to the state configuration, the state will be synchronized with the **asyncStorage**
-
-Let's see how to use this async storage hook into our components:
-
-```ts
-const [todos, setTodos, {isAsyncStorageReady}] = useTodos();
-
-return (<>
-  {isAsyncStorageReady ? <TodoList todos={todos} /> : <Text>Loading...</Text>}
-<>);
-```
-
-The **metadata** is not reactive information and can only be modified from inside the global state lifecycle methods.
 
 # Life cycle methods
 
@@ -814,86 +530,7 @@ Finally, if you have a very specific necessity but still want to use the global 
 Let's see an example again with the **asyncStorage** custom global hook but with the abstract class.
 
 ```ts
-export class GlobalStore<
-  State,
-  Metadata extends {
-    isAsyncStorageReady?: boolean;
-  },
-  ActionsConfig extends ActionCollectionConfig<State, Metadata> | unknown
-> extends GlobalStoreAbstract<State, Metadata, ActionsConfig> {
-  public asyncStorageKey?: string;
-
-  constructor(
-    state: State,
-    args: {
-      metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
-      actions?: ActionsConfig;
-      name?: string;
-      asyncStorageKey?: string;
-    } = {}
-  ) {
-    super(state, args);
-    this.asyncStorageKey = args.asyncStorageKey;
-    this.initialize();
-  }
-
-  protected onInitialize = async ({
-    setState,
-    setMetadata,
-    getState,
-  }: StoreTools<State, Metadata>) => {
-    if (!this.asyncStorageKey) return;
-
-    const storedItem = (await asyncStorage.getItem(this.asyncStorageKey)) as string | null;
-
-    setMetadata((metadata) => {
-      ...metadata,
-      isAsyncStorageReady: true,
-    });
-
-    if (storedItem === null) {
-      const state = getState();
-
-      // force the re-render of the subscribed components even if the state is the same
-      return setState(state, { forceUpdate: true });
-    }
-
-    const items = formatFromStore<State>(storedItem, {
-      jsonParse: true,
-    });
-
-    setState(items, { forceUpdate: true });
-  };
-
-  protected onChange = ({ getState }: StoreTools<State, Metadata> & StateChanges<State>) => {
-    const asyncStorageKey = this.asyncStorageKey;
-    if (!asyncStorageKey) return;
-
-    const state = getState();
-
-    const formattedObject = formatToStore(state, {
-      stringify: true,
-    });
-
-    asyncStorage.setItem(asyncStorageKey, formattedObject);
-  };
-}
-```
-
-Then, from an instance of the global store, you will be able to access the hooks.
-
-```ts
-const useCount = new GlobalStore(1, {
-  config: {
-    asyncStorageKey: 'counter',
-  },
-}).getHook();
-
-const [stateRetriever, stateMutator, getMetadata] = useCount.stateControls();
-
-// into a component
-const [state, setState, { isAsyncStorageReady }] = useCount();
+extends GlobalStoreAbstract<State, Metadata, ActionsConfig>
 ```
 
 # That's it for now!! hope you enjoy coding!!
