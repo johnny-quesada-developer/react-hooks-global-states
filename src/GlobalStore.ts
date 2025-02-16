@@ -397,7 +397,10 @@ export class GlobalStore<
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
 
-      const subscriptionId = isString(hooksProps.current) ? hooksProps.current : '';
+      const subscriptionId = isString(hooksProps.current?.subscriptionId)
+        ? hooksProps.current.subscriptionId
+        : '';
+
       const subscriptionParameters = this.subscribers.get(subscriptionId);
       const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
         dependencies: config.dependencies,
