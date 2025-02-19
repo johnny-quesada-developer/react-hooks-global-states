@@ -380,7 +380,11 @@ export class GlobalStore<
           this.executeSetStateForSubscriber(subscription, {
             forceUpdate: false,
             newRootState: this.stateWrapper.state,
-            currentRootState: hooksProps.current.tempInitialRootState,
+            currentRootState: (() => {
+              const isUniqueSymbol = hooksProps.current.tempInitialRootState === uniqueSymbol;
+
+              return isUniqueSymbol ? this.stateWrapper.state : hooksProps.current.tempInitialRootState;
+            })(),
             identifier: 'on mount state update',
           });
 
