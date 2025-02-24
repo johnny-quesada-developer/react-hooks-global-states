@@ -70,6 +70,11 @@ export interface StateHook<State, StateMutator, Metadata extends BaseMetadata | 
   (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]> &
     HookExtensions<State, StateMutator, Metadata>;
 
+  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
+    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
+  > &
+    HookExtensions<Derivate, StateMutator, Metadata>;
+
   <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
     [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
   > &
@@ -134,7 +139,7 @@ export type GlobalStoreCallbacks<State, Metadata extends BaseMetadata | unknown>
   computePreventStateChange?: (args: StoreTools<State, Metadata> & StateChanges<State>) => boolean;
 };
 
-export type UseHookConfig<State, TRoot = unknown> = {
+export type UseHookConfig<State, TRoot = any> = {
   isEqual?: (current: State, next: State) => boolean;
   isEqualRoot?: (current: TRoot, next: TRoot) => boolean;
   dependencies?: unknown[];

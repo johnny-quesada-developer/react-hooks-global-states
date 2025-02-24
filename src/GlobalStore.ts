@@ -332,8 +332,10 @@ export class GlobalStore<
   public getHook = () => {
     const useHook = (
       selector?: SelectorCallback<unknown, unknown>,
-      config: UseHookConfig<unknown, unknown> = {}
+      args: UseHookConfig<unknown, unknown> | unknown[] = []
     ) => {
+      const config = Array.isArray(args) ? { dependencies: args } : args ?? {};
+
       const hooksProps = useConstantValueRef<{
         subscriptionId: string | null;
         tempInitialRootState: State | UniqueSymbol;
