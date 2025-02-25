@@ -53,6 +53,22 @@ export type ObservableBuilderHook<State, StateMutator, Metadata extends BaseMeta
   }
 ) => ObservableFragment<Fragment>;
 
+export interface ContextBaseHook<State, StateMutator, Metadata extends BaseMetadata | unknown> {
+  (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
+
+  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
+    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
+  >;
+
+  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
+    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
+  >;
+}
+
+export interface ContextHook<State, StateMutator, Metadata extends BaseMetadata | unknown>
+  extends HookExtensions<State, StateMutator, Metadata>,
+    ContextBaseHook<State, StateMutator, Metadata> {}
+
 export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | unknown> = {
   stateControls: () => readonly [
     useStateControls: StateControlsHook<State, StateMutator, Metadata>,
@@ -65,21 +81,8 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
     args?: Omit<UseHookConfig<Derivate, State>, 'dependencies'> & {
       name?: string;
     }
-  ) => ContextHook<Derivate, StateMutator, Metadata>;
+  ) => ContextBaseHook<Derivate, StateMutator, Metadata>;
 };
-
-export interface ContextHook<State, StateMutator, Metadata extends BaseMetadata | unknown>
-  extends HookExtensions<State, StateMutator, Metadata> {
-  (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
-
-  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
-
-  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
-}
 
 export interface CreateContext {
   <State, Hook = ContextHook<State, StateSetter<State>, BaseMetadata>>(state: State): readonly [
