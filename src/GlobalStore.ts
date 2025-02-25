@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActionCollectionConfig,
   StateSetter,
@@ -26,7 +26,6 @@ import { shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
 import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
-import { useConstantValueRef } from './useConstantValueRef';
 
 type DebugProps = {
   REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown, unknown, unknown>) => void;
@@ -336,13 +335,13 @@ export class GlobalStore<
     ) => {
       const config = Array.isArray(args) ? { dependencies: args } : args ?? {};
 
-      const hooksProps = useConstantValueRef<{
+      const hooksProps = useRef<{
         subscriptionId: string | null;
         tempInitialRootState: State | UniqueSymbol;
-      }>(() => ({
+      }>({
         subscriptionId: null,
         tempInitialRootState: this.stateWrapper.state,
-      }));
+      });
 
       const computeChildState = (): {
         state: unknown;

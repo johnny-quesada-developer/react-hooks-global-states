@@ -19,6 +19,8 @@ beforeEach(() => {
     return [value, setState];
   }) as any);
 
+  spyOn(React, 'useCallback').and.callFake((callback) => callback);
+
   let index = 0;
   const map = new Map();
 

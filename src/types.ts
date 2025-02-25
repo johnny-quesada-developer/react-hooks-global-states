@@ -67,18 +67,15 @@ export type ObservableFragment<State> = StateGetter<State> & {
 
 export interface StateHook<State, StateMutator, Metadata extends BaseMetadata | unknown>
   extends HookExtensions<State, StateMutator, Metadata> {
-  (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]> &
-    HookExtensions<State, StateMutator, Metadata>;
+  (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
 
   <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
     [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  > &
-    HookExtensions<Derivate, StateMutator, Metadata>;
+  >;
 
   <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
     [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  > &
-    HookExtensions<Derivate, StateMutator, Metadata>;
+  >;
 }
 
 export type MetadataSetter<Metadata extends BaseMetadata | unknown> = (

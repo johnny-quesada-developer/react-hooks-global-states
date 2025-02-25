@@ -4552,10 +4552,10 @@ json-stable-stringify-without-jsonify@^1.0.1:
   resolved "https://registry.yarnpkg.com/json-stable-stringify-without-jsonify/-/json-stable-stringify-without-jsonify-1.0.1.tgz#9db7b59496ad3f3cfef30a75142d2d930ad72651"
   integrity sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==
 
-json-storage-formatter@^2.0.5:
-  version "2.0.5"
-  resolved "https://registry.yarnpkg.com/json-storage-formatter/-/json-storage-formatter-2.0.5.tgz#a95376a8e0757ec9bbc8063b328c216b636c7ebc"
-  integrity sha512-qqQIn+Edsjl/DSKD7lzEHQQ9HOnpLXVmF1RmwXrScUMkKzPrKEkDkWtef4mNTpsDZiKpEAK7+5J5APJBHRB3KQ==
+json-storage-formatter@^2.0.9:
+  version "2.0.9"
+  resolved "https://registry.yarnpkg.com/json-storage-formatter/-/json-storage-formatter-2.0.9.tgz#f86a7fd2375c370e40c30be630a097ae3a93f3d8"
+  integrity sha512-8UsiveogvIJp+Bf1h5yTKPsLbt5tgQKmuh7tFru9Z5js2BjrJMHsdqO+KOWJrvaaj0D1TexMLGg1/q0yDrwgQw==
 
 json5@2.x, json5@^2.2.2:
   version "2.2.3"

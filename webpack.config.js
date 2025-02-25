@@ -19,7 +19,7 @@ module.exports = {
     throwWrongKeyOnActionCollectionConfig: './src/throwWrongKeyOnActionCollectionConfig.ts',
     uniqueId: './src/uniqueId.ts',
     uniqueSymbol: './src/uniqueSymbol.ts',
-    useConstantValueRef: './src/useConstantValueRef.ts',
+    useStableState: './src/useStableState.ts',
   },
   externals: {
     react: 'react',
