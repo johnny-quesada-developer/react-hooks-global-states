@@ -95,3 +95,5 @@ export const createCustomGlobalState = <
     } as Parameters<typeof createGlobalState>[1]);
   }) as CustomCreateGlobalState<TCustomConfig, InheritMetadata>;
 };
+
+export default createCustomGlobalState;

@@ -9,3 +9,5 @@ export const debounce = <T extends (...args: any[]) => void>(callback: T, delay 
     }, delay);
   };
 };
+
+export default debounce;

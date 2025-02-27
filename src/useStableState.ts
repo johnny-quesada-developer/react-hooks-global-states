@@ -55,3 +55,5 @@ export const useStableState: UseStableState = (state, ...args) => {
 
   return [ref, recompute];
 };
+
+export default useStableState;

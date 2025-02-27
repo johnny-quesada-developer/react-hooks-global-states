@@ -5,3 +5,5 @@ export const throwWrongKeyOnActionCollectionConfig = (action_key: string) => {
     }\n
 }\n`);
 };
+
+export default throwWrongKeyOnActionCollectionConfig;

@@ -806,3 +806,5 @@ export class GlobalStore<
     });
   };
 }
+
+export default GlobalStore;

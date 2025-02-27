@@ -53,3 +53,5 @@ export const createGlobalState = ((
     actions?: ActionCollectionConfig<unknown, unknown>;
   }
 ) => new GlobalStore(state, args).getHook()) as CreateGlobalState;
+
+export default createGlobalState;

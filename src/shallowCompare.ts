@@ -3,6 +3,9 @@ import { isDate } from 'json-storage-formatter/isDate';
 import { isNil } from 'json-storage-formatter/isNil';
 import { isRecord } from './isRecord';
 
+/**
+ * Returns true if the two values are equal.
+ */
 export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;
   if (isEqual) return true;
@@ -83,3 +86,5 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
 
   return true;
 };
+
+export default shallowCompare;

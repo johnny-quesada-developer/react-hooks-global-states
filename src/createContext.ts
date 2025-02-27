@@ -245,3 +245,5 @@ export const createContext = ((
 
   return [useContext, Provider] as const;
 }) as CreateContext;
+
+export default createContext;
