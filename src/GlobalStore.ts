@@ -43,6 +43,7 @@ export class GlobalStore<
     : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
 > {
   protected _name: string;
+  protected wasDisposed = false;
 
   public actionsConfig: ActionsConfig | null = null;
   public callbacks: GlobalStoreCallbacks<State, Metadata> | null = null;
@@ -333,6 +334,8 @@ export class GlobalStore<
       selector?: SelectorCallback<unknown, unknown>,
       args: UseHookConfig<unknown, unknown> | unknown[] = []
     ) => {
+      if (this.wasDisposed) throw new Error('The global state was disposed');
+
       const config = Array.isArray(args) ? { dependencies: args } : args ?? {};
 
       const hooksProps = useRef<{
@@ -439,6 +442,7 @@ export class GlobalStore<
     useHook.stateControls = this.stateControls;
     useHook.createSelectorHook = this.createSelectorHook;
     useHook.createObservable = this.createObservable;
+    useHook.dispose = this.dispose;
 
     return useHook as unknown as StateHook<State, PublicStateMutator, Metadata>;
   };
@@ -786,4 +790,19 @@ export class GlobalStore<
 
     return observable;
   }
+
+  public dispose = () => {
+    this.wasDisposed = true;
+
+    // mark everything as null to allow the garbage collector to free the memory
+    Object.assign(this, {
+      _name: null,
+      actionsConfig: null,
+      callbacks: null,
+      metadata: null,
+      actions: null,
+      subscribers: null,
+      stateWrapper: null,
+    });
+  };
 }

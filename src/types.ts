@@ -49,6 +49,8 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
       name?: string;
     }
   ) => ObservableFragment<Fragment>;
+
+  dispose: () => void;
 };
 
 export type ObservableFragment<State> = StateGetter<State> & {
