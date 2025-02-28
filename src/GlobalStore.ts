@@ -41,7 +41,7 @@ const getTempObjectKey = (obj: object) => {
 // devtools fallback for page reloads during debugging sessions
 (() => {
   // monkey path is already in place, no fallback is needed
-  if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) return;
+  if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) return;
 
   // if this is not a web environment have issues with reloads
   if (isNil(debugProps.sessionStorage)) return;
@@ -56,10 +56,10 @@ const getTempObjectKey = (obj: object) => {
 
   debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = [];
 
-  // auto cleanup the weakset after 1 second
+  // clear the temp hooks after 1 minute
   setTimeout(() => {
     debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = null;
-  }, 10_000);
+  }, 60_000);
 })();
 
 /**
