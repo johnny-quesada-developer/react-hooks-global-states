@@ -27,9 +27,35 @@ import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCo
 import { uniqueId } from './uniqueId';
 import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 
-type DebugProps = {
-  REACT_GLOBAL_STATE_HOOK_DEBUG: ($this: GlobalStore<unknown, unknown, unknown>) => void;
+const debugProps = globalThis as typeof globalThis & {
+  REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown) => void;
+  REACT_GLOBAL_STATE_TEMP_HOOKS: WeakSet<object> | null;
 };
+
+// devtools fallback for page reloads during debugging sessions
+(() => {
+  // monkey path is already in place, no fallback is needed
+  if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) return;
+
+  // if this is not a web environment have issues with reloads
+  const sessionStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')?.value;
+  if (isNil(sessionStorage)) return;
+
+  try {
+    // Safary could potentially throw an error if the session storage is disabled
+    const isDebugging = sessionStorage.getItem('REACT_GLOBAL_STATE_HOOK_DEBUG');
+    if (!isDebugging) return;
+  } catch (error) {
+    return;
+  }
+
+  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = new WeakSet();
+
+  // auto cleanup the weakset after 1 second
+  setTimeout(() => {
+    debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = null;
+  }, 10_000);
+})();
 
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
@@ -89,10 +115,13 @@ export class GlobalStore<
     this.callbacks = callbacks ?? null;
     this.actionsConfig = actions ?? null;
 
-    if ((globalThis as Record<string, unknown> as DebugProps)?.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      (globalThis as Record<string, unknown> as DebugProps).REACT_GLOBAL_STATE_HOOK_DEBUG(
-        this as unknown as GlobalStore<unknown, unknown, unknown>
-      );
+    if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) {
+      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG(this);
+    } else if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) {
+      // as fallback store temporarily the hooks to allow the devtools to collect them
+      // this is necessary for the devtools to work after a page reload
+      // after a page reload the content script could be injected after the hooks are created
+      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.add(this);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
