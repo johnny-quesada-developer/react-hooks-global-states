@@ -30,6 +30,7 @@ import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 const debugProps = globalThis as typeof globalThis & {
   REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown) => void;
   REACT_GLOBAL_STATE_TEMP_HOOKS: object[] | null;
+  sessionStorage?: { getItem: (key: string) => string | null };
 };
 
 // prefer to store weak refs to avoid processing global states that are not used
@@ -43,12 +44,11 @@ const getTempObjectKey = (obj: object) => {
   if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) return;
 
   // if this is not a web environment have issues with reloads
-  const sessionStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')?.value;
-  if (isNil(sessionStorage)) return;
+  if (isNil(debugProps.sessionStorage)) return;
 
   try {
     // Safary could potentially throw an error if the session storage is disabled
-    const isDebugging = sessionStorage.getItem('REACT_GLOBAL_STATE_HOOK_DEBUG');
+    const isDebugging = debugProps.sessionStorage.getItem('REACT_GLOBAL_STATE_HOOK_DEBUG');
     if (!isDebugging) return;
   } catch (error) {
     return;
