@@ -29,7 +29,12 @@ import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 
 const debugProps = globalThis as typeof globalThis & {
   REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown) => void;
-  REACT_GLOBAL_STATE_TEMP_HOOKS: WeakSet<object> | null;
+  REACT_GLOBAL_STATE_TEMP_HOOKS: object[] | null;
+};
+
+// prefer to store weak refs to avoid processing global states that are not used
+const getTempObjectKey = (obj: object) => {
+  return typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(obj) : obj;
 };
 
 // devtools fallback for page reloads during debugging sessions
@@ -49,7 +54,7 @@ const debugProps = globalThis as typeof globalThis & {
     return;
   }
 
-  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = new WeakSet();
+  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = [];
 
   // auto cleanup the weakset after 1 second
   setTimeout(() => {
@@ -121,7 +126,7 @@ export class GlobalStore<
       // as fallback store temporarily the hooks to allow the devtools to collect them
       // this is necessary for the devtools to work after a page reload
       // after a page reload the content script could be injected after the hooks are created
-      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.add(this);
+      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.push(getTempObjectKey(this));
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
