@@ -129,7 +129,7 @@ export class GlobalStore<
     } else if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) {
       // if available use the WeakRef to store the hooks so we could potentially prevent processing hooks that are not used anymore
       const temp = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(this) : this;
-      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(generateStackHash(globalHookStackHash), temp);
+      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(globalHookStackHash, temp);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
