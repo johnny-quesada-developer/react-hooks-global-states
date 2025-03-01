@@ -18,6 +18,7 @@ module.exports = {
     uniqueId: './src/uniqueId.ts',
     uniqueSymbol: './src/uniqueSymbol.ts',
     useStableState: './src/useStableState.ts',
+    generateStackHash: './src/generateStackHash.ts',
   },
   externals: {
     react: 'react',

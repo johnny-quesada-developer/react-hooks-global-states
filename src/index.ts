@@ -47,3 +47,5 @@ export {
   CreateContext,
   createContext,
 } from './createContext';
+
+export { generateStackHash } from './generateStackHash';

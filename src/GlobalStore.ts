@@ -26,16 +26,12 @@ import { shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
 import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
+import { generateStackHash } from './generateStackHash';
 
 const debugProps = globalThis as typeof globalThis & {
   REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown) => void;
-  REACT_GLOBAL_STATE_TEMP_HOOKS: object[] | null;
+  REACT_GLOBAL_STATE_TEMP_HOOKS: Map<string, unknown> | null;
   sessionStorage?: { getItem: (key: string) => string | null };
-};
-
-// prefer to store weak refs to avoid processing global states that are not used
-const getTempObjectKey = (obj: object) => {
-  return typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(obj) : obj;
 };
 
 // devtools fallback for page reloads during debugging sessions
@@ -54,7 +50,7 @@ const getTempObjectKey = (obj: object) => {
     return;
   }
 
-  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = [];
+  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = new Map();
 
   // clear the temp hooks after 1 minute
   setTimeout(() => {
@@ -123,10 +119,14 @@ export class GlobalStore<
     if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) {
       debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG(this);
     } else if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) {
+      const stack = new Error().stack ?? '';
+      // if available use the WeakRef to store the hooks so we could potentially prevent processing hooks that are not used anymore
+      const temp = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(this) : this;
+
       // as fallback store temporarily the hooks to allow the devtools to collect them
       // this is necessary for the devtools to work after a page reload
       // after a page reload the content script could be injected after the hooks are created
-      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.push(getTempObjectKey(this));
+      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(generateStackHash(stack), temp);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
