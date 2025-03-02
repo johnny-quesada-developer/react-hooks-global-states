@@ -29,8 +29,8 @@ import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 import { generateStackHash } from './generateStackHash';
 
 const debugProps = globalThis as typeof globalThis & {
-  REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown, invokerStackHash: string) => void;
-  REACT_GLOBAL_STATE_TEMP_HOOKS: Map<string, unknown> | null;
+  REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown, args: undefined | {}, invokerStackHash: string) => void;
+  REACT_GLOBAL_STATE_TEMP_HOOKS: Map<string, [unknown, unknown]> | null;
   sessionStorage?: { getItem: (key: string) => string | null };
 };
 
@@ -125,11 +125,12 @@ export class GlobalStore<
     if (isDevToolsPresent) globalHookStackHash = generateStackHash(new Error().stack ?? '');
 
     if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG(this, globalHookStackHash);
+      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG(this, args, globalHookStackHash);
     } else if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) {
       // if available use the WeakRef to store the hooks so we could potentially prevent processing hooks that are not used anymore
       const temp = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(this) : this;
-      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(globalHookStackHash, temp);
+      const tempArgs = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(args) : args;
+      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(globalHookStackHash, [temp, tempArgs]);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
