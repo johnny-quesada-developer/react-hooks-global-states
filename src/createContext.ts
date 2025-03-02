@@ -21,7 +21,6 @@ import {
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
-import { uniqueId } from './uniqueId';
 import { useStableState } from './useStableState';
 
 export type ContextProviderAPI<State, Metadata extends BaseMetadata | unknown> = {
@@ -142,19 +141,13 @@ export const createContext = ((
     return useHook();
   }) as ContextHook<unknown, unknown, unknown>;
 
-  const selectorByParentHook = new WeakMap<
-    StateHook<unknown, unknown, unknown>, // parent hook
-    Map<string, StateHook<unknown, unknown, unknown>> // selectorId -> hook
-  >();
-
   const Provider: ContextProvider<unknown, unknown> = ({ children, value: initialState, ref }) => {
     const [state] = useStableState(
       () => {
         const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
         const state: unknown = (() => {
-          if (!isNil(initialState))
-            return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
+          if (!isNil(initialState)) return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
 
           return getInheritedState();
         })();
@@ -166,23 +159,21 @@ export const createContext = ((
 
         const parentHook = store.getHook() as StateHook<unknown, unknown, unknown>;
 
-        // makes the parent hook accessible outside the provider
-        selectorByParentHook.set(parentHook, new Map());
-
         return { store, parentHook };
       },
       // cleanup
-      () => {
-        selectorByParentHook.delete(state.value.parentHook);
+      ({ store }) => {
+        store.dispose();
 
         (state.value.store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
 
         /**
          * Required by the global hooks developer tools
          */
-        (
-          state.value.store as unknown as { __onUnMountContext: (...args: any[]) => unknown }
-        ).__onUnMountContext?.(state.value.store, state.value.parentHook);
+        (state.value.store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
+          state.value.store,
+          state.value.parentHook
+        );
       },
       []
     );
@@ -190,10 +181,7 @@ export const createContext = ((
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? state.value.store.getConfigCallbackParam() : {}) as ContextProviderAPI<
-          unknown,
-          unknown
-        >;
+        return (ref ? state.value.store.getConfigCallbackParam() : {}) as ContextProviderAPI<unknown, unknown>;
       },
       [state.value.store, ref]
     );
@@ -205,25 +193,19 @@ export const createContext = ((
    * Store selectors are not created until the first time they are used
    */
   useContext.createSelectorHook = ((selector, args) => {
-    const selectorId = uniqueId('cs:');
-
     return (...selectorArgs: []) => {
       const parentHook = reactUseContext(context);
       if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      // list of selectors over the parent hook
-      const selectorsMap = selectorByParentHook.get(parentHook)!;
+      const [{ value: useChildHook }] = useStableState(
+        () => parentHook.createSelectorHook(selector, args),
+        // we cannot use dispose because react may still call the hook after the component is unmounted
+        // removing the subscriptions helps the garbage collector to clean up the memory
+        (hook) => hook.removeSubscriptions(),
+        [parentHook]
+      );
 
-      // if the selector does not exist, it is created
-      if (!selectorsMap.has(selectorId)) {
-        selectorsMap.set(
-          selectorId,
-          parentHook.createSelectorHook(selector, args) as StateHook<unknown, unknown, unknown>
-        );
-      }
-
-      // execute the selector
-      return selectorsMap.get(selectorId)!(...selectorArgs);
+      return useChildHook(...selectorArgs);
     };
   }) as typeof useContext.createSelectorHook;
 

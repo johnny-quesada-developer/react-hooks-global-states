@@ -480,6 +480,7 @@ export class GlobalStore<
     useHook.stateControls = this.stateControls;
     useHook.createSelectorHook = this.createSelectorHook;
     useHook.createObservable = this.createObservable;
+    useHook.removeSubscriptions = this.removeSubscriptions;
     useHook.dispose = this.dispose;
 
     return useHook as unknown as StateHook<State, PublicStateMutator, Metadata>;
@@ -566,7 +567,7 @@ export class GlobalStore<
     const [childStateRetriever, setChildState] = childStore.stateControls();
 
     // keeps the root state and the derivate state in sync
-    rootStateRetriever(
+    const unsubscribe = rootStateRetriever(
       (newRoot) => {
         const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
 
@@ -606,6 +607,16 @@ export class GlobalStore<
     ) as typeof useChildHookWrapper.createSelectorHook;
 
     useChildHookWrapper.createObservable = this.createObservable.bind(useChildHookWrapper);
+
+    useChildHookWrapper.removeSubscriptions = () => {
+      unsubscribe();
+      childStore.removeSubscriptions();
+    };
+
+    useChildHookWrapper.dispose = () => {
+      useChildHookWrapper.removeSubscriptions();
+      childStore.dispose();
+    };
 
     return useChildHookWrapper as StateHook<RootDerivate, StateMutator, Metadata>;
   };
@@ -762,7 +773,7 @@ export class GlobalStore<
     let root = rootStateRetriever();
     let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever());
 
-    rootStateRetriever(
+    const unsubscribe = rootStateRetriever(
       (newRoot) => {
         const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
 
@@ -819,6 +830,12 @@ export class GlobalStore<
       observable
     ) as unknown as typeof observable.createObservable;
 
+    observable.removeSubscriptions = () => {
+      subscriptions.forEach((remove) => remove());
+      subscriptions.length = 0;
+      unsubscribe();
+    };
+
     // parasite the state controls to allow endless observables
     (
       observable as unknown as {
@@ -829,19 +846,22 @@ export class GlobalStore<
     return observable;
   }
 
-  public dispose = () => {
-    this.wasDisposed = true;
+  removeSubscriptions = () => {
+    this.subscribers.clear();
+  };
 
-    // mark everything as null to allow the garbage collector to free the memory
-    Object.assign(this, {
-      _name: null,
-      actionsConfig: null,
-      callbacks: null,
-      metadata: null,
-      actions: null,
-      subscribers: null,
-      stateWrapper: null,
-    });
+  public dispose = () => {
+    // clean up all the references while keep the structure helps the garbage collector
+    this.wasDisposed = true;
+    this.removeSubscriptions();
+
+    this._name = '';
+    this.actionsConfig = null;
+    this.callbacks = null;
+    this.metadata = {} as Metadata;
+    this.actions = null;
+    this.subscribers.clear();
+    this.stateWrapper = { state: null as unknown as State };
   };
 }
 

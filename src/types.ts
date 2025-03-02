@@ -50,6 +50,8 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
     }
   ) => ObservableFragment<Fragment>;
 
+  removeSubscriptions: () => void;
+
   dispose: () => void;
 };
 
@@ -63,6 +65,8 @@ export type ObservableFragment<State> = StateGetter<State> & {
       name?: string;
     }
   ) => ObservableFragment<Fragment>;
+
+  removeSubscriptions: () => void;
 
   _name: string | undefined;
 };
@@ -212,7 +216,4 @@ export type SubscriberParameters = {
  * @param {unknown} params.state - The new state
  * @param {string} params.identifier - Optional identifier for the setState call
  */
-export type SubscriptionCallback<State = unknown> = (
-  params: { state: State },
-  args: { identifier?: string }
-) => void;
+export type SubscriptionCallback<State = unknown> = (params: { state: State }, args: { identifier?: string }) => void;
