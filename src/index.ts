@@ -32,7 +32,6 @@ export { createCustomGlobalState } from './createCustomGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
-export { debounce } from './debounce';
 export { uniqueId } from './uniqueId';
 export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 export { isRecord } from './isRecord';
