@@ -20,23 +20,28 @@ module.exports = {
     useStableState: './src/useStableState.ts',
     generateStackHash: './src/generateStackHash.ts',
   },
-  externals: {
-    react: 'react',
-    './createContext': './createContext.js',
-    './GlobalStore': './GlobalStore.js',
-    './GlobalStoreAbstract': './GlobalStoreAbstract.js',
-    './createCustomGlobalState': './createCustomGlobalState.js',
-    './createGlobalState': './createGlobalState.js',
-    './types': './types.js',
-    './debounce': './src/debounce.ts',
-    './isRecord': './isRecord.js',
-    './shallowCompare': './shallowCompare.js',
-    './throwWrongKeyOnActionCollectionConfig': './throwWrongKeyOnActionCollectionConfig.js',
-    './uniqueId': './uniqueId.js',
-    './uniqueSymbol': './uniqueSymbol.js',
-    './useStableState': './useStableState.js',
-    './generateStackHash': './generateStackHash.js',
-  },
+  externals: [
+    'react',
+    'json-storage-formatter',
+    ({ request }, callback) => {
+      request = String(request);
+
+      const isMainBundle = request === './src/index.ts';
+      if (isMainBundle) return callback();
+
+      const isJSONStorageFormatter = request.startsWith('json-storage-formatter');
+      if (isJSONStorageFormatter) return callback(null, request);
+
+      // thread local imports as externals
+      const isLocal = request.startsWith('./src/');
+      if (isLocal) {
+        const filename = path.basename(request, '.ts') + '.js';
+        return callback(null, `./${filename}`);
+      }
+
+      callback();
+    },
+  ],
   output: {
     path: path.resolve(__dirname),
     filename: ({ chunk: { name } }) => {
@@ -48,12 +53,6 @@ module.exports = {
   },
   resolve: {
     extensions: ['.ts', '.js'],
-    alias: {
-      'react-hooks-global-states': path.resolve(
-        __dirname,
-        'node_modules/react-hooks-global-states/package.json'
-      ),
-    },
   },
   module: {
     rules: [

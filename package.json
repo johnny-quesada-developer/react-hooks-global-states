@@ -1,6 +1,6 @@
 {
   "name": "react-hooks-global-states",
-  "version": "7.0.14",
+  "version": "7.0.15",
   "description": "This is a package to easily handling global-state across your react-components using hooks.",
   "main": "./bundle.js",
   "types": "./index.d.ts",
