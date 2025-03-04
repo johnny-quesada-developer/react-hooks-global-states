@@ -1,47 +1,55 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
 
+const individualEntries = {
+  createContext: './src/createContext.ts',
+  GlobalStore: './src/GlobalStore.ts',
+  GlobalStoreAbstract: './src/GlobalStoreAbstract.ts',
+  createCustomGlobalState: './src/createCustomGlobalState.ts',
+  createGlobalState: './src/createGlobalState.ts',
+  types: './src/types.ts',
+  debounce: './src/debounce.ts',
+  isRecord: './src/isRecord.ts',
+  shallowCompare: './src/shallowCompare.ts',
+  throwWrongKeyOnActionCollectionConfig: './src/throwWrongKeyOnActionCollectionConfig.ts',
+  uniqueId: './src/uniqueId.ts',
+  uniqueSymbol: './src/uniqueSymbol.ts',
+  useStableState: './src/useStableState.ts',
+  generateStackHash: './src/generateStackHash.ts',
+};
+
+const getExternalsForEntries = () => {
+  return Object.keys(individualEntries).reduce((acc, key) => {
+    acc[`./${key}`] = `./${key}.js`;
+    return acc;
+  }, {});
+};
+
 module.exports = {
   mode: 'production',
   entry: {
     bundle: './src/index.ts',
-    createContext: './src/createContext.ts',
-    GlobalStore: './src/GlobalStore.ts',
-    GlobalStoreAbstract: './src/GlobalStoreAbstract.ts',
-    createCustomGlobalState: './src/createCustomGlobalState.ts',
-    createGlobalState: './src/createGlobalState.ts',
-    types: './src/types.ts',
-    debounce: './src/debounce.ts',
-    isRecord: './src/isRecord.ts',
-    shallowCompare: './src/shallowCompare.ts',
-    throwWrongKeyOnActionCollectionConfig: './src/throwWrongKeyOnActionCollectionConfig.ts',
-    uniqueId: './src/uniqueId.ts',
-    uniqueSymbol: './src/uniqueSymbol.ts',
-    useStableState: './src/useStableState.ts',
-    generateStackHash: './src/generateStackHash.ts',
+    ...individualEntries,
   },
-  externals: [
-    'react',
-    'json-storage-formatter',
-    ({ request }, callback) => {
-      request = String(request);
+  externals: {
+    react: 'react',
 
-      const isMainBundle = request === './src/index.ts';
-      if (isMainBundle) return callback();
+    'json-storage-formatter': 'json-storage-formatter',
+    'json-storage-formatter/clone': 'json-storage-formatter/clone',
+    'json-storage-formatter/isNil': 'json-storage-formatter/isNil',
+    'json-storage-formatter/isNumber': 'json-storage-formatter/isNumber',
+    'json-storage-formatter/isBoolean': 'json-storage-formatter/isBoolean',
+    'json-storage-formatter/isString': 'json-storage-formatter/isString',
+    'json-storage-formatter/isDate': 'json-storage-formatter/isDate',
+    'json-storage-formatter/isRegex': 'json-storage-formatter/isRegex',
+    'json-storage-formatter/isFunction': 'json-storage-formatter/isFunction',
+    'json-storage-formatter/isPrimitive': 'json-storage-formatter/isPrimitive',
+    'json-storage-formatter/types': 'json-storage-formatter/types',
+    'json-storage-formatter/formatFromStore': 'json-storage-formatter/formatFromStore',
+    'json-storage-formatter/formatToStore': 'json-storage-formatter/formatToStore',
 
-      const isJSONStorageFormatter = request.startsWith('json-storage-formatter');
-      if (isJSONStorageFormatter) return callback(null, request);
-
-      // thread local imports as externals
-      const isLocal = request.startsWith('./src/');
-      if (isLocal) {
-        const filename = path.basename(request, '.ts') + '.js';
-        return callback(null, `./${filename}`);
-      }
-
-      callback();
-    },
-  ],
+    ...getExternalsForEntries(),
+  },
   output: {
     path: path.resolve(__dirname),
     filename: ({ chunk: { name } }) => {
