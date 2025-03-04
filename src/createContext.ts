@@ -1,12 +1,12 @@
 import {
-  PropsWithChildren,
+  type PropsWithChildren,
   useImperativeHandle,
   createContext as reactCreateContext,
   useContext as reactUseContext,
   createElement as reactCreateElement,
 } from 'react';
 import { GlobalStore } from './GlobalStore';
-import {
+import type {
   ActionCollectionConfig,
   StateHook,
   StateSetter,
@@ -147,7 +147,8 @@ export const createContext = ((
         const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
         const state: unknown = (() => {
-          if (!isNil(initialState)) return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
+          if (!isNil(initialState))
+            return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
 
           return getInheritedState();
         })();
@@ -170,10 +171,9 @@ export const createContext = ((
         /**
          * Required by the global hooks developer tools
          */
-        (state.value.store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
-          state.value.store,
-          state.value.parentHook
-        );
+        (
+          state.value.store as unknown as { __onUnMountContext: (...args: any[]) => unknown }
+        ).__onUnMountContext?.(state.value.store, state.value.parentHook);
       },
       []
     );
@@ -181,7 +181,10 @@ export const createContext = ((
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? state.value.store.getConfigCallbackParam() : {}) as ContextProviderAPI<unknown, unknown>;
+        return (ref ? state.value.store.getConfigCallbackParam() : {}) as ContextProviderAPI<
+          unknown,
+          unknown
+        >;
       },
       [state.value.store, ref]
     );

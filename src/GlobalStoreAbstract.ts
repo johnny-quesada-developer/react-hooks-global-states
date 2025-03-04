@@ -1,4 +1,4 @@
-import { ActionCollectionConfig, StoreTools, BaseMetadata, StateChanges } from './types';
+import type { ActionCollectionConfig, StoreTools, BaseMetadata, StateChanges } from './types';
 import { GlobalStore } from './GlobalStore';
 
 /**

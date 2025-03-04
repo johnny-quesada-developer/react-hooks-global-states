@@ -1,6 +1,5 @@
-import { GlobalStore } from '../src/GlobalStore';
+import { type StoreTools, GlobalStore } from '..';
 import { CancelablePromise, createDecoupledPromise } from 'easy-cancelable-promise';
-import { StoreTools } from '../src/types';
 import { useState, useEffect } from 'react';
 import { formatFromStore, formatToStore, isNil } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';

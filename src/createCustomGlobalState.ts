@@ -1,6 +1,6 @@
 import { createGlobalState } from './createGlobalState';
 
-import {
+import type {
   ActionCollectionConfig,
   StateSetter,
   ActionCollectionResult,

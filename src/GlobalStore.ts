@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
+import type {
   ActionCollectionConfig,
   StateSetter,
   GlobalStoreCallbacks,
