@@ -19,7 +19,8 @@ const individualEntries = {
 };
 
 const getExternalsForEntries = () => {
-  return Object.keys(individualEntries).reduce((acc, key) => {
+  const keys = Object.keys(individualEntries);
+  return keys.reduce((acc, key) => {
     acc[`./${key}`] = `./${key}.js`;
     return acc;
   }, {});
