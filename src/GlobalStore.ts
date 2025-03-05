@@ -602,9 +602,8 @@ export class GlobalStore<
 
     useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
 
-    useChildHookWrapper.createSelectorHook = this.createSelectorHook.bind(
-      useChildHookWrapper
-    ) as typeof useChildHookWrapper.createSelectorHook;
+    useChildHookWrapper.createSelectorHook =
+      childStore.createSelectorHook as unknown as typeof useChildHookWrapper.createSelectorHook;
 
     useChildHookWrapper.createObservable = this.createObservable.bind(useChildHookWrapper);
 
