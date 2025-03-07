@@ -4,6 +4,8 @@ import {
   createContext as reactCreateContext,
   useContext as reactUseContext,
   createElement as reactCreateElement,
+  useEffect,
+  useRef,
 } from 'react';
 import { GlobalStore } from './GlobalStore';
 import type {
@@ -135,14 +137,14 @@ export const createContext = ((
   const context = reactCreateContext<StateHook<unknown, unknown, unknown> | null>(null);
 
   const useContext = (() => {
-    const useHook = reactUseContext(context);
-    if (!useHook) throw new Error('ContextHook must be used within a ContextProvider');
+    const useParentHook = reactUseContext(context);
+    if (!useParentHook) throw new Error('ContextHook must be used within a ContextProvider');
 
-    return useHook();
+    return useParentHook();
   }) as ContextHook<unknown, unknown, unknown>;
 
   const Provider: ContextProvider<unknown, unknown> = ({ children, value: initialState, ref }) => {
-    const [{ current: state }] = useStableState(() => {
+    const stateRef = useStableState(() => {
       const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
       const state: unknown = (() => {
@@ -172,7 +174,6 @@ export const createContext = ((
             parentHook
           );
 
-          // remove all subscriptions and data to avoid memory leaks
           store.dispose();
         },
       ];
@@ -181,45 +182,61 @@ export const createContext = ((
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? state.store.getConfigCallbackParam() : {}) as ContextProviderAPI<unknown, unknown>;
+        return (ref ? stateRef?.current.store.getConfigCallbackParam() ?? null : {}) as ContextProviderAPI<
+          unknown,
+          unknown
+        >;
       },
-      [state.store, ref]
+      [ref, stateRef]
     );
 
-    return reactCreateElement(context.Provider, { value: state.parentHook }, children);
+    if (isNil(stateRef)) return null;
+
+    const { parentHook } = stateRef.current;
+    return reactCreateElement(context.Provider, { value: parentHook }, children);
   };
 
   /**
    * Store selectors are not created until the first time they are used
    */
   useContext.createSelectorHook = ((selector, args) => {
+    let useMainFragment: StateHook<any, unknown, unknown> | null = null;
+
     return (...selectorArgs: []) => {
-      const parentHook = reactUseContext(context);
+      const parentHook = reactUseContext(context)!;
       if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      const [{ current: useChildHook }] = useStableState(() => {
-        const useSelectorHook = parentHook.createSelectorHook(selector, args);
+      const isMountedRef = useRef(false);
 
-        return [
-          useSelectorHook,
-          // remove all subscriptions and data to avoid memory leaks
-          () => useSelectorHook.dispose(),
-        ];
-      }, [parentHook]);
+      if (isNil(useMainFragment)) {
+        useMainFragment = parentHook.createSelectorHook(selector, args);
+      }
 
-      return useChildHook(...selectorArgs);
+      useEffect(() => {
+        if (!isMountedRef.current) {
+          isMountedRef.current = true;
+          return;
+        }
+
+        return () => {
+          useMainFragment?.dispose();
+          useMainFragment = null;
+        };
+      }, []);
+
+      return useMainFragment(...selectorArgs);
     };
   }) as typeof useContext.createSelectorHook;
 
   const useSateControls = () => {
-    const parentHook = reactUseContext(context);
+    const parentHook = reactUseContext(context)!;
     if (isNil(parentHook)) throw new Error('useStateControls must be used within a ContextProvider');
 
     return parentHook.stateControls();
   };
 
   const useObservableBuilder: ObservableBuilderHook<unknown, unknown, unknown> = (mainSelector, args) => {
-    const parentHook = reactUseContext(context);
+    const parentHook = reactUseContext(context)!;
     if (isNil(parentHook)) throw new Error('useObservableBuilder must be used within a ContextProvider');
 
     return parentHook.createObservable(mainSelector, args);

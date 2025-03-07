@@ -859,7 +859,6 @@ export class GlobalStore<
     this.callbacks = null;
     this.metadata = {} as Metadata;
     this.actions = null;
-    this.subscribers.clear();
     this.stateWrapper = { state: null as unknown as State };
   };
 }

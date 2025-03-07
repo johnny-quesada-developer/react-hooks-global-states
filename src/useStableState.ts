@@ -1,76 +1,57 @@
-import { useEffect, useRef } from 'react';
-import { isNil } from 'json-storage-formatter/isNil';
-import { shallowCompare } from './shallowCompare';
-import { useState } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-type StateBuilder<T> = () => [state: T, cleanup?: CleanupArg];
+type Cleanup = () => void;
+type StateBuilder<T> = () => [state: T, cleanup?: Cleanup];
 type RefObject<T> = { current: T };
-type Recompute = () => void;
-type CleanupArg = (() => void) | null;
 
-export const useStableState = <T>(
+/**
+ * - Only one stable initial render
+ * - Only one stable cleanup every time dependencies change
+ * - Initial render doesn't trigger cleanup
+ * - Starts cold, returns null until the first render or fallback if provided
+ */
+export const useStableState = <T, F extends T | never>(
   builder: StateBuilder<T>,
-  dependencies?: unknown[]
-): [ref: RefObject<T>, recompute: Recompute] => {
-  const props = useRef({
-    refObject: null as RefObject<T> | null,
-    builder: null as null | (() => RefObject<T>),
-    cleanup: null as CleanupArg,
-    dependencies,
+  dependencies: unknown[],
+  fallbackArg?: F
+): F extends T ? RefObject<T> : RefObject<T> | null => {
+  const [, setState] = useState({});
+  const recompute = useCallback(() => {
+    setState({});
+  }, []);
+
+  const stableProps = useRef({
+    builder,
+    stateRef: null as RefObject<T> | null,
+    fallback: fallbackArg ? { current: fallbackArg } : undefined,
+    isMounted: false,
   });
 
-  // keep the builder up to date
-  props.current.builder = () => {
-    const [current, cleanup = null] = builder();
-    props.current.cleanup = cleanup;
+  // keep builder up to date
+  stableProps.current.builder = builder;
 
-    return {
-      current,
-    };
-  };
+  // unique effect for the first render
+  useEffect(() => {
+    const { builder } = stableProps.current;
+    const [current, cleanup] = builder();
 
-  // perform state reevaluation
-  (() => {
-    const isFirstRun = isNil(props.current.refObject);
-    const shouldAlwaysRecalculate = isNil(dependencies);
+    stableProps.current.stateRef = { current };
+    recompute();
 
-    if (isFirstRun || shouldAlwaysRecalculate) {
-      props.current.refObject = props.current.builder();
+    // prevents cleaning up on the first render
+    if (!stableProps.current.isMounted) {
+      stableProps.current.isMounted = true;
       return;
     }
 
-    const isReevaluationNeeded = !shallowCompare(props.current.dependencies, dependencies);
-    if (!isReevaluationNeeded) return;
-
-    props.current.refObject = props.current.builder();
-  })();
-
-  // update the dependencies after the reevaluation
-  props.current.dependencies = dependencies;
-
-  // trick to force the component to re-render
-  const [, setState] = useState(true);
-  const recompute = useCallback(() => {
-    props.current.refObject = props.current.builder!();
-    setState((prev) => !prev);
-  }, []);
-
-  useEffect(() => {
-    const cleanup = props.current.cleanup;
-    if (!cleanup) return;
-
-    const previousRef = props.current.refObject;
-
     return () => {
-      // avoid cleanup if the ref object did not change
-      if (previousRef === props.current.refObject) return;
-
-      cleanup();
+      cleanup?.();
     };
-  }, [props.current.refObject]);
+  }, [recompute, ...dependencies]);
 
-  return [props.current.refObject!, recompute];
+  const { stateRef, fallback } = stableProps.current;
+  const result = stateRef ?? fallback ?? null;
+  return result as F extends T ? RefObject<T> : RefObject<T> | null;
 };
 
 export default useStableState;
