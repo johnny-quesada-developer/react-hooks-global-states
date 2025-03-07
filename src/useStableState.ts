@@ -1,59 +1,76 @@
 import { useEffect, useRef } from 'react';
-import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
 import { shallowCompare } from './shallowCompare';
 import { useState } from 'react';
 import { useCallback } from 'react';
 
-export interface UseStableState {
-  <T>(state: T | (() => T), dependencies?: unknown[]): [ref: { value: T }, recompute: () => void];
+type StateBuilder<T> = () => [state: T, cleanup?: CleanupArg];
+type RefObject<T> = { current: T };
+type Recompute = () => void;
+type CleanupArg = (() => void) | null;
 
-  <T>(state: T | (() => T), cleanup: (state: T) => void, dependencies?: unknown[]): [
-    ref: { value: T },
-    recompute: () => void
-  ];
-}
-
-export const useStableState: UseStableState = (state, ...args) => {
-  const cleanup = isFunction(args[0]) ? args[0] : undefined;
-  const dependencies = (cleanup ? args[1] : args[0]) as unknown[] | undefined;
-
-  const constants = useRef({
-    builder: null as (() => unknown) | null,
-    cleanup,
+export const useStableState = <T>(
+  builder: StateBuilder<T>,
+  dependencies?: unknown[]
+): [ref: RefObject<T>, recompute: Recompute] => {
+  const props = useRef({
+    refObject: null as RefObject<T> | null,
+    builder: null as null | (() => RefObject<T>),
+    cleanup: null as CleanupArg,
     dependencies,
   });
 
-  const builder = isFunction(state) ? state : () => state;
-  const [ref, setState] = useState<{ value: unknown }>(() => ({
-    value: builder(),
-  }));
+  // keep the builder up to date
+  props.current.builder = () => {
+    const [current, cleanup = null] = builder();
+    props.current.cleanup = cleanup;
 
-  const isFirstRun = isNil(constants.current.builder);
-  const shouldAlwaysRecalculate = isNil(dependencies);
+    return {
+      current,
+    };
+  };
 
-  const isRecalculationRequired =
-    shouldAlwaysRecalculate || !shallowCompare(constants.current.dependencies, dependencies);
+  // perform state reevaluation
+  (() => {
+    const isFirstRun = isNil(props.current.refObject);
+    const shouldAlwaysRecalculate = isNil(dependencies);
 
-  if (!isFirstRun && isRecalculationRequired) ref.value = builder();
+    if (isFirstRun || shouldAlwaysRecalculate) {
+      props.current.refObject = props.current.builder();
+      return;
+    }
 
-  constants.current.dependencies = dependencies;
-  constants.current.builder = builder;
-  constants.current.cleanup = cleanup;
+    const isReevaluationNeeded = !shallowCompare(props.current.dependencies, dependencies);
+    if (!isReevaluationNeeded) return;
 
+    props.current.refObject = props.current.builder();
+  })();
+
+  // update the dependencies after the reevaluation
+  props.current.dependencies = dependencies;
+
+  // trick to force the component to re-render
+  const [, setState] = useState(true);
   const recompute = useCallback(() => {
-    setState({ value: constants.current.builder!() });
+    props.current.refObject = props.current.builder!();
+    setState((prev) => !prev);
   }, []);
 
   useEffect(() => {
+    const cleanup = props.current.cleanup;
+    if (!cleanup) return;
+
+    const previousRef = props.current.refObject;
+
     return () => {
-      if (!constants.current.cleanup) return;
+      // avoid cleanup if the ref object did not change
+      if (previousRef === props.current.refObject) return;
 
-      constants.current.cleanup(ref.value as never);
+      cleanup();
     };
-  }, []);
+  }, [props.current.refObject]);
 
-  return [ref, recompute];
+  return [props.current.refObject!, recompute];
 };
 
 export default useStableState;

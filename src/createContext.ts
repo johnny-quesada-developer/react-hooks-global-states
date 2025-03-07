@@ -142,54 +142,51 @@ export const createContext = ((
   }) as ContextHook<unknown, unknown, unknown>;
 
   const Provider: ContextProvider<unknown, unknown> = ({ children, value: initialState, ref }) => {
-    const [state] = useStableState(
-      () => {
-        const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
+    const [{ current: state }] = useStableState(() => {
+      const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
-        const state: unknown = (() => {
-          if (!isNil(initialState))
-            return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
+      const state: unknown = (() => {
+        if (!isNil(initialState))
+          return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
 
-          return getInheritedState();
-        })();
+        return getInheritedState();
+      })();
 
-        const store = new GlobalStore<unknown, unknown, unknown>(state, {
-          ...args,
-          metadata: (isFunction(args.metadata) ? args.metadata() : args.metadata) ?? {},
-        });
+      const store = new GlobalStore<unknown, unknown, unknown>(state, {
+        ...args,
+        metadata: (isFunction(args.metadata) ? args.metadata() : args.metadata) ?? {},
+      });
 
-        const parentHook = store.getHook() as StateHook<unknown, unknown, unknown>;
+      const parentHook = store.getHook() as StateHook<unknown, unknown, unknown>;
 
-        return { store, parentHook };
-      },
-      // cleanup
-      ({ store }) => {
-        store.dispose();
+      return [
+        { store, parentHook },
+        () => {
+          (store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
 
-        (state.value.store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
+          /**
+           * Required by the global hooks developer tools
+           */
+          (store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
+            store,
+            parentHook
+          );
 
-        /**
-         * Required by the global hooks developer tools
-         */
-        (
-          state.value.store as unknown as { __onUnMountContext: (...args: any[]) => unknown }
-        ).__onUnMountContext?.(state.value.store, state.value.parentHook);
-      },
-      []
-    );
+          // remove all subscriptions and data to avoid memory leaks
+          store.dispose();
+        },
+      ];
+    }, []);
 
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? state.value.store.getConfigCallbackParam() : {}) as ContextProviderAPI<
-          unknown,
-          unknown
-        >;
+        return (ref ? state.store.getConfigCallbackParam() : {}) as ContextProviderAPI<unknown, unknown>;
       },
-      [state.value.store, ref]
+      [state.store, ref]
     );
 
-    return reactCreateElement(context.Provider, { value: state.value.parentHook }, children);
+    return reactCreateElement(context.Provider, { value: state.parentHook }, children);
   };
 
   /**
@@ -200,13 +197,15 @@ export const createContext = ((
       const parentHook = reactUseContext(context);
       if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      const [{ value: useChildHook }] = useStableState(
-        () => parentHook.createSelectorHook(selector, args),
-        // we cannot use dispose because react may still call the hook after the component is unmounted
-        // removing the subscriptions helps the garbage collector to clean up the memory
-        (hook) => hook.removeSubscriptions(),
-        [parentHook]
-      );
+      const [{ current: useChildHook }] = useStableState(() => {
+        const useSelectorHook = parentHook.createSelectorHook(selector, args);
+
+        return [
+          useSelectorHook,
+          // remove all subscriptions and data to avoid memory leaks
+          () => useSelectorHook.dispose(),
+        ];
+      }, [parentHook]);
 
       return useChildHook(...selectorArgs);
     };
