@@ -110,3 +110,5 @@ lib
 *.d.ts
 /coverage
 .DS_Store
+.vscode/settings.json
+.vscode/settings.json
