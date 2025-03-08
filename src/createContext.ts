@@ -200,31 +200,34 @@ export const createContext = ((
    * Store selectors are not created until the first time they are used
    */
   useContext.createSelectorHook = ((selector, args) => {
-    let useMainFragment: StateHook<any, unknown, unknown> | null = null;
-
     return (...selectorArgs: []) => {
       const parentHook = reactUseContext(context)!;
       if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      const isMountedRef = useRef(false);
+      const stableProps = useRef({
+        isMounted: false,
+        useMainFragment: null as StateHook<any, unknown, unknown> | null,
+      });
 
-      if (isNil(useMainFragment)) {
-        useMainFragment = parentHook.createSelectorHook(selector, args);
+      if (isNil(stableProps.current.useMainFragment)) {
+        stableProps.current.useMainFragment = parentHook.createSelectorHook(selector, args);
       }
 
       useEffect(() => {
-        if (!isMountedRef.current) {
-          isMountedRef.current = true;
+        if (!stableProps.current.isMounted) {
+          stableProps.current.isMounted = true;
           return;
         }
 
         return () => {
-          useMainFragment?.dispose();
-          useMainFragment = null;
+          if (!stableProps.current.isMounted) return;
+
+          stableProps.current.useMainFragment?.dispose();
+          stableProps.current.useMainFragment = null;
         };
       }, []);
 
-      return useMainFragment(...selectorArgs);
+      return stableProps.current.useMainFragment!(...selectorArgs);
     };
   }) as typeof useContext.createSelectorHook;
 
