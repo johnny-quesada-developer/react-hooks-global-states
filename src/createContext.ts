@@ -4,8 +4,6 @@ import {
   createContext as reactCreateContext,
   useContext as reactUseContext,
   createElement as reactCreateElement,
-  useEffect,
-  useRef,
 } from 'react';
 import { GlobalStore } from './GlobalStore';
 import type {
@@ -200,34 +198,25 @@ export const createContext = ((
    * Store selectors are not created until the first time they are used
    */
   useContext.createSelectorHook = ((selector, args) => {
+    let useMainFragment: StateHook<any, unknown, unknown> | null = null;
+    let previousParentHook: WeakRef<object> | null = new WeakRef({});
+
     return (...selectorArgs: []) => {
       const parentHook = reactUseContext(context)!;
       if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      const stableProps = useRef({
-        isMounted: false,
-        useMainFragment: null as StateHook<any, unknown, unknown> | null,
-      });
-
-      if (isNil(stableProps.current.useMainFragment)) {
-        stableProps.current.useMainFragment = parentHook.createSelectorHook(selector, args);
+      const didParentHookChange = previousParentHook?.deref() !== parentHook;
+      if (didParentHookChange) {
+        useMainFragment?.dispose();
+        useMainFragment = null;
+        previousParentHook = new WeakRef(parentHook);
       }
 
-      useEffect(() => {
-        if (!stableProps.current.isMounted) {
-          stableProps.current.isMounted = true;
-          return;
-        }
+      if (isNil(useMainFragment)) {
+        useMainFragment = parentHook.createSelectorHook(selector, args);
+      }
 
-        return () => {
-          if (!stableProps.current.isMounted) return;
-
-          stableProps.current.useMainFragment?.dispose();
-          stableProps.current.useMainFragment = null;
-        };
-      }, []);
-
-      return stableProps.current.useMainFragment!(...selectorArgs);
+      return useMainFragment!(...selectorArgs);
     };
   }) as typeof useContext.createSelectorHook;
 
