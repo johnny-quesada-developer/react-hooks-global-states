@@ -84,43 +84,44 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
 };
 
 export interface CreateContext {
-  <State, Hook = ContextHook<State, StateSetter<State>, BaseMetadata>>(state: State): readonly [
-    Hook,
-    ContextProvider<Hook, BaseMetadata>
+  <State>(value: State | (() => State)): [
+    ContextHook<State, StateSetter<State>, BaseMetadata>,
+    ContextProvider<State, BaseMetadata>
   ];
 
   <
     State,
     Metadata extends BaseMetadata | unknown,
-    ActionsConfig extends ActionCollectionConfig<State, Metadata>,
+    ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? StateSetter<State>
-      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-    Hook = ContextHook<State, PublicStateMutator, Metadata>
+      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
   >(
     value: State | (() => State),
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
-      actions?: ActionCollectionConfig<State, Metadata>;
+      actions?: ActionsConfig;
     }
-  ): readonly [Hook, ContextProvider<Hook, Metadata>];
+  ): [ContextHook<State, PublicStateMutator, Metadata>, ContextProvider<State, Metadata>];
 
   <
     State,
     Metadata extends BaseMetadata | unknown,
-    ActionsConfig extends ActionCollectionConfig<State, Metadata>,
-    Hook = ContextHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>
+    ActionsConfig extends ActionCollectionConfig<State, Metadata>
   >(
     value: State | (() => State),
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
-      actions: ActionCollectionConfig<State, Metadata>;
+      actions: ActionsConfig;
     }
-  ): readonly [Hook, ContextProvider<Hook, Metadata>];
+  ): [
+    ContextHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>,
+    ContextProvider<State, Metadata>
+  ];
 }
 
 export const createContext = ((
