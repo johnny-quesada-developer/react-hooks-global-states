@@ -19,6 +19,26 @@ Works seamlessly with **React & React Native**:
 
 ---
 
+## 🚀 React Hooks Global States - DevTools Extension
+
+React Hooks Global States includes a dedicated, `devTools extension` to streamline your development workflow! Easily visualize, inspect, debug, and modify your application's global state in real-time right within your browser.
+
+### 🔗 [Install the DevTools Extension for Chrome](https://chromewebstore.google.com/detail/bafojplmkpejhglhjpibpdhoblickpee/preview?hl=en&authuser=0)
+
+### 📸 DevTools Highlights
+
+| **Track State Changes**                                                                                                               | **Modify the State**                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| ![Track State Changes](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/track-state-changes.png) | ![Modify the State](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/modify-the-state.png) |
+| Effortlessly monitor state updates and history.                                                                                       | Instantly edit global states directly from the extension.                                                                       |
+
+---
+
+| **Restore the State**                                                                                                             | **Custom Actions Granularity**                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Restore the State](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/restore-the-state.png) | ![Custom Actions Granularity](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/custom-actions-granularity.png) |
+| Quickly revert your application to a previous state.                                                                              | Precisely debug specific actions affecting state changes.                                                                                           |
+
 ## 🛠 Creating a Global State
 
 Define a **global state** in **one line**:
