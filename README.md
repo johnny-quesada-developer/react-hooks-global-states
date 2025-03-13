@@ -10,9 +10,6 @@ Effortless **global state management** for `React` & `React Native` & `Preact`! 
 
 - **[Live Example](https://johnny-quesada-developer.github.io/global-hooks-example/)** 📘
 - **[Video Overview](https://www.youtube.com/watch?v=1UBqXk2MH8I/)** 🎥
-
-Works seamlessly with **React & React Native**:
-
 - **[react-hooks-global-states](https://www.npmjs.com/package/react-hooks-global-states)** compatible with both `React & React Native`
 - **[react-global-state-hooks](https://www.npmjs.com/package/react-global-state-hooks)** specific for web applications (**local-storage integration**).
 - **[react-native-global-state-hooks](https://www.npmjs.com/package/react-native-global-state-hooks)** specific for React Native projects (**async-storage integration**).
@@ -38,6 +35,8 @@ React Hooks Global States includes a dedicated, `devTools extension` to streamli
 | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Restore the State](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/restore-the-state.png) | ![Custom Actions Granularity](https://github.com/johnny-quesada-developer/react-hooks-global-states/raw/main/public/custom-actions-granularity.png) |
 | Quickly revert your application to a previous state.                                                                              | Precisely debug specific actions affecting state changes.                                                                                           |
+
+<br>
 
 ## 🛠 Creating a Global State
 
