@@ -61,11 +61,6 @@
       "require": "./uniqueId.js",
       "types": "./uniqueId.d.ts"
     },
-    "./uniqueSymbol": {
-      "import": "./uniqueSymbol.js",
-      "require": "./uniqueSymbol.js",
-      "types": "./uniqueSymbol.d.ts"
-    },
     "./useStableState": {
       "import": "./useStableState.js",
       "require": "./useStableState.js",

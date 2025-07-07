@@ -31,17 +31,17 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
   return isEqualObject(value1, value2);
 };
 
-const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
+export const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
 
-const isMap = (value: unknown): value is Map<unknown, unknown> => {
+export const isMap = (value: unknown): value is Map<unknown, unknown> => {
   return value instanceof Map;
 };
 
-const isSet = (value: unknown): value is Set<unknown> => {
+export const isSet = (value: unknown): value is Set<unknown> => {
   return value instanceof Set;
 };
 
-const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolean => {
+export const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolean => {
   const typeofValue1 = typeof value1;
   const typeofValue2 = typeof value2;
 
@@ -57,7 +57,7 @@ const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolean => {
   );
 };
 
-const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
+export const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
   if (array1.length !== array2.length) return false;
 
   for (let i = 0; i < array1.length; i += 1) {
@@ -70,7 +70,7 @@ const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
   return true;
 };
 
-const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
+export const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
   if (map1.size !== map2.size) return false;
 
   for (const [key, value] of map1) {
@@ -82,7 +82,7 @@ const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
   return true;
 };
 
-const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
+export const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
   if (set1.size !== set2.size) return false;
 
   for (const value of set1) {
@@ -92,7 +92,7 @@ const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
   return true;
 };
 
-const isEqualObject = <T extends Record<string, unknown>>(value1: T, value2: T): boolean => {
+export const isEqualObject = <T extends Record<string, unknown>>(value1: T, value2: T): boolean => {
   const keys1 = Object.keys(value1);
   const keys2 = Object.keys(value2);
 

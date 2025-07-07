@@ -35,7 +35,6 @@ export { shallowCompare } from './shallowCompare';
 export { uniqueId } from './uniqueId';
 export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 export { isRecord } from './isRecord';
-export { uniqueSymbol, UniqueSymbol } from './uniqueSymbol';
 export { useStableState } from './useStableState';
 
 // context

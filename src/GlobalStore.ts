@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 import type {
   ActionCollectionConfig,
   StateSetter,
@@ -20,12 +20,10 @@ import type {
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
-import { isString } from 'json-storage-formatter/isString';
 import { isRecord } from './isRecord';
-import { shallowCompare } from './shallowCompare';
+import { isArray, shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
-import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 import { generateStackHash } from './generateStackHash';
 
 const debugProps = globalThis as typeof globalThis & {
@@ -169,7 +167,7 @@ export class GlobalStore<
     args: {
       forceUpdate: boolean | undefined;
       newRootState: State;
-      currentRootState: State | UniqueSymbol;
+      currentRootState: State;
       identifier: string | undefined;
     }
   ): {
@@ -198,7 +196,7 @@ export class GlobalStore<
     });
 
     // execute the callback associated with the subscription
-    // the callback could be an observer event or a setState function
+    // the callback could be an observer event or a sync callback from useSyncExternalStore
     callback(
       {
         state: newChildState,
@@ -374,101 +372,53 @@ export class GlobalStore<
     ) => {
       if (this.wasDisposed) throw new Error('The global state was disposed');
 
-      const config = Array.isArray(args) ? { dependencies: args } : args ?? {};
+      const config: UseHookConfig<unknown, unknown> = isArray(args) ? { dependencies: args } : args ?? {};
 
       const hooksProps = useRef<{
-        subscriptionId: string | null;
-        tempInitialRootState: State | UniqueSymbol;
+        selector: SelectorCallback<unknown, unknown> | undefined;
+        config: UseHookConfig<unknown, unknown>;
       }>({
-        subscriptionId: null,
-        tempInitialRootState: this.stateWrapper.state,
+        selector,
+        config,
       });
 
-      const computeChildState = (): {
-        state: unknown;
-      } => {
-        if (selector) {
-          return {
-            state: selector(this.stateWrapper.state),
-          };
-        }
+      // keep the hook props updated
+      hooksProps.current.selector = selector;
+      hooksProps.current.config = config;
 
-        return this.stateWrapper;
-      };
+      const { subscribe, getSnapshot } = useMemo(() => {
+        const selectorFn = (state: unknown) => {
+          const { selector } = hooksProps.current;
+          return isFunction(selector) ? selector(state) : state;
+        };
 
-      const [stateWrapper, setState] = useState(computeChildState);
-
-      // handles the subscription lifecycle
-      useEffect(() => {
-        if (isNil(hooksProps.current)) return;
-        if (isNil(hooksProps.current.subscriptionId)) {
-          hooksProps.current.subscriptionId = uniqueId('ss:');
-        }
-
-        const subscriptionId = hooksProps.current.subscriptionId;
         const subscription: SubscriberParameters = {
-          subscriptionId,
-          currentState: stateWrapper.state,
-          selector,
+          subscriptionId: uniqueId('ss:'),
+          currentState: selectorFn(this.stateWrapper.state),
+          selector: selectorFn,
           config,
-          callback: setState,
+          callback: () => {},
           isSetStateCallback: true,
         };
 
-        const { isNewSubscription } = this.setOrUpdateSubscription(subscription);
+        const subscribe = (onStoreChange: () => void) => {
+          subscription.callback = onStoreChange;
+          this.subscribers.set(subscription.subscriptionId, subscription);
 
-        if (isNewSubscription) {
-          // the state could have been changing before the subscription was fully committed
-          this.executeSetStateForSubscriber(subscription, {
-            forceUpdate: false,
-            newRootState: this.stateWrapper.state,
-            currentRootState: (() => {
-              const isUniqueSymbol = hooksProps.current.tempInitialRootState === uniqueSymbol;
-
-              return isUniqueSymbol ? this.stateWrapper.state : hooksProps.current.tempInitialRootState;
-            })(),
-            identifier: 'on mount state update',
-          });
-
-          // The initial root state is required to verify if the state has changed before the subscription is fully established.
-          // This is applicable for both hooks and selectorHooks.
-          // once the subscription is established we can set the initial root state to an empty symbol
-          hooksProps.current.tempInitialRootState = uniqueSymbol;
-        }
-
-        return () => {
-          this.subscribers.delete(subscriptionId);
+          return () => {
+            this.subscribers.delete(subscription.subscriptionId);
+          };
         };
-        // this effect should only run on mount
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        const getSnapshot = () => {
+          return subscription.currentState;
+        };
+
+        return { subscribe, getSnapshot, subscription };
       }, []);
 
-      const subscriptionId = isString(hooksProps.current?.subscriptionId)
-        ? hooksProps.current.subscriptionId
-        : '';
-
-      const subscriptionParameters = this.subscribers.get(subscriptionId);
-      const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
-        dependencies: config.dependencies,
-      };
-
-      // ensure the subscription id is always updated with the last callbacks and configurations
-      this.partialUpdateSubscription(subscriptionId, {
-        currentState: stateWrapper.state,
-        selector,
-        config,
-        callback: setState,
-      });
-
       return [
-        this.computeSelectedState({
-          selector,
-          subscriptionId,
-          config,
-          currentDependencies,
-          computeChildState,
-          stateWrapperRef: stateWrapper,
-        }),
+        useSyncExternalStore(subscribe, getSnapshot, getSnapshot),
         this.getStateOrchestrator(),
         this.metadata,
       ];

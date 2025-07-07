@@ -199,13 +199,7 @@ export type SubscriberParameters = {
   selector: SelectorCallback<unknown, unknown> | undefined;
   config: UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
   currentState: unknown;
-  callback:
-    | SubscriptionCallback
-    | React.Dispatch<
-        React.SetStateAction<{
-          state: unknown;
-        }>
-      >;
+  callback: SubscriptionCallback | (() => void);
   isSetStateCallback: boolean;
 };
 
@@ -216,4 +210,7 @@ export type SubscriberParameters = {
  * @param {unknown} params.state - The new state
  * @param {string} params.identifier - Optional identifier for the setState call
  */
-export type SubscriptionCallback<State = unknown> = (params: { state: State }, args: { identifier?: string }) => void;
+export type SubscriptionCallback<State = unknown> = (
+  params: { state: State },
+  args: { identifier?: string }
+) => void;
