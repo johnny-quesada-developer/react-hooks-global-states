@@ -1,7 +1,7 @@
 import React from 'react';
 
 beforeEach(() => {
-  spyOn(React, 'useState').and.callFake(((initialState: unknown) => {
+  jest.spyOn(React, 'useState').mockImplementation(((initialState: unknown) => {
     const value = typeof initialState === 'function' ? initialState() : initialState;
 
     const setState = jest.fn(
@@ -19,7 +19,7 @@ beforeEach(() => {
     return [value, setState];
   }) as any);
 
-  spyOn(React, 'useCallback').and.callFake((callback) => callback);
+  jest.spyOn(React, 'useCallback').mockImplementation((callback) => callback);
 
   let index = 0;
   const map = new Map();
@@ -55,13 +55,13 @@ beforeEach(() => {
     return value;
   });
 
-  spyOn(React, 'useEffect').and.callFake(mockMemo);
+  jest.spyOn(React, 'useEffect').mockImplementation(mockMemo);
 
-  spyOn(React, 'useLayoutEffect').and.callFake(mockMemo);
+  jest.spyOn(React, 'useLayoutEffect').mockImplementation(mockMemo);
 
-  spyOn(React, 'useMemo').and.callFake(mockMemo);
+  jest.spyOn(React, 'useMemo').mockImplementation(mockMemo);
 
-  spyOn(React, 'useRef').and.callFake(mockUseRef);
+  jest.spyOn(React, 'useRef').mockImplementation(mockUseRef);
 });
 
 afterEach(() => {
