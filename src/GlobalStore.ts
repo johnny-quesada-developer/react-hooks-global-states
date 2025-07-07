@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 import type {
   ActionCollectionConfig,
   StateSetter,
@@ -20,12 +20,10 @@ import type {
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
-import { isString } from 'json-storage-formatter/isString';
 import { isRecord } from './isRecord';
-import { shallowCompare } from './shallowCompare';
+import { isArray, shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
-import { UniqueSymbol, uniqueSymbol } from './uniqueSymbol';
 import { generateStackHash } from './generateStackHash';
 
 const debugProps = globalThis as typeof globalThis & {
@@ -141,7 +139,7 @@ export class GlobalStore<
 
   protected onInit?: (args: StoreTools<State, Metadata>) => void;
   protected onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
-  protected onSubscribed?: (args: StoreTools<State, Metadata>) => void;
+  protected onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
   protected computePreventStateChange?: (
     parameters: StoreTools<State, Metadata> & StateChanges<State>
   ) => boolean;
@@ -169,13 +167,14 @@ export class GlobalStore<
     args: {
       forceUpdate: boolean | undefined;
       newRootState: State;
-      currentRootState: State | UniqueSymbol;
+      currentRootState: State;
       identifier: string | undefined;
     }
   ): {
     didUpdate: boolean;
   } => {
-    const { selector, callback, currentState: currentChildState, config } = subscription;
+    const { selector, callback, currentState: currentChildState, getConfig } = subscription;
+    const config = getConfig?.() ?? {};
 
     // compare the root state, there should not be a re-render if the root state is the same
     if (
@@ -198,7 +197,7 @@ export class GlobalStore<
     });
 
     // execute the callback associated with the subscription
-    // the callback could be an observer event or a setState function
+    // the callback could be an observer event or a sync callback from useSyncExternalStore
     callback(
       {
         state: newChildState,
@@ -282,13 +281,12 @@ export class GlobalStore<
 
     const subscriptionId = uniqueId('gs:');
 
-    this.setOrUpdateSubscription({
+    this.subscribe({
       subscriptionId,
       selector,
-      config,
+      getConfig: () => config,
       currentState: initialState,
       callback: ({ state }: { state: unknown }) => callback(state),
-      isSetStateCallback: false,
     });
 
     return () => {
@@ -314,30 +312,17 @@ export class GlobalStore<
 
   protected lastSubscriptionId: string | null = null;
 
-  protected setOrUpdateSubscription = (
-    subscription: SubscriberParameters
-  ): {
-    isNewSubscription?: boolean;
-  } => {
+  protected subscribe = (subscription: SubscriberParameters) => {
     const { subscriptionId } = subscription;
-    // before the useEffect is triggered the first time the subscriptionId is null
-    if (!subscriptionId) return { isNewSubscription: false };
 
-    const currentItem = this.subscribers.get(subscriptionId);
-
-    if (isRecord(currentItem)) {
-      Object.assign(currentItem, subscription);
-
-      return { isNewSubscription: false };
-    }
-
-    // new component was subscribed
-    this.executeOnSubscribed();
+    this.executeOnSubscribed(subscription);
 
     this.subscribers.set(subscriptionId, subscription);
     this.lastSubscriptionId = subscriptionId;
 
-    return { isNewSubscription: true };
+    return () => {
+      this.subscribers.delete(subscriptionId);
+    };
   };
 
   protected partialUpdateSubscription = (
@@ -351,15 +336,15 @@ export class GlobalStore<
     Object.assign(subscription, values);
   };
 
-  protected executeOnSubscribed = () => {
+  protected executeOnSubscribed = (subscription: SubscriberParameters) => {
     const { onSubscribed } = this;
     const onSubscribedFromConfig = this.callbacks?.onSubscribed;
 
     if (onSubscribed || onSubscribedFromConfig) {
       const parameters = this.getConfigCallbackParam();
 
-      onSubscribed?.(parameters);
-      onSubscribedFromConfig?.(parameters);
+      onSubscribed?.(parameters, subscription);
+      onSubscribedFromConfig?.(parameters, subscription);
     }
   };
 
@@ -374,100 +359,62 @@ export class GlobalStore<
     ) => {
       if (this.wasDisposed) throw new Error('The global state was disposed');
 
-      const config = Array.isArray(args) ? { dependencies: args } : args ?? {};
+      const config: UseHookConfig<unknown, unknown> = isArray(args) ? { dependencies: args } : args ?? {};
 
       const hooksProps = useRef<{
-        subscriptionId: string | null;
-        tempInitialRootState: State | UniqueSymbol;
+        selector: SelectorCallback<unknown, unknown> | undefined;
+        config: UseHookConfig<unknown, unknown>;
       }>({
-        subscriptionId: null,
-        tempInitialRootState: this.stateWrapper.state,
-      });
-
-      const computeChildState = (): {
-        state: unknown;
-      } => {
-        if (selector) {
-          return {
-            state: selector(this.stateWrapper.state),
-          };
-        }
-
-        return this.stateWrapper;
-      };
-
-      const [stateWrapper, setState] = useState(computeChildState);
-
-      // handles the subscription lifecycle
-      useEffect(() => {
-        if (isNil(hooksProps.current)) return;
-        if (isNil(hooksProps.current.subscriptionId)) {
-          hooksProps.current.subscriptionId = uniqueId('ss:');
-        }
-
-        const subscriptionId = hooksProps.current.subscriptionId;
-        const subscription: SubscriberParameters = {
-          subscriptionId,
-          currentState: stateWrapper.state,
-          selector,
-          config,
-          callback: setState,
-          isSetStateCallback: true,
-        };
-
-        const { isNewSubscription } = this.setOrUpdateSubscription(subscription);
-
-        if (isNewSubscription) {
-          // the state could have been changing before the subscription was fully committed
-          this.executeSetStateForSubscriber(subscription, {
-            forceUpdate: false,
-            newRootState: this.stateWrapper.state,
-            currentRootState: (() => {
-              const isUniqueSymbol = hooksProps.current.tempInitialRootState === uniqueSymbol;
-
-              return isUniqueSymbol ? this.stateWrapper.state : hooksProps.current.tempInitialRootState;
-            })(),
-            identifier: 'on mount state update',
-          });
-
-          // The initial root state is required to verify if the state has changed before the subscription is fully established.
-          // This is applicable for both hooks and selectorHooks.
-          // once the subscription is established we can set the initial root state to an empty symbol
-          hooksProps.current.tempInitialRootState = uniqueSymbol;
-        }
-
-        return () => {
-          this.subscribers.delete(subscriptionId);
-        };
-        // this effect should only run on mount
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, []);
-
-      const subscriptionId = isString(hooksProps.current?.subscriptionId)
-        ? hooksProps.current.subscriptionId
-        : '';
-
-      const subscriptionParameters = this.subscribers.get(subscriptionId);
-      const { dependencies: currentDependencies } = subscriptionParameters?.config ?? {
-        dependencies: config.dependencies,
-      };
-
-      // ensure the subscription id is always updated with the last callbacks and configurations
-      this.partialUpdateSubscription(subscriptionId, {
-        currentState: stateWrapper.state,
         selector,
         config,
-        callback: setState,
       });
+
+      const currentDependencies = hooksProps.current.config.dependencies;
+
+      // keep the hook props updated
+      hooksProps.current.selector = selector;
+      hooksProps.current.config = config;
+
+      const { subscribe, getSnapshot, subscription } = useMemo(() => {
+        const selectorFn = (state: unknown) => {
+          const { selector } = hooksProps.current;
+          return isFunction(selector) ? selector(state) : state;
+        };
+
+        const getConfig = () => {
+          return hooksProps.current.config;
+        };
+
+        const subscription: SubscriberParameters = {
+          subscriptionId: uniqueId('ss:'),
+          currentState: selectorFn(this.stateWrapper.state),
+          selector: selectorFn,
+          getConfig,
+          callback: () => {
+            throw new Error('Callback not set');
+          },
+        };
+
+        const subscribe = (onStoreChange: () => void) => {
+          subscription.callback = onStoreChange;
+
+          return this.subscribe(subscription);
+        };
+
+        const getSnapshot = () => {
+          return subscription.currentState;
+        };
+
+        return { subscribe, getSnapshot, subscription };
+      }, []);
+
+      // keeps the state on sync with the store
+      useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
       return [
         this.computeSelectedState({
-          selector,
-          subscriptionId,
-          config,
+          subscription,
           currentDependencies,
-          computeChildState,
-          stateWrapperRef: stateWrapper,
         }),
         this.getStateOrchestrator(),
         this.metadata,
@@ -487,45 +434,34 @@ export class GlobalStore<
   };
 
   protected computeSelectedState = ({
-    selector,
-    subscriptionId,
-    config,
+    subscription,
     currentDependencies,
-    computeChildState,
-    stateWrapperRef,
   }: {
-    selector: SelectorCallback<unknown, unknown> | undefined;
-    subscriptionId: string;
-    config: UseHookConfig<unknown, unknown>;
+    subscription: SubscriberParameters;
     currentDependencies: unknown[] | undefined;
-    computeChildState: () => { state: unknown };
-    stateWrapperRef: { state: unknown };
   }) => {
-    if (!selector || !subscriptionId) return stateWrapperRef.state;
+    if (!subscription.selector) return subscription.currentState;
 
-    const { dependencies: newDependencies } = config;
+    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookConfig<
+      unknown,
+      unknown
+    >;
 
     // if the dependencies are the same we don't need to compute the state
-    if (currentDependencies === newDependencies) return stateWrapperRef.state;
+    if (currentDependencies === newDependencies) return subscription.currentState;
 
     const isLengthEqual = currentDependencies?.length === newDependencies?.length;
     const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
 
     // if values are the same we don't need to compute the state
-    if (isSameValues) return stateWrapperRef.state;
-
-    // if the dependencies are different we need to compute the state
-    const { state: currentState } = computeChildState();
-
-    this.partialUpdateSubscription(subscriptionId, {
-      currentState,
-    });
+    if (isSameValues) return subscription.currentState;
 
     // update the current state without re-rendering the component
-    // when the there is a selector the stare wrapper is a different object reference
-    stateWrapperRef.state = currentState;
+    this.partialUpdateSubscription(subscription.subscriptionId, {
+      currentState: subscription.selector(this.stateWrapper.state),
+    });
 
-    return currentState;
+    return subscription.currentState;
   };
 
   /**

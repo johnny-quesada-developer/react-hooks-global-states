@@ -138,7 +138,7 @@ export type ActionCollectionResult<
 export type GlobalStoreCallbacks<State, Metadata extends BaseMetadata | unknown> = {
   onInit?: (args: StoreTools<State, Metadata>) => void;
   onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
-  onSubscribed?: (args: StoreTools<State, Metadata>) => void;
+  onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
   computePreventStateChange?: (args: StoreTools<State, Metadata> & StateChanges<State>) => boolean;
 };
 
@@ -197,16 +197,9 @@ export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
 export type SubscriberParameters = {
   subscriptionId: string;
   selector: SelectorCallback<unknown, unknown> | undefined;
-  config: UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
+  getConfig: () => UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
   currentState: unknown;
-  callback:
-    | SubscriptionCallback
-    | React.Dispatch<
-        React.SetStateAction<{
-          state: unknown;
-        }>
-      >;
-  isSetStateCallback: boolean;
+  callback: SubscriptionCallback | (() => void);
 };
 
 /**
@@ -216,4 +209,7 @@ export type SubscriberParameters = {
  * @param {unknown} params.state - The new state
  * @param {string} params.identifier - Optional identifier for the setState call
  */
-export type SubscriptionCallback<State = unknown> = (params: { state: State }, args: { identifier?: string }) => void;
+export type SubscriptionCallback<State = unknown> = (
+  params: { state: State },
+  args: { identifier?: string }
+) => void;

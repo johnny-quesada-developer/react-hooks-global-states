@@ -1,13 +1,15 @@
+import React from 'react';
 import { createDecoupledPromise } from 'easy-cancelable-promise';
-import { useState } from 'react';
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
+import { act, renderHook } from '@testing-library/react';
 
 import { type StoreTools, createGlobalState, createCustomGlobalState } from '..';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {
     const stateValue = 'test';
+
     const useValue = createGlobalState(stateValue, {
       metadata: {
         test: true,
@@ -17,26 +19,33 @@ describe('basic', () => {
       },
     });
 
-    let [state, setState, metadata] = useValue();
+    const spy = jest.spyOn(React, 'useSyncExternalStore');
+
+    const { result, rerender } = renderHook(() => useValue());
+    let [state, setState, metadata] = result.current;
 
     expect(useValue).toBeInstanceOf(Function);
     expect(state).toBe(stateValue);
-    expect(setState).toBeInstanceOf(Function);
+    expect(typeof setState).toBe('function');
     expect(metadata.test).toBe(true);
 
-    setState('test2');
+    act(() => {
+      setState('test2');
+    });
 
-    [state, setState, metadata] = useValue();
-
+    rerender();
+    [state, setState, metadata] = result.current;
     expect(state).toBe('test2');
-    expect(useState).toHaveBeenCalledTimes(2);
 
-    setState((current) => current + 1);
+    act(() => {
+      setState((current: string) => current + '1');
+    });
 
-    [state, setState, metadata] = useValue();
-
+    rerender();
+    [state] = result.current;
     expect(state).toBe('test21');
-    expect(useState).toHaveBeenCalledTimes(3);
+
+    expect(spy).toHaveBeenCalledTimes(5);
   });
 });
 
@@ -82,7 +91,8 @@ describe('with actions', () => {
       },
     });
 
-    let [state, actions, metadata] = useCount();
+    const { result } = renderHook(() => useCount());
+    let [state, actions, metadata] = result.current;
 
     expect(useCount).toBeInstanceOf(Function);
     expect(metadata.modificationsCounter).toBe(0);
@@ -96,20 +106,24 @@ describe('with actions', () => {
       modificationsCounter: 0,
     });
 
-    actions.increase();
-    actions.increase(2);
+    act(() => {
+      actions.increase();
+      actions.increase(2);
+    });
 
-    [state, actions, metadata] = useCount();
+    [state, actions, metadata] = result.current;
 
     expect(state).toBe(4);
     expect(metadata).toEqual({
       modificationsCounter: 2,
     });
 
-    actions.decrease();
-    actions.decrease(2);
+    act(() => {
+      actions.decrease();
+      actions.decrease(2);
+    });
 
-    [state, actions, metadata] = useCount();
+    [state, actions, metadata] = result.current;
 
     expect(state).toBe(1);
     expect(metadata).toEqual({
@@ -132,9 +146,10 @@ describe('with configuration callbacks', () => {
       },
     });
 
-    expect(onInitSpy).toBeCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
 
-    const [state, setState, metadata] = useCount();
+    const { result } = renderHook(() => useCount());
+    const [state, setState, metadata] = result.current;
 
     expect(state).toBe(1);
     expect(setState).toBeInstanceOf(Function);
@@ -157,16 +172,17 @@ describe('with configuration callbacks', () => {
       }
     );
 
-    expect(onSubscribedSpy).toBeCalledTimes(0);
+    expect(onSubscribedSpy).toHaveBeenCalledTimes(0);
 
-    const [state] = useCount();
+    const { result } = renderHook(() => useCount());
+    const [state] = result.current;
 
-    expect(onSubscribedSpy).toBeCalledTimes(1);
+    expect(onSubscribedSpy).toHaveBeenCalledTimes(1);
 
-    const [state2] = useCount();
+    const { result: result2 } = renderHook(() => useCount());
+    const [state2] = result2.current;
 
-    expect(onSubscribedSpy).toBeCalledTimes(2);
-
+    expect(onSubscribedSpy).toHaveBeenCalledTimes(2);
     expect(state).toBe(state2);
   });
 
@@ -182,21 +198,26 @@ describe('with configuration callbacks', () => {
       }
     );
 
-    expect(onStateChangedSpy).toBeCalledTimes(0);
+    expect(onStateChangedSpy).toHaveBeenCalledTimes(0);
 
-    const [, setState] = useCount();
+    const { result } = renderHook(() => useCount());
+    const [, setState] = result.current;
 
-    setState({ a: true });
+    act(() => {
+      setState({ a: true });
+    });
 
-    expect(onStateChangedSpy).toBeCalledTimes(1);
+    expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
 
-    setState({ a: false });
+    act(() => {
+      setState({ a: false });
+    });
 
-    expect(onStateChangedSpy).toBeCalledTimes(2);
+    expect(onStateChangedSpy).toHaveBeenCalledTimes(2);
   });
 
   it('should execute computePreventStateChange callback before state is changed and continue if it returns false', () => {
-    const computePreventStateChangeSpy = jest.fn();
+    const computePreventStateChangeSpy = jest.fn(() => false); // allow state change
 
     const useCount = createGlobalState(0, {
       callbacks: {
@@ -204,17 +225,23 @@ describe('with configuration callbacks', () => {
       },
     });
 
-    expect(computePreventStateChangeSpy).toBeCalledTimes(0);
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
-    const [state, setState, metadata] = useCount();
+    const { result } = renderHook(() => useCount());
+    let [state, setState, metadata] = result.current;
 
     expect(state).toEqual(0);
     expect(setState).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    setState((state) => state + 1);
+    act(() => {
+      setState((state) => state + 1);
+    });
 
-    expect(computePreventStateChangeSpy).toBeCalledTimes(1);
+    [state] = result.current;
+
+    expect(state).toEqual(1);
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should execute computePreventStateChange callback before state is changed and prevent state change if it returns true', () => {
@@ -237,17 +264,23 @@ describe('with configuration callbacks', () => {
       },
     });
 
-    expect(computePreventStateChangeSpy).toBeCalledTimes(0);
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
-    const [state, setState, metadata] = useCount();
+    const { result } = renderHook(() => useCount());
+    let [state, setState, metadata] = result.current;
 
     expect(state).toEqual(0);
     expect(setState).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    setState((state) => state + 1);
+    act(() => {
+      setState((state) => state + 1);
+    });
 
-    expect(computePreventStateChangeSpy).toBeCalledTimes(1);
+    // Should not update due to computePreventStateChange returning true
+    [state, setState, metadata] = result.current;
+
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
     expect(state).toEqual(0);
   });
 });
@@ -260,7 +293,7 @@ describe('custom global hooks', () => {
     ]);
   };
 
-  it('should initialize the store with the initial state where there is no async storage data', () => {
+  it('should initialize the store with the initial state where there is no async storage data', async () => {
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
     const { promise: mainPromise, ...tools } = createDecoupledPromise();
@@ -290,8 +323,6 @@ describe('custom global hooks', () => {
       });
 
       tools.resolve();
-
-      return;
     });
 
     const initialState = new Map<number, string>();
@@ -303,7 +334,9 @@ describe('custom global hooks', () => {
       },
     });
 
-    let [state, setState, metadata] = useCount();
+    const { result, rerender } = renderHook(() => useCount());
+
+    let [state, setState, metadata] = result.current;
 
     expect.assertions(5);
 
@@ -311,17 +344,19 @@ describe('custom global hooks', () => {
     expect(setState).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    return mainPromise.then(() => {
-      [state, setState, metadata] = useCount();
+    await mainPromise;
 
-      expect(state).toEqual(initialState);
-      expect(metadata).toEqual({
-        isAsyncStorageReady: true,
-      });
+    rerender();
+
+    [state, setState, metadata] = result.current;
+
+    expect(state).toEqual(initialState);
+    expect(metadata).toEqual({
+      isAsyncStorageReady: true,
     });
   });
 
-  it('should initialize the store with the async storage data where there is async storage data', () => {
+  it('should initialize the store with the async storage data where there is async storage data', async () => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
@@ -349,14 +384,16 @@ describe('custom global hooks', () => {
 
       if (!stored) return;
 
-      setState(
-        formatFromStore(stored, {
-          jsonParse: true,
-        }),
-        {
-          forceUpdate: true,
-        }
-      );
+      act(() => {
+        setState(
+          formatFromStore(stored, {
+            jsonParse: true,
+          }),
+          {
+            forceUpdate: true,
+          }
+        );
+      });
 
       tools.resolve();
     });
@@ -368,34 +405,36 @@ describe('custom global hooks', () => {
       },
     });
 
-    let [state, setState, metadata] = useCount();
+    const { result } = renderHook(() => useCount());
+
+    let [state, setState, metadata] = result.current;
 
     expect(state).toEqual(initialState);
     expect(setState).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    return mainPromise.then(() => {
-      [state, setState, metadata] = useCount();
+    await mainPromise;
 
-      expect(state).toEqual(
-        new Map([
-          [1, { name: 'john' }],
-          [2, { name: 'doe' }],
-        ])
-      );
+    [state, setState, metadata] = result.current;
 
-      expect(metadata).toEqual({
-        isAsyncStorageReady: true,
-      });
+    expect(state).toEqual(
+      new Map([
+        [1, { name: 'john' }],
+        [2, { name: 'doe' }],
+      ])
+    );
 
-      expect(onStateChangedSpy).toBeCalledTimes(1);
-      expect(onInitSpy).toBeCalledTimes(1);
-
-      expect(fakeAsyncStorage.getItem).toBeCalledTimes(1);
-      expect(fakeAsyncStorage.setItem).toBeCalledTimes(2);
-
-      expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
+    expect(metadata).toEqual({
+      isAsyncStorageReady: true,
     });
+
+    expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+
+    expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
+    expect(fakeAsyncStorage.setItem).toHaveBeenCalledTimes(2);
+
+    expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
   });
 
   it('should be able to update the store async storage', () => {
@@ -438,14 +477,17 @@ describe('custom global hooks', () => {
       },
     });
 
-    let [state, setState, metadata] = useCount();
+    const { result, rerender } = renderHook(() => useCount());
+    let [state, setState, metadata] = result.current;
 
     expect(state).toEqual(initialState);
     expect(setState).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
     return mainPromise.then(() => {
-      [state, setState, metadata] = useCount();
+      rerender();
+
+      [state, setState, metadata] = result.current;
 
       expect(state).toBe(initialState);
 
@@ -453,11 +495,11 @@ describe('custom global hooks', () => {
         isAsyncStorageReady: true,
       });
 
-      expect(onStateChangedSpy).toBeCalledTimes(1);
-      expect(onInitSpy).toBeCalledTimes(1);
+      expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
+      expect(onInitSpy).toHaveBeenCalledTimes(1);
 
-      expect(fakeAsyncStorage.getItem).toBeCalledTimes(1);
-      expect(fakeAsyncStorage.setItem).toBeCalledTimes(1);
+      expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
+      expect(fakeAsyncStorage.setItem).toHaveBeenCalledTimes(1);
 
       expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
     });
@@ -499,28 +541,37 @@ describe('custom global hooks', () => {
 
     const [getCount, $actions] = useCount.stateControls();
 
-    let [state, actions] = useCount();
+    const { result, rerender } = renderHook(() => useCount());
+
+    let [state, actions] = result.current;
 
     expect(state).toEqual(1);
-    expect(logSpy).toBeCalledTimes(0);
+    expect(logSpy).toHaveBeenCalledTimes(0);
 
-    actions.increase();
+    act(() => {
+      actions.increase();
+    });
+    rerender();
 
     expect(getCount()).toEqual(2);
-    expect(logSpy).toBeCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledTimes(1);
     expect(logSpy).toBeCalledWith('increase');
 
-    actions.decrease();
+    act(() => {
+      actions.decrease();
+    });
+    rerender();
 
     expect(getCount()).toEqual(1);
-    expect(logSpy).toBeCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledTimes(2);
     expect(logSpy).toBeCalledWith('decrease');
 
-    $actions.increase();
+    act(() => {
+      $actions.increase();
+    });
+    rerender();
 
-    const count = getCount();
-
-    expect(count).toEqual(2);
+    expect(getCount()).toEqual(2);
   });
 
   it('should be able to create a custom global hook builder', () => {
@@ -538,8 +589,8 @@ describe('custom global hooks', () => {
     });
 
     expect(createGlobal).toBeInstanceOf(Function);
-    expect(onInitSpy).toBeCalledTimes(0);
-    expect(onChangeSpy).toBeCalledTimes(0);
+    expect(onInitSpy).toHaveBeenCalledTimes(0);
+    expect(onChangeSpy).toHaveBeenCalledTimes(0);
 
     const initialState = {
       count: 1,
@@ -560,32 +611,36 @@ describe('custom global hooks', () => {
 
     const [getCount, actions1] = useCount.stateControls();
 
-    expect(onInitSpy).toBeCalledTimes(1);
-    expect(onChangeSpy).toBeCalledTimes(0);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).toHaveBeenCalledTimes(0);
     expect(config).toEqual({
       someExtraInfo: 'someExtraInfo',
     });
 
-    let [state, actions, metadata] = useCount();
+    const { result, rerender } = renderHook(() => useCount());
+    let [state, actions, metadata] = result.current;
 
     expect(state).toEqual(initialState);
     expect(actions1).toBe(actions);
     expect(actions.setCount).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    expect(onInitSpy).toBeCalledTimes(1);
-    expect(onChangeSpy).toBeCalledTimes(0);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).toHaveBeenCalledTimes(0);
 
     expect(getCount()).toEqual(initialState);
 
-    actions.setCount(2);
+    act(() => {
+      actions.setCount(2);
+    });
 
+    rerender();
     expect(getCount()).toEqual({ count: 2 });
 
-    expect(onInitSpy).toBeCalledTimes(1);
-    expect(onChangeSpy).toBeCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).toHaveBeenCalledTimes(1);
 
-    [state, actions, metadata] = useCount();
+    [state, actions, metadata] = result.current;
 
     expect(state).toEqual({
       count: 2,
@@ -594,8 +649,8 @@ describe('custom global hooks', () => {
     expect(actions.setCount).toBeInstanceOf(Function);
     expect(metadata).toEqual({});
 
-    expect(onInitSpy).toBeCalledTimes(1);
-    expect(onChangeSpy).toBeCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should derivate new state from global', () => {
@@ -606,17 +661,23 @@ describe('custom global hooks', () => {
 
     const selector = jest.fn((state: { a: number; b: number }) => state.a + state.b);
 
-    let [derivate, setState] = useCount(selector);
+    const { result, rerender } = renderHook(() => useCount(selector));
+
+    let [derivate, setState] = result.current;
 
     expect(derivate).toEqual(3);
-    expect(selector).toBeCalledTimes(1);
+    expect(selector).toHaveBeenCalledTimes(1);
 
-    setState((state) => ({
-      ...state,
-      a: 2,
-    }));
+    act(() => {
+      setState((state) => ({
+        ...state,
+        a: 2,
+      }));
+    });
 
-    [derivate, setState] = useCount(selector);
+    rerender(); // Trigger re-evaluation
+
+    [derivate, setState] = result.current;
 
     expect(derivate).toEqual(4);
   });
@@ -633,50 +694,57 @@ describe('custom global hooks', () => {
       c,
     }));
 
-    let [derivate, setState] = useData(selector);
+    const { result, rerender } = renderHook(() => useData(selector));
+    const [derivate, setState] = result.current;
 
-    expect(useState).toHaveBeenCalledTimes(1);
     expect(derivate).toEqual({
       a: 1,
       c: [1, 2, { a: 1 }],
     });
 
-    setState((state) => ({
-      ...state,
+    expect(selector).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      setState((state) => ({
+        ...state,
+        b: 3, // This doesn't affect selector output
+      }));
+    });
+
+    rerender();
+    const [derivate2] = result.current;
+
+    expect(derivate2).toEqual({
+      a: 1,
+      c: [1, 2, { a: 1 }],
+    });
+
+    expect(selector).toHaveBeenCalledTimes(2); // Still recomputed, but state didn't change
+
+    const { result: result2, rerender: rerender2 } = renderHook(() => useData());
+    const [data1, setState2] = result2.current;
+
+    expect(data1).toEqual({
+      a: 1,
       b: 3,
-    }));
-
-    [derivate, setState] = useData(selector);
-
-    // there should be just two calls to useState since the derivate didn't change
-    expect(useState).toHaveBeenCalledTimes(2);
-    expect(derivate).toEqual({
-      a: 1,
       c: [1, 2, { a: 1 }],
     });
 
-    let [data] = useData();
-
-    expect(data).toEqual({
-      a: 1,
-      b: 3,
-      c: [1, 2, { a: 1 }],
+    act(() => {
+      setState2((state) => ({
+        ...state,
+        b: 4,
+      }));
     });
 
-    setState((state) => ({
-      ...state,
-      b: 4,
-    }));
+    rerender2();
+    const [data2] = result2.current;
 
-    [data] = useData();
-
-    expect(data).toEqual({
+    expect(data2).toEqual({
       a: 1,
       b: 4,
       c: [1, 2, { a: 1 }],
     });
-
-    expect(useState).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -715,10 +783,10 @@ describe('getter subscriptions', () => {
       }, callback2),
     ];
 
-    expect(subscriptionSpy).toBeCalledTimes(1);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(1);
     expect(subscriptionSpy).toBeCalledWith(state);
 
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
     expect(subscriptionDerivateSpy).toBeCalledWith(3);
 
     setter((state) => ({
@@ -726,14 +794,14 @@ describe('getter subscriptions', () => {
       b: 3,
     }));
 
-    expect(subscriptionSpy).toBeCalledTimes(2);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(2);
     expect(subscriptionSpy).toBeCalledWith({
       a: 3,
       b: 3,
     });
 
     // the derivate should not be called since it didn't change
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
 
     removeSubscriptions.forEach((clean) => clean());
 
@@ -743,8 +811,8 @@ describe('getter subscriptions', () => {
     }));
 
     // the subscription should not be called since it was removed
-    expect(subscriptionSpy).toBeCalledTimes(2);
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(2);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -833,24 +901,31 @@ describe('create fragment', () => {
 
     const [getCount, $actions] = useCount.stateControls();
 
-    let [state, actions] = useCount();
+    let { result } = renderHook(() => useCount());
+    let [state, actions] = result.current;
 
     expect(state).toEqual(1);
-    expect(logSpy).toBeCalledTimes(0);
+    expect(logSpy).toHaveBeenCalledTimes(0);
 
-    actions.increase();
+    act(() => {
+      actions.increase();
+    });
 
     expect(getCount()).toEqual(2);
-    expect(logSpy).toBeCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledTimes(1);
     expect(logSpy).toBeCalledWith('increase');
 
-    actions.decrease();
+    act(() => {
+      actions.decrease();
+    });
 
     expect(getCount()).toEqual(1);
-    expect(logSpy).toBeCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledTimes(2);
     expect(logSpy).toBeCalledWith('decrease');
 
-    $actions.increase();
+    act(() => {
+      $actions.increase();
+    });
 
     const count = getCount();
 
