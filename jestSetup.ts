@@ -1,12 +1,12 @@
 import React from 'react';
 
 beforeEach(() => {
-  spyOn(React, 'useState').and.callFake(((initialState) => {
+  spyOn(React, 'useState').and.callFake(((initialState: unknown) => {
     const value = typeof initialState === 'function' ? initialState() : initialState;
 
     const setState = jest.fn(
       (() => {
-        let state;
+        let state: unknown;
 
         return jest.fn((setter) => {
           const newState = typeof setter === 'function' ? setter(state) : setter;

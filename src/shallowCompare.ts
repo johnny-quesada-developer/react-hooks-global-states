@@ -10,68 +10,89 @@ export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;
   if (isEqual) return true;
 
+  if (canCheckSimpleEquality(value1, value2)) {
+    return value1 === value2;
+  }
+
+  if (isArray(value1) && isArray(value2)) {
+    return isEqualArray(value1, value2);
+  }
+
+  if (isMap(value1) && isMap(value2)) {
+    return isEqualMap(value1, value2);
+  }
+
+  if (isSet(value1) && isSet(value2)) {
+    return isEqualSet(value1, value2);
+  }
+
+  if (!isRecord(value1) || !isRecord(value2)) return value1 === value2;
+
+  return isEqualObject(value1, value2);
+};
+
+const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
+
+const isMap = (value: unknown): value is Map<unknown, unknown> => {
+  return value instanceof Map;
+};
+
+const isSet = (value: unknown): value is Set<unknown> => {
+  return value instanceof Set;
+};
+
+const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolean => {
   const typeofValue1 = typeof value1;
   const typeofValue2 = typeof value2;
 
-  if (typeofValue1 !== typeofValue2) return false;
+  // simple equality check will trigger false if types are different
+  if (typeofValue1 !== typeofValue2) return true;
 
-  if (
+  return (
     isNil(value1) ||
     isNil(value2) ||
     (isPrimitive(value1) && isPrimitive(value2)) ||
     (isDate(value1) && isDate(value2)) ||
     (typeofValue1 === 'function' && typeofValue2 === 'function')
-  ) {
-    return value1 === value2;
+  );
+};
+
+const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
+  if (array1.length !== array2.length) return false;
+
+  for (let i = 0; i < array1.length; i += 1) {
+    const $value1 = array1[i];
+    const $value2 = array2[i];
+
+    if ($value1 !== $value2) return false;
   }
 
-  const isArray = Array.isArray(value1);
+  return true;
+};
 
-  if (isArray) {
-    const array1 = value1 as unknown[];
-    const array2 = value2 as unknown[];
+const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
+  if (map1.size !== map2.size) return false;
 
-    if (array1.length !== array2.length) return false;
+  for (const [key, value] of map1) {
+    const $value2 = map2.get(key);
 
-    for (let i = 0; i < array1.length; i++) {
-      const value1 = array1[i];
-      const value2 = array2[i];
-
-      if (value1 !== value2) return false;
-    }
+    if (value !== $value2) return false;
   }
 
-  const isMap = value1 instanceof Map;
+  return true;
+};
 
-  if (isMap) {
-    const map1 = value1 as Map<unknown, unknown>;
-    const map2 = value2 as Map<unknown, unknown>;
+const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
+  if (set1.size !== set2.size) return false;
 
-    if (map1.size !== map2.size) return false;
-
-    for (const [key, value] of map1) {
-      const value2 = map2.get(key);
-
-      if (value !== value2) return false;
-    }
+  for (const value of set1) {
+    if (!set2.has(value)) return false;
   }
 
-  const isSet = value1 instanceof Set;
+  return true;
+};
 
-  if (isSet) {
-    const set1 = value1 as Set<unknown>;
-    const set2 = value2 as Set<unknown>;
-
-    if (set1.size !== set2.size) return false;
-
-    for (const value of set1) {
-      if (!set2.has(value)) return false;
-    }
-  }
-
-  if (!isRecord(value1) || !isRecord(value2)) return value1 === value2;
-
-  // for objects
+const isEqualObject = <T extends Record<string, unknown>>(value1: T, value2: T): boolean => {
   const keys1 = Object.keys(value1);
   const keys2 = Object.keys(value2);
 
