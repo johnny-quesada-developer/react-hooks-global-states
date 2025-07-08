@@ -413,7 +413,7 @@ export class GlobalStore<
 
       return [
         this.computeSelectedState({
-          subscription,
+          subscriptionRef: subscription,
           currentDependencies,
         }),
         this.getStateOrchestrator(),
@@ -434,34 +434,34 @@ export class GlobalStore<
   };
 
   protected computeSelectedState = ({
-    subscription,
+    subscriptionRef,
     currentDependencies,
   }: {
-    subscription: SubscriberParameters;
+    subscriptionRef: SubscriberParameters;
     currentDependencies: unknown[] | undefined;
   }) => {
-    if (!subscription.selector) return subscription.currentState;
+    if (!subscriptionRef.selector) return subscriptionRef.currentState;
 
-    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookConfig<
+    const { dependencies: newDependencies } = (subscriptionRef.getConfig() ?? {}) as UseHookConfig<
       unknown,
       unknown
     >;
 
     // if the dependencies are the same we don't need to compute the state
-    if (currentDependencies === newDependencies) return subscription.currentState;
+    if (currentDependencies === newDependencies) return subscriptionRef.currentState;
 
     const isLengthEqual = currentDependencies?.length === newDependencies?.length;
     const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
 
     // if values are the same we don't need to compute the state
-    if (isSameValues) return subscription.currentState;
+    if (isSameValues) return subscriptionRef.currentState;
 
     // update the current state without re-rendering the component
-    this.partialUpdateSubscription(subscription.subscriptionId, {
-      currentState: subscription.selector(this.stateWrapper.state),
+    this.partialUpdateSubscription(subscriptionRef.subscriptionId, {
+      currentState: subscriptionRef.selector(this.stateWrapper.state),
     });
 
-    return subscription.currentState;
+    return subscriptionRef.currentState;
   };
 
   /**
