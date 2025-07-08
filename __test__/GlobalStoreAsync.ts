@@ -9,6 +9,7 @@ import {
 import { formatFromStore } from 'json-storage-formatter/formatFromStore';
 import { formatToStore } from 'json-storage-formatter/formatToStore';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
+import { act } from 'react';
 
 export const { fakeAsyncStorage: asyncStorage } = getFakeAsyncStorage();
 
@@ -115,7 +116,9 @@ export const createGlobalState = createCustomGlobalState<
       jsonParse: true,
     });
 
-    setState(parsed, { forceUpdate: true });
+    act(() => {
+      setState(parsed, { forceUpdate: true });
+    });
   },
 
   onChange: ({ getState }, config) => {

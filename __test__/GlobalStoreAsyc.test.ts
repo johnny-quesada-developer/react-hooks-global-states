@@ -1,6 +1,8 @@
 import { createDecoupledPromise } from 'easy-cancelable-promise';
 import { formatToStore } from 'json-storage-formatter';
 import { GlobalStore, asyncStorage, createGlobalState } from './GlobalStoreAsync';
+import { renderHook } from '@testing-library/react';
+import { act } from 'react';
 
 describe('GlobalStoreAsync Basics', () => {
   it('should create a store with async storage', async () => {
@@ -11,11 +13,21 @@ describe('GlobalStoreAsync Basics', () => {
     setTimeout(async () => {
       const { promise: onStateChangedPromise, resolve: onStateChangedResolve } = createDecoupledPromise();
 
-      const storage = new GlobalStore(0, {
-        asyncStorageKey: 'counter',
-        metadata: {
-          isAsyncStorageReady: false,
+      let storage!: GlobalStore<
+        number,
+        {
+          isAsyncStorageReady: false;
         },
+        unknown
+      >;
+
+      act(() => {
+        storage = new GlobalStore(0, {
+          asyncStorageKey: 'counter',
+          metadata: {
+            isAsyncStorageReady: false,
+          },
+        });
       });
 
       const [getState, _, getMetadata] = storage.stateControls();
@@ -34,18 +46,17 @@ describe('GlobalStoreAsync Basics', () => {
       expect(getMetadata().isAsyncStorageReady).toBe(false);
 
       // add a subscriber to the store
-      storage.getHook()();
+      renderHook(() => storage.getHook()());
 
       const [[id, parameters]] = storage.subscribers;
-      const { callback: setState } = parameters;
-      parameters.callback = jest.fn(setState);
+      jest.spyOn(parameters, 'callback');
 
       storage.subscribers = new Map([[id, parameters]]);
 
       await onStateChangedPromise;
 
       expect(getMetadata().isAsyncStorageReady).toBe(true);
-      expect(setState).toBeCalledTimes(1);
+      expect(parameters.callback).toHaveBeenCalledTimes(1);
 
       expect(getState()).toBe(0);
 
@@ -81,24 +92,28 @@ describe('createGlobalState', () => {
         },
       });
 
-      let [data, setData, metadata] = useData();
+      const { result } = renderHook(() => useData());
+      let [data, setData, metadata] = result.current;
 
       expect(metadata.isAsyncStorageReady).toBe(undefined);
 
       await onStateChangedPromise;
 
-      [data, setData, metadata] = useData();
+      [data, setData, metadata] = result.current;
 
       expect(!!metadata.isAsyncStorageReady).toBe(true);
       expect(data).toEqual(new Map([['prop', 0]]));
 
-      setData((data) => {
-        data.set('prop', 1);
+      await act(() => {
+        setData((data) => {
+          data.set('prop', 1);
 
-        return data;
+          return data;
+        });
       });
 
-      const [data2] = useData();
+      const { result: result2 } = renderHook(() => useData());
+      const [data2] = result2.current;
 
       expect(data).toBe(data2);
 
@@ -110,7 +125,7 @@ describe('createGlobalState', () => {
 });
 
 describe('getter subscriptions custom global state', () => {
-  it('should subscribe to changes from getter', () => {
+  it('should subscribe to changes from getter', async () => {
     const useHook = createGlobalState({
       a: 3,
       b: 2,
@@ -144,35 +159,39 @@ describe('getter subscriptions custom global state', () => {
       }),
     ];
 
-    expect(subscriptionSpy).toBeCalledTimes(1);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(1);
     expect(subscriptionSpy).toBeCalledWith(state);
 
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
     expect(subscriptionDerivateSpy).toBeCalledWith(3);
 
-    setter((state) => ({
-      ...state,
-      b: 3,
-    }));
+    await act(() => {
+      setter((state) => ({
+        ...state,
+        b: 3,
+      }));
+    });
 
-    expect(subscriptionSpy).toBeCalledTimes(2);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(2);
     expect(subscriptionSpy).toBeCalledWith({
       a: 3,
       b: 3,
     });
 
     // the derivate should not be called since it didn't change
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
 
     removeSubscriptions.forEach((remove) => remove());
 
-    setter((state) => ({
-      ...state,
-      a: 4,
-    }));
+    await act(() => {
+      setter((state) => ({
+        ...state,
+        a: 4,
+      }));
+    });
 
     // the subscription should not be called since it was removed
-    expect(subscriptionSpy).toBeCalledTimes(2);
-    expect(subscriptionDerivateSpy).toBeCalledTimes(1);
+    expect(subscriptionSpy).toHaveBeenCalledTimes(2);
+    expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
   });
 });

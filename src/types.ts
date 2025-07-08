@@ -138,7 +138,7 @@ export type ActionCollectionResult<
 export type GlobalStoreCallbacks<State, Metadata extends BaseMetadata | unknown> = {
   onInit?: (args: StoreTools<State, Metadata>) => void;
   onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
-  onSubscribed?: (args: StoreTools<State, Metadata>) => void;
+  onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
   computePreventStateChange?: (args: StoreTools<State, Metadata> & StateChanges<State>) => boolean;
 };
 
@@ -197,10 +197,9 @@ export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
 export type SubscriberParameters = {
   subscriptionId: string;
   selector: SelectorCallback<unknown, unknown> | undefined;
-  config: UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
+  getConfig: () => UseHookConfig<unknown> | SubscribeCallbackConfig<unknown> | undefined;
   currentState: unknown;
   callback: SubscriptionCallback | (() => void);
-  isSetStateCallback: boolean;
 };
 
 /**
