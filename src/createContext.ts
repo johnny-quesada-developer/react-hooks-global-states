@@ -4,6 +4,9 @@ import {
   createContext as reactCreateContext,
   useContext as reactUseContext,
   createElement as reactCreateElement,
+  useMemo,
+  useEffect,
+  useRef,
 } from 'react';
 import { GlobalStore } from './GlobalStore';
 import type {
@@ -21,7 +24,6 @@ import type {
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
-import { useStableState } from './useStableState';
 
 export type ContextProviderAPI<State, Metadata extends BaseMetadata | unknown> = {
   setMetadata: MetadataSetter<Metadata>;
@@ -135,15 +137,8 @@ export const createContext = ((
 ) => {
   const context = reactCreateContext<StateHook<unknown, unknown, unknown> | null>(null);
 
-  const useContext = (() => {
-    const useParentHook = reactUseContext(context);
-    if (!useParentHook) throw new Error('ContextHook must be used within a ContextProvider');
-
-    return useParentHook();
-  }) as ContextHook<unknown, unknown, unknown>;
-
   const Provider: ContextProvider<unknown, unknown> = ({ children, value: initialState, ref }) => {
-    const stateRef = useStableState(() => {
+    const { store, parentHook } = useMemo(() => {
       const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
       const state: unknown = (() => {
@@ -160,64 +155,73 @@ export const createContext = ((
 
       const parentHook = store.getHook() as StateHook<unknown, unknown, unknown>;
 
-      return [
-        { store, parentHook },
-        () => {
-          (store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
-
-          /**
-           * Required by the global hooks developer tools
-           */
-          (store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
-            store,
-            parentHook
-          );
-
-          store.dispose();
-        },
-      ];
+      return { store, parentHook };
     }, []);
+
+    // cleanup function to be called when the component unmounts
+    useEffect(() => {
+      return () => {
+        (store.callbacks as { onUnMount?: () => void })?.onUnMount?.();
+
+        /**
+         * Required by the global hooks developer tools
+         */
+        (store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(
+          store,
+          parentHook
+        );
+
+        store.dispose();
+      };
+    }, [store, parentHook]);
 
     useImperativeHandle(
       ref,
       () => {
-        return (ref ? stateRef?.current.store.getConfigCallbackParam() ?? null : {}) as ContextProviderAPI<
-          unknown,
-          unknown
-        >;
+        const storeApi = ref ? store.getConfigCallbackParam() ?? null : {};
+
+        return storeApi as ContextProviderAPI<unknown, unknown>;
       },
-      [ref, stateRef]
+      [ref, store]
     );
 
-    if (isNil(stateRef)) return null;
-
-    const { parentHook } = stateRef.current;
     return reactCreateElement(context.Provider, { value: parentHook }, children);
   };
+
+  const useContext = (() => {
+    const useParentHook = reactUseContext(context);
+    if (!useParentHook) throw new Error('ContextHook must be used within a ContextProvider');
+
+    return useParentHook();
+  }) as ContextHook<unknown, unknown, unknown>;
 
   /**
    * Store selectors are not created until the first time they are used
    */
-  useContext.createSelectorHook = ((selector, args) => {
-    let useMainFragment: StateHook<any, unknown, unknown> | null = null;
-    let previousParentHook: WeakRef<object> | null = new WeakRef({});
-
+  useContext.createSelectorHook = ((selector, hookConfig) => {
     return (...selectorArgs: []) => {
-      const parentHook = reactUseContext(context)!;
-      if (isNil(parentHook)) throw new Error('SelectorHook must be used within a ContextProvider');
+      const useContextHook = reactUseContext(context)!;
+      if (isNil(useContextHook)) throw new Error('SelectorHook must be used within a ContextProvider');
 
-      const didParentHookChange = previousParentHook?.deref() !== parentHook;
-      if (didParentHookChange) {
-        useMainFragment?.dispose();
-        useMainFragment = null;
-        previousParentHook = new WeakRef(parentHook);
-      }
+      const selectorRef = useRef(selector);
+      selectorRef.current = selector;
 
-      if (isNil(useMainFragment)) {
-        useMainFragment = parentHook.createSelectorHook(selector, args);
-      }
+      const useChildHook = useMemo(() => {
+        if (isNil(selector)) return useContextHook;
 
-      return useMainFragment!(...selectorArgs);
+        return useContextHook.createSelectorHook((...args) => {
+          return selectorRef.current(...args);
+        }, hookConfig);
+      }, [useContextHook]);
+
+      // cleanup previous hook if it has changed
+      useEffect(() => {
+        return () => {
+          useChildHook?.dispose();
+        };
+      }, [useChildHook]);
+
+      return useChildHook!(...selectorArgs);
     };
   }) as typeof useContext.createSelectorHook;
 

@@ -37,7 +37,7 @@ const debugProps = globalThis as typeof globalThis & {
   // monkey path is already in place, no fallback is needed
   if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) return;
 
-  // if this is not a web environment have issues with reloads
+  // if this is not a web environment or the session storage is not available, we don't need to do anything
   if (isNil(debugProps.sessionStorage)) return;
 
   try {
@@ -533,7 +533,7 @@ export class GlobalStore<
 
       // child state do not expose specific state controls instead inherit from the root state
       // all the state mutations will be derived from the root state
-      return [childState, rootMutator, metadataRetriever];
+      return [childState, rootMutator, metadataRetriever()];
     }) as unknown as StateHook<unknown, unknown, unknown>;
 
     useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
