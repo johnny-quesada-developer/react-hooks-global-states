@@ -25,36 +25,7 @@ import { isArray, shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
 import { generateStackHash } from './generateStackHash';
-
-const debugProps = globalThis as typeof globalThis & {
-  REACT_GLOBAL_STATE_HOOK_DEBUG?: ($this: unknown, args: undefined | {}, invokerStackHash: string) => void;
-  REACT_GLOBAL_STATE_TEMP_HOOKS: Map<string, [unknown, unknown]> | null;
-  sessionStorage?: { getItem: (key: string) => string | null };
-};
-
-// devtools fallback for page reloads during debugging sessions
-(() => {
-  // monkey path is already in place, no fallback is needed
-  if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) return;
-
-  // if this is not a web environment or the session storage is not available, we don't need to do anything
-  if (isNil(debugProps.sessionStorage)) return;
-
-  try {
-    // Safary could potentially throw an error if the session storage is disabled
-    const isDebugging = debugProps.sessionStorage.getItem('REACT_GLOBAL_STATE_HOOK_DEBUG');
-    if (!isDebugging) return;
-  } catch (error) {
-    return;
-  }
-
-  debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = new Map();
-
-  // clear the temp hooks after 1 minute
-  setTimeout(() => {
-    debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS = null;
-  }, 60_000);
-})();
+import debugProps from './GlobalStore.debugProps';
 
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
@@ -71,16 +42,16 @@ export class GlobalStore<
   protected wasDisposed = false;
 
   public actionsConfig: ActionsConfig | null = null;
+
   public callbacks: GlobalStoreCallbacks<State, Metadata> | null = null;
 
   public metadata: Metadata;
+
   public actions: ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>> | null = null;
 
   public subscribers: Map<string, SubscriberParameters> = new Map();
 
-  public stateWrapper: {
-    state: State;
-  };
+  public state: State;
 
   constructor(state: State);
 
@@ -105,31 +76,18 @@ export class GlobalStore<
   ) {
     const { metadata, callbacks, actions, name: storeName } = args;
 
-    this.stateWrapper = {
-      state,
-    };
-
+    this.state = state;
     this._name = storeName ?? uniqueId('gs:');
     this.metadata = metadata ?? ({} as Metadata);
     this.callbacks = callbacks ?? null;
     this.actionsConfig = actions ?? null;
 
-    const isDevToolsPresent =
-      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG || debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS;
-
     // when a page reload is made it in the devtools, the content script not always get injected at the beginning of the file
     // by tracking the stack hash we can identify when a hook was already created and avoid duplicated the analytics
     let globalHookStackHash = '';
-    if (isDevToolsPresent) globalHookStackHash = generateStackHash(new Error().stack ?? '');
+    if (debugProps.isDevToolsPresent) globalHookStackHash = generateStackHash(new Error().stack ?? '');
 
-    if (debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG) {
-      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG(this, args, globalHookStackHash);
-    } else if (debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS) {
-      // if available use the WeakRef to store the hooks so we could potentially prevent processing hooks that are not used anymore
-      const temp = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(this) : this;
-      const tempArgs = typeof globalThis.WeakRef !== 'undefined' ? new globalThis.WeakRef(args) : args;
-      debugProps.REACT_GLOBAL_STATE_TEMP_HOOKS.set(globalHookStackHash, [temp, tempArgs]);
-    }
+    debugProps.reportToDevTools(this as Record<string, unknown>, args, globalHookStackHash);
 
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
@@ -166,8 +124,8 @@ export class GlobalStore<
     subscription: SubscriberParameters,
     args: {
       forceUpdate: boolean | undefined;
-      newRootState: State;
-      currentRootState: State;
+      newState: State;
+      currentState: State;
       identifier: string | undefined;
     }
   ): {
@@ -177,14 +135,11 @@ export class GlobalStore<
     const config = getConfig?.() ?? {};
 
     // compare the root state, there should not be a re-render if the root state is the same
-    if (
-      !args.forceUpdate &&
-      (config?.isEqualRoot ?? ((a, b) => a === b))(args.currentRootState, args.newRootState)
-    ) {
+    if (!args.forceUpdate && (config?.isEqualRoot ?? ((a, b) => a === b))(args.currentState, args.newState)) {
       return { didUpdate: false };
     }
 
-    const newChildState = selector ? selector(args.newRootState) : args.newRootState;
+    const newChildState = selector ? selector(args.newState) : args.newState;
 
     // compare the state of the selected part of the state, there should not be a re-render if the state is the same
     if (!args.forceUpdate && (config?.isEqual ?? ((a, b) => a === b))(currentChildState, newChildState)) {
@@ -215,28 +170,22 @@ export class GlobalStore<
    * @param {StateSetter<State>} setter - The setter function or the value to set
    * */
   protected setState = (
-    {
-      state: newRootState,
-    }: {
-      state: State;
-    },
+    newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string }
   ) => {
-    const { state: currentRootState } = this.stateWrapper;
+    const currentState = this.state;
 
-    const shouldUpdate = forceUpdate || currentRootState !== newRootState;
+    const shouldUpdate = forceUpdate || currentState !== newState;
     if (!shouldUpdate) return;
 
-    this.stateWrapper = {
-      state: newRootState,
-    };
+    this.state = newState;
 
     const subscribers = this.subscribers.values();
 
     const args = {
       forceUpdate,
-      newRootState,
-      currentRootState,
+      newState,
+      currentState,
       identifier,
     };
 
@@ -263,7 +212,7 @@ export class GlobalStore<
     param3?: SubscribeCallbackConfig<unknown>
   ) => {
     // if there is no subscription callback return the state
-    if (!param1) return this.stateWrapper.state;
+    if (!param1) return this.state;
 
     const hasExplicitSelector = isFunction(param2);
 
@@ -273,7 +222,7 @@ export class GlobalStore<
 
     const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
 
-    const initialState = selector ? selector(this.stateWrapper.state) : this.stateWrapper.state;
+    const initialState = selector ? selector(this.state) : this.state;
 
     if (!config?.skipFirst) {
       callback(initialState);
@@ -387,7 +336,7 @@ export class GlobalStore<
 
         const subscription: SubscriberParameters = {
           subscriptionId: uniqueId('ss:'),
-          currentState: selectorFn(this.stateWrapper.state),
+          currentState: selectorFn(this.state),
           selector: selectorFn,
           getConfig,
           callback: () => {
@@ -458,7 +407,7 @@ export class GlobalStore<
 
     // update the current state without re-rendering the component
     this.partialUpdateSubscription(subscriptionRef.subscriptionId, {
-      currentState: subscriptionRef.selector(this.stateWrapper.state),
+      currentState: subscriptionRef.selector(this.state),
     });
 
     return subscriptionRef.currentState;
@@ -471,7 +420,7 @@ export class GlobalStore<
   public createSelectorHook = <
     RootState,
     StateMutator,
-    Metadata extends BaseMetadata,
+    SelectorMetadata extends BaseMetadata,
     RootSelectorResult,
     RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
   >(
@@ -485,11 +434,11 @@ export class GlobalStore<
       isEqualRoot?: (current: RootState, next: RootState) => boolean;
       name?: string;
     } = {}
-  ): StateHook<RootDerivate, StateMutator, Metadata> => {
+  ): StateHook<RootDerivate, StateMutator, SelectorMetadata> => {
     const [rootStateRetriever, rootMutator, metadataRetriever] = this.stateControls() as unknown as [
       StateGetter<RootState>,
       StateMutator,
-      MetadataGetter<Metadata>
+      MetadataGetter<SelectorMetadata>
     ];
 
     let root = rootStateRetriever();
@@ -553,7 +502,7 @@ export class GlobalStore<
       childStore.dispose();
     };
 
-    return useChildHookWrapper as StateHook<RootDerivate, StateMutator, Metadata>;
+    return useChildHookWrapper as StateHook<RootDerivate, StateMutator, SelectorMetadata>;
   };
 
   public stateControls = () => {
@@ -589,12 +538,12 @@ export class GlobalStore<
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
   protected setStateWrapper: StateSetter<State> = (setter, { forceUpdate, identifier } = {}) => {
-    const previousState = this.stateWrapper.state;
+    const previousState = this.state;
 
     const newState = isFunction(setter) ? (setter as (state: State) => State)(previousState) : setter;
 
     // if the state didn't change, we don't need to do anything
-    if (!forceUpdate && this.stateWrapper.state === newState) return;
+    if (!forceUpdate && this.state === newState) return;
 
     const { setMetadata, getMetadata, getState, actions, setState } = this;
 
@@ -622,12 +571,7 @@ export class GlobalStore<
       if (shouldPreventStateChange) return;
     }
 
-    this.setState(
-      {
-        state: newState,
-      },
-      { forceUpdate, identifier }
-    );
+    this.setState(newState, { forceUpdate, identifier });
 
     const { onStateChanged } = this;
     const onStateChangedFromConfig = this.callbacks?.onStateChanged;
@@ -795,7 +739,7 @@ export class GlobalStore<
     this.callbacks = null;
     this.metadata = {} as Metadata;
     this.actions = null;
-    this.stateWrapper = { state: null as unknown as State };
+    this.state = Object.create(null);
   };
 }
 

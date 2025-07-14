@@ -1,6 +1,6 @@
 import React from 'react';
 import { createContext } from '..';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 describe('createContext', () => {
   it('should correctly create a context hook and provider', () => {
@@ -19,7 +19,10 @@ describe('createContext', () => {
     expect(state).toEqual({ count: 0 });
     expect(metadata).toEqual({ name: 'TestContext' });
 
-    setState((prev) => ({ ...prev, count: prev.count + 1 }));
+    act(() => {
+      setState((prev) => ({ ...prev, count: prev.count + 1 }));
+    });
+
     rerender();
 
     [state] = result.current;
@@ -44,7 +47,10 @@ describe('createContext', () => {
     expect(state).toEqual(2);
     expect(metadata).toEqual({ name: 'CounterState' });
 
-    setState((prev) => ({ ...prev, count: prev.count + 1 }));
+    act(() => {
+      setState((prev) => ({ ...prev, count: prev.count + 1 }));
+    });
+
     rerender();
 
     [state] = result.current;

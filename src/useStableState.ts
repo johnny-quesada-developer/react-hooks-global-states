@@ -5,6 +5,7 @@ type StateBuilder<T> = () => [state: T, cleanup?: Cleanup];
 type RefObject<T> = { current: T };
 
 /**
+ * @deprecated
  * - Only one stable initial render
  * - Only one stable cleanup every time dependencies change
  * - Initial render doesn't trigger cleanup

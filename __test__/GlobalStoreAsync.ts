@@ -50,6 +50,7 @@ export class GlobalStore<
 
     const metadata = getMetadata();
     const storedItem = (await asyncStorage.getItem(this.asyncStorageKey)) as string;
+
     setMetadata({
       ...metadata,
       isAsyncStorageReady: true,
