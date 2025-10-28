@@ -38,12 +38,6 @@ export { isRecord } from './isRecord';
 export { useStableState } from './useStableState';
 
 // context
-export {
-  ContextProviderAPI,
-  ContextProvider,
-  ContextHook,
-  CreateContext,
-  createContext,
-} from './createContext';
+export { Context, ContextProvider, ContextHook, CreateContext, createContext } from './createContext';
 
 export { generateStackHash } from './generateStackHash';

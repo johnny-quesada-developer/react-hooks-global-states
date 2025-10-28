@@ -1,12 +1,12 @@
 import {
   type PropsWithChildren,
-  useImperativeHandle,
   createContext as reactCreateContext,
   useContext as reactUseContext,
   createElement as reactCreateElement,
   useMemo,
   useEffect,
   useRef,
+  Context as ReactContext,
 } from 'react';
 import { GlobalStore } from './GlobalStore';
 import type {
@@ -25,20 +25,40 @@ import type {
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
 
-export type ContextProviderAPI<State, Metadata extends BaseMetadata | unknown> = {
+export type Context<State, Actions, Metadata extends BaseMetadata | unknown> = {
   setMetadata: MetadataSetter<Metadata>;
   setState: StateSetter<State>;
   getState: StateGetter<State>;
   getMetadata: () => Metadata;
-  actions: Record<string, (...args: any[]) => void>;
+  actions: Actions;
 };
 
-export type ContextProvider<State, Metadata extends BaseMetadata | unknown> = React.FC<
+export type ContextProvider<State, Actions, Metadata extends BaseMetadata | unknown> = React.FC<
   PropsWithChildren<{
     value?: State | ((initialValue: State) => State);
-    ref?: React.RefObject<ContextProviderAPI<State, Metadata>>;
+    __onCreate?: (context: Context<State, Actions, Metadata>) => void;
   }>
->;
+> & {
+  /**
+   * Creates a provider wrapper which allows to capture the context value,
+   * useful for testing purposes.
+   */
+  makeProviderWrapper: (options?: {
+    value?: State | ((initialValue: State) => State);
+    onCreated?: (context: Context<State, Actions, Metadata>) => void;
+  }) => {
+    wrapper: React.FC<
+      PropsWithChildren<{
+        value?: State | ((initialValue: State) => State);
+      }>
+    >;
+
+    /**
+     * Returns the last captured context value.
+     */
+    getContext: () => Context<State, Actions, Metadata>;
+  };
+};
 
 export type StateControlsHook<State, StateMutator, Metadata extends BaseMetadata | unknown> = () => Readonly<
   [retriever: StateGetter<State>, mutator: StateMutator, metadata: MetadataGetter<Metadata>]
@@ -88,7 +108,8 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
 export interface CreateContext {
   <State>(value: State | (() => State)): [
     ContextHook<State, StateSetter<State>, BaseMetadata>,
-    ContextProvider<State, BaseMetadata>
+    ContextProvider<State, null, BaseMetadata>,
+    ReactContext<StateHook<State, StateSetter<State>, BaseMetadata> | null>
   ];
 
   <
@@ -106,7 +127,11 @@ export interface CreateContext {
       callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
       actions?: ActionsConfig;
     }
-  ): [ContextHook<State, PublicStateMutator, Metadata>, ContextProvider<State, Metadata>];
+  ): [
+    ContextHook<State, PublicStateMutator, Metadata>,
+    ContextProvider<State, PublicStateMutator, Metadata>,
+    ReactContext<StateHook<State, PublicStateMutator, Metadata> | null>
+  ];
 
   <
     State,
@@ -122,7 +147,8 @@ export interface CreateContext {
     }
   ): [
     ContextHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>,
-    ContextProvider<State, Metadata>
+    ContextProvider<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>,
+    ReactContext<StateHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata> | null>
   ];
 }
 
@@ -137,7 +163,7 @@ export const createContext = ((
 ) => {
   const context = reactCreateContext<StateHook<unknown, unknown, unknown> | null>(null);
 
-  const Provider: ContextProvider<unknown, unknown> = ({ children, value: initialState, ref }) => {
+  const Provider = (({ children, value: initialState, __onCreate }) => {
     const { store, parentHook } = useMemo(() => {
       const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
@@ -175,18 +201,10 @@ export const createContext = ((
       };
     }, [store, parentHook]);
 
-    useImperativeHandle(
-      ref,
-      () => {
-        const storeApi = ref ? store.getConfigCallbackParam() ?? null : {};
-
-        return storeApi as ContextProviderAPI<unknown, unknown>;
-      },
-      [ref, store]
-    );
+    __onCreate?.(store.getConfigCallbackParam());
 
     return reactCreateElement(context.Provider, { value: parentHook }, children);
-  };
+  }) as ContextProvider<unknown, unknown, unknown>;
 
   const useContext = (() => {
     const useParentHook = reactUseContext(context);
@@ -241,7 +259,29 @@ export const createContext = ((
 
   useContext.stateControls = () => [useSateControls, useObservableBuilder];
 
-  return [useContext, Provider] as const;
+  Provider.makeProviderWrapper = (options) => {
+    let lastContextValue: Context<unknown, unknown, unknown> | null = null;
+
+    const wrapper = ({ children }: PropsWithChildren) => {
+      return reactCreateElement(
+        Provider,
+        {
+          value: options?.value,
+          __onCreate: (ctx) => {
+            lastContextValue = ctx;
+            options?.onCreated?.(ctx);
+          },
+        },
+        children
+      );
+    };
+
+    const getContext = () => lastContextValue!;
+
+    return { wrapper, getContext };
+  };
+
+  return [useContext, Provider, context] as const;
 }) as CreateContext;
 
 export default createContext;

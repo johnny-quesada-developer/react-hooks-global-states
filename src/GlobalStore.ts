@@ -82,12 +82,10 @@ export class GlobalStore<
     this.callbacks = callbacks ?? null;
     this.actionsConfig = actions ?? null;
 
-    // when a page reload is made it in the devtools, the content script not always get injected at the beginning of the file
-    // by tracking the stack hash we can identify when a hook was already created and avoid duplicated the analytics
-    let globalHookStackHash = '';
-    if (debugProps.isDevToolsPresent) globalHookStackHash = generateStackHash(new Error().stack ?? '');
-
-    debugProps.reportToDevTools(this as Record<string, unknown>, args, globalHookStackHash);
+    if (debugProps.isDevToolsPresent) {
+      const globalHookStackHash = generateStackHash(new Error().stack ?? '');
+      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG?.(this, args, globalHookStackHash);
+    }
 
     const isExtensionClass = this.constructor !== GlobalStore;
     if (isExtensionClass) return;
