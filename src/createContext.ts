@@ -206,11 +206,11 @@ export const createContext = ((
     return reactCreateElement(context.Provider, { value: parentHook }, children);
   }) as ContextProvider<unknown, unknown, unknown>;
 
-  const useContext = (() => {
+  const useContext = ((...args: Parameters<ContextHook<unknown, unknown, unknown>>) => {
     const useParentHook = reactUseContext(context);
     if (!useParentHook) throw new Error('ContextHook must be used within a ContextProvider');
 
-    return useParentHook();
+    return useParentHook(...args);
   }) as ContextHook<unknown, unknown, unknown>;
 
   /**

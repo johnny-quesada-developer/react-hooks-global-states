@@ -124,4 +124,16 @@ describe('createContext', () => {
 
     expect(getByText('count: 2')).toBeTruthy();
   });
+
+  it('should correctly apply selectors on the main hook', () => {
+    const [useHook, Provider] = createContext({ countA: 1, countB: 2 });
+
+    const { result } = renderHook(() => useHook(({ countA, countB }) => countA + countB), {
+      wrapper: Provider,
+    });
+
+    let [state] = result.current;
+
+    expect(state).toEqual(3);
+  });
 });
