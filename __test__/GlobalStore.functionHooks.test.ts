@@ -61,7 +61,7 @@ describe('with actions', () => {
       },
       actions: {
         logModification() {
-          return ({ setMetadata }: StoreTools<number, Metadata>) => {
+          return ({ setMetadata }) => {
             setMetadata(({ modificationsCounter, ...metadata }) => ({
               ...metadata,
               modificationsCounter: modificationsCounter + 1,

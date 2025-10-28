@@ -27,7 +27,7 @@ export { GlobalStore } from './GlobalStore';
 export { GlobalStoreAbstract } from './GlobalStoreAbstract';
 
 // functions
-export { createGlobalState } from './createGlobalState';
+export { createGlobalState, type InferActionsType } from './createGlobalState';
 export { createCustomGlobalState } from './createCustomGlobalState';
 
 // utils
@@ -38,6 +38,13 @@ export { isRecord } from './isRecord';
 export { useStableState } from './useStableState';
 
 // context
-export { Context, ContextProvider, ContextHook, CreateContext, createContext } from './createContext';
+export {
+  type Context,
+  type ContextProvider,
+  type ContextHook,
+  type CreateContext,
+  type InferContextType,
+  createContext,
+} from './createContext';
 
 export { generateStackHash } from './generateStackHash';

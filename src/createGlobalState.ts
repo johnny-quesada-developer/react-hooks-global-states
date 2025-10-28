@@ -54,4 +54,6 @@ export const createGlobalState = ((
   }
 ) => new GlobalStore(state, args).getHook()) as CreateGlobalState;
 
+export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook['stateControls']>['1'];
+
 export default createGlobalState;

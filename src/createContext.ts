@@ -284,4 +284,8 @@ export const createContext = ((
   return [useContext, Provider, context] as const;
 }) as CreateContext;
 
+export type InferContextType<Provider extends ContextProvider<any, any, any>> = ReturnType<
+  ReturnType<Provider['makeProviderWrapper']>['getContext']
+>;
+
 export default createContext;
