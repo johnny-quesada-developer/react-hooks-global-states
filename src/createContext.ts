@@ -36,7 +36,11 @@ export type Context<State, Actions, Metadata extends BaseMetadata | unknown> = {
 export type ContextProvider<State, Actions, Metadata extends BaseMetadata | unknown> = React.FC<
   PropsWithChildren<{
     value?: State | ((initialValue: State) => State);
-    __onCreate?: (context: Context<State, Actions, Metadata>) => void;
+
+    /**
+     * Callback called when the context is created.
+     */
+    onCreated?: (context: Context<State, Actions, Metadata>) => void;
   }>
 > & {
   /**
@@ -163,7 +167,7 @@ export const createContext = ((
 ) => {
   const context = reactCreateContext<StateHook<unknown, unknown, unknown> | null>(null);
 
-  const Provider = (({ children, value: initialState, __onCreate }) => {
+  const Provider = (({ children, value: initialState, onCreated }) => {
     const { store, parentHook } = useMemo(() => {
       const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
@@ -201,7 +205,7 @@ export const createContext = ((
       };
     }, [store, parentHook]);
 
-    __onCreate?.(store.getConfigCallbackParam());
+    onCreated?.(store.getConfigCallbackParam());
 
     return reactCreateElement(context.Provider, { value: parentHook }, children);
   }) as ContextProvider<unknown, unknown, unknown>;
@@ -267,7 +271,7 @@ export const createContext = ((
         Provider,
         {
           value: options?.value,
-          __onCreate: (ctx) => {
+          onCreated: (ctx) => {
             lastContextValue = ctx;
             options?.onCreated?.(ctx);
           },
