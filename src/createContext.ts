@@ -43,7 +43,7 @@ export type ContextProvider<State, Actions, Metadata extends BaseMetadata | unkn
     onCreated?: (context: Context<State, Actions, Metadata>) => void;
   }>
 > & {
-  /**
+  /**F
    * Creates a provider wrapper which allows to capture the context value,
    * useful for testing purposes.
    */
@@ -58,9 +58,12 @@ export type ContextProvider<State, Actions, Metadata extends BaseMetadata | unkn
     >;
 
     /**
-     * Returns the last captured context value.
+     * Returns access to the created context
+     * context.current will hold the context value
      */
-    getContext: () => Context<State, Actions, Metadata>;
+    context: {
+      current: Context<State, Actions, Metadata>;
+    };
   };
 };
 
@@ -264,7 +267,9 @@ export const createContext = ((
   useContext.stateControls = () => [useSateControls, useObservableBuilder];
 
   Provider.makeProviderWrapper = (options) => {
-    let lastContextValue: Context<unknown, unknown, unknown> | null = null;
+    const context = {
+      current: undefined as unknown as Context<unknown, unknown, unknown>,
+    };
 
     const wrapper = ({ children }: PropsWithChildren) => {
       return reactCreateElement(
@@ -272,7 +277,7 @@ export const createContext = ((
         {
           value: options?.value,
           onCreated: (ctx) => {
-            lastContextValue = ctx;
+            context.current = ctx;
             options?.onCreated?.(ctx);
           },
         },
@@ -280,16 +285,14 @@ export const createContext = ((
       );
     };
 
-    const getContext = () => lastContextValue!;
-
-    return { wrapper, getContext };
+    return { wrapper, context };
   };
 
   return [useContext, Provider, context] as const;
 }) as CreateContext;
 
 export type InferContextType<Provider extends ContextProvider<any, any, any>> = ReturnType<
-  ReturnType<Provider['makeProviderWrapper']>['getContext']
->;
+  Provider['makeProviderWrapper']
+>['context']['current'];
 
 export default createContext;

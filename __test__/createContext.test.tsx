@@ -82,21 +82,19 @@ describe('createContext', () => {
       return `count: ${count}`;
     };
 
-    const { wrapper, getContext } = CounterProvider.makeProviderWrapper();
+    const { wrapper, context } = CounterProvider.makeProviderWrapper();
 
     const { getByText, rerender } = render(<Children />, {
       wrapper,
     });
 
-    const context = getContext();
-
-    jest.spyOn(context.actions, 'increase').mockImplementation(() => {
-      context.setState((prev) => prev + 10);
+    jest.spyOn(context.current.actions, 'increase').mockImplementation(() => {
+      context.current.setState((prev) => prev + 10);
     });
 
     expect(getByText('count: 0')).toBeTruthy();
 
-    context.actions.increase();
+    context.current.actions.increase();
 
     rerender(<Children />);
 
