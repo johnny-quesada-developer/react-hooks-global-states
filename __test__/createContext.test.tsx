@@ -4,16 +4,18 @@ import { act, renderHook, render } from '@testing-library/react';
 
 describe('createContext', () => {
   it('should correctly create a context hook and provider', () => {
-    const [useState, Provider] = createContext(
+    const store = createContext(
       { count: 0 },
       {
         metadata: { name: 'TestContext' },
       }
     );
 
-    const wrapper = ({ children }: { children: React.ReactNode }) => <Provider>{children}</Provider>;
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
 
-    const { result, rerender } = renderHook(() => useState(), { wrapper });
+    const { result, rerender } = renderHook(() => store.use(), { wrapper });
     let [state, setState, metadata] = result.current;
 
     expect(state).toEqual({ count: 0 });
@@ -31,15 +33,17 @@ describe('createContext', () => {
   });
 
   it('should correctly create a selector hook', () => {
-    const [parentHook, Provider] = createContext(
+    const store = createContext(
       { count: 1 },
       {
         metadata: { name: 'CounterState' },
       }
     );
 
-    const useSelector = parentHook.createSelectorHook((state) => state.count * 2);
-    const wrapper = ({ children }: { children: React.ReactNode }) => <Provider>{children}</Provider>;
+    const useSelector = store.use.createSelectorHook((state) => state.count * 2);
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
 
     const { result, rerender } = renderHook(() => useSelector(), { wrapper });
     let [state, setState, metadata] = result.current;
@@ -61,7 +65,7 @@ describe('createContext', () => {
   it('should allow testing of context actions', () => {
     expect.assertions(2);
 
-    const [useCounter, CounterProvider] = createContext(0, {
+    const counter = createContext(0, {
       actions: {
         increase() {
           return ({ setState }) => {
@@ -77,12 +81,12 @@ describe('createContext', () => {
     });
 
     const Children = () => {
-      const [count] = useCounter();
+      const [count] = counter.use();
 
       return `count: ${count}`;
     };
 
-    const { wrapper, context } = CounterProvider.makeProviderWrapper();
+    const { wrapper, context } = counter.Provider.makeProviderWrapper();
 
     const { getByText, rerender } = render(<Children />, {
       wrapper,
@@ -104,15 +108,15 @@ describe('createContext', () => {
   it('should allow wrappers with initial value for testing', () => {
     expect.assertions(1);
 
-    const [useCounter, CounterProvider] = createContext(0);
+    const counter = createContext(0);
 
     const Children = () => {
-      const [count] = useCounter();
+      const [count] = counter.use();
 
       return `count: ${count}`;
     };
 
-    const { wrapper } = CounterProvider.makeProviderWrapper({
+    const { wrapper } = counter.Provider.makeProviderWrapper({
       value: 2,
     });
 
@@ -124,10 +128,10 @@ describe('createContext', () => {
   });
 
   it('should correctly apply selectors on the main hook', () => {
-    const [useHook, Provider] = createContext({ countA: 1, countB: 2 });
+    const store = createContext({ countA: 1, countB: 2 });
 
-    const { result } = renderHook(() => useHook(({ countA, countB }) => countA + countB), {
-      wrapper: Provider,
+    const { result } = renderHook(() => store.use(({ countA, countB }) => countA + countB), {
+      wrapper: store.Provider,
     });
 
     let [state] = result.current;

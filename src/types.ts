@@ -1,21 +1,8 @@
-export type StateSetter<State> = (
-  setter: State | ((state: State) => State),
-  meta?: {
-    /**
-     * @description you can add an identifier to the state call
-     * this will show up in the devtools to help you identify from where the state change was called
-     */
-    identifier?: string | undefined;
-    /**
-     * @deprecated forceUpdate normally should not be used inside components
-     * Use this flag just in custom implementations of the global store
-     */
-    forceUpdate?: boolean | undefined;
-  }
-) => void;
+export type AnyFunction = (...args: any[]) => any;
 
 export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | unknown> = {
   /**
+   * @deprecated This method is deprecated and may be removed in future versions.
    * @description Return the state controls of the hook
    * This selectors includes:
    * - stateRetriever: a function to get the current state or subscribe a callback to the state changes
@@ -25,6 +12,38 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
   stateControls: () => Readonly<
     [retriever: StateGetter<State>, mutator: StateMutator, metadata: MetadataGetter<Metadata>]
   >;
+
+  /**
+   * Returns the metadata
+   * Metadata is additional non reactive information associated with the global state
+   */
+  metadata: MetadataGetter<Metadata>;
+
+  /**
+   * @description Contains the generated action functions if custom actions are defined.
+   * When actions exist, direct state mutation via `setState` is disabled and setState will be `null`.
+   * If no actions are provided, this property is `null`.
+   */
+  actions: StateMutator extends AnyFunction ? null : StateMutator;
+
+  /**
+   * @description Provides direct access to the state updater when no custom actions are defined.
+   * When actions exist, direct state mutation via `setState` is disabled and this property will be `null`.
+   * If no actions are provided, this property exposes the `setState` function.
+   */
+  setState: StateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
+
+  /**
+   * @description Get the current state value
+   */
+  getState: () => State;
+
+  /**
+   * @description Subscribe to the state changes
+   * You can subscribe to the whole state or to a fragment of the state by passing a selector as first parameter,
+   * this can be used in non react environments to listen to the state changes
+   */
+  subscribe: SubscribeToState<State>;
 
   /***
    * @description Creates a new hooks that returns the result of the selector passed as a parameter
@@ -40,28 +59,38 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata | 
     }
   ) => StateHook<Derivate, StateMutator, Metadata>;
 
+  /**
+   * @description Creates a function that allows you to subscribe to a fragment of the state
+   * The observable fragment will notify the subscribers only if the fragment changes and the equality function returns false
+   * you can customize the equality function by passing the isEqualRoot and isEqual parameters
+   */
   createObservable: <Fragment>(
     this: StateHook<State, StateMutator, Metadata>,
-    mainSelector: (state: State) => Fragment,
+    selector: (state: State) => Fragment,
     args?: {
       isEqual?: (current: Fragment, next: Fragment) => boolean;
       isEqualRoot?: (current: State, next: State) => boolean;
+      /**
+       * @description Name of the observable fragment for debugging purposes
+       */
       name?: string;
     }
   ) => ObservableFragment<Fragment>;
-
-  removeSubscriptions: () => void;
-
-  dispose: () => void;
 };
 
-export type ObservableFragment<State> = StateGetter<State> & {
+/**
+ * @description Function that allows you to subscribe to a fragment of the state
+ */
+export type ObservableFragment<State> = SubscribeToState<State> & {
   createObservable: <Fragment>(
     this: ObservableFragment<State>,
-    mainSelector: (state: State) => Fragment,
+    selector: (state: State) => Fragment,
     args?: {
       isEqual?: (current: Fragment, next: Fragment) => boolean;
       isEqualRoot?: (current: State, next: State) => boolean;
+      /**
+       * @description Name of the observable fragment for debugging purposes
+       */
       name?: string;
     }
   ) => ObservableFragment<Fragment>;
@@ -100,11 +129,12 @@ export type StateChanges<State> = {
 export type StoreTools<
   State,
   Metadata extends BaseMetadata | unknown = BaseMetadata,
-  Actions extends undefined | unknown | Record<string, (...args: any[]) => any> = unknown
+  Actions extends undefined | unknown | Record<string, AnyFunction> = unknown
 > = {
   setMetadata: MetadataSetter<Metadata>;
-  setState: StateSetter<State>;
-  getState: StateGetter<State>;
+  setState: React.Dispatch<React.SetStateAction<State>>;
+  getState: () => State;
+  subscribe: SubscribeToState<State>;
   getMetadata: () => Metadata;
   actions: Actions;
 };
@@ -163,11 +193,19 @@ export type SubscribeCallbackConfig<State> = UseHookConfig<State> & {
 export type SubscribeCallback<State> = (state: State) => void;
 
 /**
+ * @deprecated Use `getState` instead or `subscribe` method depending on your needs
  * get the current state or subscribe to the state changes
  */
 export type StateGetter<State> = {
   (): State;
+} & SubscribeToState<State>;
 
+/**
+ * @description Subscribe to the state changes
+ * You can subscribe to the whole state or to a fragment of the state by passing a selector as first parameter
+ * This can be used in non react environments to listen to the state changes
+ */
+export type SubscribeToState<State> = {
   (subscription: SubscribeCallback<State>, config?: SubscribeCallbackConfig<State>): UnsubscribeCallback;
 
   <TDerivate>(
@@ -193,6 +231,8 @@ export type CustomGlobalHookBuilderParams<
 };
 
 export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
+
+export type SubscriberId = string & { __brand: 'SubscriberId' };
 
 export type SubscriberParameters = {
   subscriptionId: string;

@@ -4,7 +4,10 @@ import { isNil } from 'json-storage-formatter/isNil';
 import { isRecord } from './isRecord';
 
 /**
- * Returns true if the two values are equal.
+ * @description It performs a shallow comparison of the values.
+ * @param value1 - The first value to compare.
+ * @param value2 - The second value to compare.
+ * @returns True if the values are equal, false otherwise.
  */
 export const shallowCompare = <T>(value1: T, value2: T) => {
   const isEqual = value1 === value2;
@@ -41,6 +44,30 @@ export const isSet = (value: unknown): value is Set<unknown> => {
   return value instanceof Set;
 };
 
+/**
+ * @description Determines whether a simple equality check (using `===`) is sufficient
+ * to compare the provided values. This helps decide when a deep equality check
+ * is unnecessary or inefficient.
+ *
+ * Simple equality checks are considered valid when:
+ * - The values have different types (comparison will trivially return false)
+ * - Either value is null or undefined
+ * - Both values are primitive types (string, number, boolean, symbol, bigint)
+ * - Both values are Date objects
+ * - Both values are functions
+ *
+ * @param value1 - The first value to compare.
+ * @param value2 - The second value to compare.
+ * @returns `true` if a simple `===` check is sufficient, `false` if a deep comparison may be required.
+ *
+ * @example
+ * ```ts
+ * canCheckSimpleEquality(42, 42); // true (primitive numbers)
+ * canCheckSimpleEquality({ a: 1 }, { a: 1 }); // false (objects)
+ * canCheckSimpleEquality([1, 2], [1, 2]); // false (arrays)
+ * canCheckSimpleEquality('a', 1); // true (different types, shallow check enough)
+ * ```
+ */
 export const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolean => {
   const typeofValue1 = typeof value1;
   const typeofValue2 = typeof value2;
@@ -57,7 +84,10 @@ export const canCheckSimpleEquality = (value1: unknown, value2: unknown): boolea
   );
 };
 
-export const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
+/**
+ * @description Performs a shallow comparison between two arrays.
+ */
+export const isEqualArray = <T>(array1: T[], array2: T[]): array1 is T[] => {
   if (array1.length !== array2.length) return false;
 
   for (let i = 0; i < array1.length; i += 1) {
@@ -70,7 +100,10 @@ export const isEqualArray = <T>(array1: T[], array2: T[]): boolean => {
   return true;
 };
 
-export const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
+/**
+ * @description Performs a shallow comparison between two maps.
+ */
+export const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): map1 is Map<K, V> => {
   if (map1.size !== map2.size) return false;
 
   for (const [key, value] of map1) {
@@ -82,7 +115,10 @@ export const isEqualMap = <K, V>(map1: Map<K, V>, map2: Map<K, V>): boolean => {
   return true;
 };
 
-export const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
+/**
+ * @description Performs a shallow comparison between two sets.
+ */
+export const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): set1 is Set<T> => {
   if (set1.size !== set2.size) return false;
 
   for (const value of set1) {
@@ -92,6 +128,9 @@ export const isEqualSet = <T>(set1: Set<T>, set2: Set<T>): boolean => {
   return true;
 };
 
+/**
+ * @description Performs a shallow comparison between two objects.
+ */
 export const isEqualObject = <T extends Record<string, unknown>>(value1: T, value2: T): boolean => {
   const keys1 = Object.keys(value1);
   const keys2 = Object.keys(value2);

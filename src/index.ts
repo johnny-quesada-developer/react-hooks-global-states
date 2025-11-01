@@ -1,5 +1,4 @@
 export {
-  StateSetter,
   HookExtensions,
   ObservableFragment,
   MetadataSetter,
@@ -28,23 +27,19 @@ export { GlobalStoreAbstract } from './GlobalStoreAbstract';
 
 // functions
 export { createGlobalState, type InferActionsType } from './createGlobalState';
-export { createCustomGlobalState } from './createCustomGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
 export { uniqueId } from './uniqueId';
 export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 export { isRecord } from './isRecord';
-export { useStableState } from './useStableState';
 
 // context
 export {
-  type Context,
+  type ContextApi as Context,
   type ContextProvider,
   type ContextHook,
   type CreateContext,
-  type InferContextType,
+  type InferContextApi as InferContextType,
   createContext,
 } from './createContext';
-
-export { generateStackHash } from './generateStackHash';

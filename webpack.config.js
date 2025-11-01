@@ -5,15 +5,12 @@ const individualEntries = {
   createContext: './src/createContext.ts',
   GlobalStore: './src/GlobalStore.ts',
   GlobalStoreAbstract: './src/GlobalStoreAbstract.ts',
-  createCustomGlobalState: './src/createCustomGlobalState.ts',
   createGlobalState: './src/createGlobalState.ts',
   types: './src/types.ts',
   isRecord: './src/isRecord.ts',
   shallowCompare: './src/shallowCompare.ts',
   throwWrongKeyOnActionCollectionConfig: './src/throwWrongKeyOnActionCollectionConfig.ts',
   uniqueId: './src/uniqueId.ts',
-  useStableState: './src/useStableState.ts',
-  generateStackHash: './src/generateStackHash.ts',
 };
 
 const getExternalsForEntries = () => {

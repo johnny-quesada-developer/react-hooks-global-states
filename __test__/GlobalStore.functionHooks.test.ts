@@ -4,7 +4,7 @@ import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
-import { type StoreTools, createGlobalState, createCustomGlobalState } from '..';
+import { type StoreTools, createGlobalState } from '..';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {
@@ -572,85 +572,6 @@ describe('custom global hooks', () => {
     rerender();
 
     expect(getCount()).toEqual(2);
-  });
-
-  it('should be able to create a custom global hook builder', () => {
-    let config;
-
-    const onInitSpy = jest.fn((_, _config) => {
-      config = _config;
-    });
-
-    const onChangeSpy = jest.fn();
-
-    const createGlobal = createCustomGlobalState({
-      onInitialize: onInitSpy,
-      onChange: onChangeSpy,
-    });
-
-    expect(createGlobal).toBeInstanceOf(Function);
-    expect(onInitSpy).toHaveBeenCalledTimes(0);
-    expect(onChangeSpy).toHaveBeenCalledTimes(0);
-
-    const initialState = {
-      count: 1,
-    };
-
-    const useCount = createGlobal(initialState, {
-      actions: {
-        setCount: (count: number) => {
-          return ({ setState }) => {
-            setState({ count });
-          };
-        },
-      },
-      config: {
-        someExtraInfo: 'someExtraInfo',
-      },
-    });
-
-    const [getCount, actions1] = useCount.stateControls();
-
-    expect(onInitSpy).toHaveBeenCalledTimes(1);
-    expect(onChangeSpy).toHaveBeenCalledTimes(0);
-    expect(config).toEqual({
-      someExtraInfo: 'someExtraInfo',
-    });
-
-    const { result, rerender } = renderHook(() => useCount());
-    let [state, actions, metadata] = result.current;
-
-    expect(state).toEqual(initialState);
-    expect(actions1).toBe(actions);
-    expect(actions.setCount).toBeInstanceOf(Function);
-    expect(metadata).toEqual({});
-
-    expect(onInitSpy).toHaveBeenCalledTimes(1);
-    expect(onChangeSpy).toHaveBeenCalledTimes(0);
-
-    expect(getCount()).toEqual(initialState);
-
-    act(() => {
-      actions.setCount(2);
-    });
-
-    rerender();
-    expect(getCount()).toEqual({ count: 2 });
-
-    expect(onInitSpy).toHaveBeenCalledTimes(1);
-    expect(onChangeSpy).toHaveBeenCalledTimes(1);
-
-    [state, actions, metadata] = result.current;
-
-    expect(state).toEqual({
-      count: 2,
-    });
-
-    expect(actions.setCount).toBeInstanceOf(Function);
-    expect(metadata).toEqual({});
-
-    expect(onInitSpy).toHaveBeenCalledTimes(1);
-    expect(onChangeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should derivate new state from global', () => {

@@ -1,7 +1,6 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react';
 import type {
   ActionCollectionConfig,
-  StateSetter,
   GlobalStoreCallbacks,
   ActionCollectionResult,
   MetadataSetter,
@@ -24,7 +23,6 @@ import { isRecord } from './isRecord';
 import { isArray, shallowCompare } from './shallowCompare';
 import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 import { uniqueId } from './uniqueId';
-import { generateStackHash } from './generateStackHash';
 import debugProps from './GlobalStore.debugProps';
 
 /**
@@ -35,7 +33,7 @@ export class GlobalStore<
   Metadata extends BaseMetadata | unknown,
   ActionsConfig extends ActionCollectionConfig<State, Metadata> | undefined | unknown,
   PublicStateMutator = keyof ActionsConfig extends never | undefined
-    ? StateSetter<State>
+    ? React.Dispatch<React.SetStateAction<State>>
     : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
 > {
   protected _name: string;
@@ -83,8 +81,8 @@ export class GlobalStore<
     this.actionsConfig = actions ?? null;
 
     if (debugProps.isDevToolsPresent) {
-      const globalHookStackHash = generateStackHash(new Error().stack ?? '');
-      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG?.(this, args, globalHookStackHash);
+      const hookStack = new Error().stack ?? '';
+      debugProps.REACT_GLOBAL_STATE_HOOK_DEBUG?.(this, args, hookStack);
     }
 
     const isExtensionClass = this.constructor !== GlobalStore;
@@ -165,12 +163,15 @@ export class GlobalStore<
 
   /**
    * set the state and update all the subscribers
-   * @param {StateSetter<State>} setter - The setter function or the value to set
+   * @param {State} newState - The new state to set
+   * @param {object} options - The options for setting the state
+   * @param {boolean} [options.forceUpdate] - Whether to force the update even if the state is the same
+   * @param {string} [options.identifier] - An optional identifier for the state change
    * */
   protected setState = (
     newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string }
-  ) => {
+  ): void => {
     const currentState = this.state;
 
     const shouldUpdate = forceUpdate || currentState !== newState;
@@ -252,6 +253,7 @@ export class GlobalStore<
       setMetadata,
       getMetadata,
       getState,
+      subscribe: getState,
       setState: setStateWrapper,
       actions,
     };
@@ -481,7 +483,10 @@ export class GlobalStore<
       // child state do not expose specific state controls instead inherit from the root state
       // all the state mutations will be derived from the root state
       return [childState, rootMutator, metadataRetriever()];
-    }) as unknown as StateHook<unknown, unknown, unknown>;
+    }) as unknown as StateHook<unknown, unknown, unknown> & {
+      removeSubscriptions: () => void;
+      dispose: () => void;
+    };
 
     useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
 
@@ -535,7 +540,16 @@ export class GlobalStore<
    * - onStateChanged (if defined) - this function is executed after the state change
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
-  protected setStateWrapper: StateSetter<State> = (setter, { forceUpdate, identifier } = {}) => {
+  protected setStateWrapper = (
+    setter: Parameters<React.Dispatch<React.SetStateAction<State>>>[0],
+    {
+      forceUpdate,
+      identifier,
+    }: {
+      forceUpdate?: boolean;
+      identifier?: string;
+    } = {}
+  ) => {
     const previousState = this.state;
 
     const newState = isFunction(setter) ? (setter as (state: State) => State)(previousState) : setter;
@@ -614,10 +628,10 @@ export class GlobalStore<
 
           // executes the actions bringing access to the state setter and a copy of the state
           const result = action.call(actions, {
-            setState: setStateWrapper as StateSetter<unknown>,
+            setState: setStateWrapper,
             getState,
-            setMetadata: setMetadata as MetadataSetter<BaseMetadata>,
-            getMetadata: getMetadata as MetadataGetter<BaseMetadata>,
+            setMetadata,
+            getMetadata,
             actions: actions,
           });
 
@@ -716,7 +730,7 @@ export class GlobalStore<
     // parasite the state controls to allow endless observables
     (
       observable as unknown as {
-        stateControls: () => Readonly<[retriever: StateGetter<Fragment>]>;
+        stateControls: () => Readonly<[retriever: ObservableFragment<Fragment>]>;
       }
     ).stateControls = () => [observable];
 
