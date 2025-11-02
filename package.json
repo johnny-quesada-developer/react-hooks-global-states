@@ -62,7 +62,7 @@
     "*.d.ts"
   ],
   "scripts": {
-    "test:debug": "node --inspect-brk node_modules/.bin/jest --watch --runInBand",
+    "test-debug": "node --inspect-brk node_modules/.bin/jest --runInBand --detectOpenHandles",
     "test:quick": "jest --maxWorkers=4 -c --no-watchman -u",
     "test:coverage": "jest --maxWorkers=4 -c --colors --no-watchman --verbose --coverage",
     "build": "yarn clean && webpack --config webpack.config.js",

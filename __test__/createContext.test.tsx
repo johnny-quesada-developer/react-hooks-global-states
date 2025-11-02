@@ -32,6 +32,22 @@ describe('createContext', () => {
     expect(state).toEqual({ count: 1 });
   });
 
+  it('should correctly export api hooks from the context', () => {
+    const store = createContext({ count: 0 });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
+
+    const { result, rerender } = renderHook(() => store.use.api(), { wrapper });
+
+    result.current.setState({ count: 5 });
+
+    expect(result.current.getState()).toEqual({ count: 5 });
+
+    rerender();
+  });
+
   it('should correctly create a selector hook', () => {
     const store = createContext(
       { count: 1 },
@@ -41,6 +57,7 @@ describe('createContext', () => {
     );
 
     const useSelector = store.use.createSelectorHook((state) => state.count * 2);
+
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <store.Provider>{children}</store.Provider>
     );
@@ -93,7 +110,9 @@ describe('createContext', () => {
     });
 
     jest.spyOn(context.current.actions, 'increase').mockImplementation(() => {
-      context.current.setState((prev) => prev + 10);
+      act(() => {
+        context.current.setState((prev) => prev + 10);
+      });
     });
 
     expect(getByText('count: 0')).toBeTruthy();

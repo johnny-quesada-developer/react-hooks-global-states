@@ -43,7 +43,7 @@ React Hooks Global States includes a dedicated, `devTools extension` to streamli
 Define a **global state** in **one line**:
 
 ```tsx
-import { createGlobalState } from 'react-hooks-global-states/createGlobalState';
+import createGlobalState from 'react-hooks-global-states/createGlobalState';
 export const useCount = createGlobalState(0);
 ```
 
@@ -132,13 +132,13 @@ const [filteredContacts] = useContactsArray(
 
 #### ✅ Selector hooks share the same state mutator
 
-The **stateMutator remains the same** across all derived selectors, meaning actions and setState functions stay consistent.
+The **state api is stable across renders** meaning actions and setState functions stay consistent.
 
 ```tsx
-const [actions1] = useContactsArray();
-const [actions2] = useContactsCount();
+const [, setState1] = useContactsArray();
+const [contacts] = useContactsCount();
 
-console.log(actions1 === actions2); // true
+console.log(setState1 === useContacts.setState); // true
 ```
 
 ---
@@ -178,17 +178,17 @@ const [filter, { setFilter }] = useContacts();
 
 ## 🌍 Accessing Global State Outside Components
 
-Use `stateControls()` to **retrieve or update state outside React components**:
+You can access and manipulate global without hooks, useful for non-component code like services or utilities.
+Or for non reactive components.
 
 ```tsx
-const [contactsRetriever, contactsApi] = useContacts.stateControls();
-console.log(contactsRetriever()); // Retrieves the current state
+console.log(useContacts.getState()); // Retrieves the current state
 ```
 
 #### ✅ Subscribe to changes
 
 ```tsx
-const unsubscribe = contactsRetriever((state) => {
+const unsubscribe = useContacts.subscribe((state) => {
   console.log('State updated:', state);
 });
 ```
@@ -199,7 +199,7 @@ const unsubscribe = contactsRetriever((state) => {
 const useSelectedContact = createGlobalState(null, {
   callbacks: {
     onInit: ({ setState, getState }) => {
-      contactsRetriever(
+      useContacts.subscribe(
         (state) => state.contacts,
         (contacts) => {
           if (!contacts.has(getState())) setState(null);
@@ -220,8 +220,29 @@ const useSelectedContact = createGlobalState(null, {
 ### 📌 Creating a Context
 
 ```tsx
-import { createContext } from 'react-global-state-hooks/createContext';
-export const [useCounterContext, CounterProvider] = createContext(0);
+import createContext from 'react-global-state-hooks/createContext';
+
+export const counter = createContext(0);
+
+export const App = () => {
+  return (
+    <counter.Provider>
+      <MyComponent />
+    </counter.Provider>
+  );
+};
+
+export const Component = () => {
+  const [count, setCount] = counter.use();
+
+  return <Button onClick={() => setCount((c) => c + 1)}>{count}</Button>;
+};
+
+export const Component2 = () => {
+  const [count, setCount] = counter.use.api(); // non reactive access to the context api
+
+  return <Button onClick={() => setCount((c) => c + 1)}>{count}</Button>;
+};
 ```
 
 Wrap your app:
@@ -266,12 +287,11 @@ const unsubscribe = counterLogs((message) => {
 ### 📌 Using Observables Inside Context
 
 ```tsx
-export const [useStateControls, useObservableBuilder] = useCounterContext.stateControls();
-const createObservable = useObservableBuilder();
 useEffect(() => {
-  const unsubscribe = createObservable((count) => {
+  const unsubscribe = useCounterContext.subscribe((count) => {
     console.log(`Updated count: ${count}`);
   });
+
   return unsubscribe;
 }, []);
 ```
@@ -283,12 +303,11 @@ useEffect(() => {
 | Feature                | `createGlobalState`                      | `createContext`                                                                                                    |
 | ---------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | **Scope**              | Available globally across the entire app | Scoped to the Provider where it’s used                                                                             |
-| **How to Use**         | `const useCount = createGlobalState(0)`  | `const [useCountContext, Provider] = createContext(0)`                                                             |
-| **createSelectorHook** | `useCount.createSelectorHook`            | `useCountContext.createSelectorHook`                                                                               |
+| **How to Use**         | `const useCount = createGlobalState(0)`  | `const counter = createContext(0); counter.Provider, counter.use()`                                                |
+| **createSelectorHook** | `useCount.createSelectorHook`            | `counter.use.createSelectorHook()`                                                                                 |
 | **inline selectors?**  | ✅ Supported                             | ✅ Supported                                                                                                       |
 | **Custom Actions**     | ✅ Supported                             | ✅ Supported                                                                                                       |
-| **Observables**        | `useCount.createObservable`              | `const [, useObservableBuilder] = useCountContext.stateControls()`                                                 |
-| **State Controls**     | `useCount.stateControls()`               | `const [useStateControls] = useCountContext.stateControls()`                                                       |
+| **Observables**        | `useCount.createObservable`              | `counter.api().createObservable()`                                                                                 |
 | **Best For**           | Global app state (auth, settings, cache) | Scoped module state, reusable component state, or state shared between child components without being fully global |
 
 ## 🔄 Lifecycle Methods

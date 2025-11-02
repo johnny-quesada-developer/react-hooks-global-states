@@ -5,17 +5,19 @@ import type {
   ActionCollectionResult,
   MetadataSetter,
   UseHookConfig,
-  StateGetter,
   SubscribeCallbackConfig,
   SubscribeCallback,
   SelectorCallback,
   SubscriberParameters,
-  MetadataGetter,
   StateHook,
   BaseMetadata,
   StateChanges,
   StoreTools,
   ObservableFragment,
+  StateApi,
+  UnsubscribeCallback,
+  AnyFunction,
+  SubscribeToState,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -30,14 +32,14 @@ import debugProps from './GlobalStore.debugProps';
  * */
 export class GlobalStore<
   State,
-  Metadata extends BaseMetadata | unknown,
+  Metadata extends BaseMetadata,
   ActionsConfig extends ActionCollectionConfig<State, Metadata> | undefined | unknown,
   PublicStateMutator = keyof ActionsConfig extends never | undefined
     ? React.Dispatch<React.SetStateAction<State>>
-    : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
+    : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
+  StateDispatch = React.Dispatch<React.SetStateAction<State>>
 > {
   protected _name: string;
-  protected wasDisposed = false;
 
   public actionsConfig: ActionsConfig | null = null;
 
@@ -45,9 +47,24 @@ export class GlobalStore<
 
   public metadata: Metadata;
 
-  public actions: ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>> | null = null;
+  /**
+   * @description If the actionsConfig is defined, this will be a map of actions that can be used to modify or interact with the state
+   * */
+  public actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator =
+    null as PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
 
-  public subscribers: Map<string, SubscriberParameters> = new Map();
+  /**
+   * @description The main hook that will be used to interact with the global state
+   */
+  public use!: StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
+
+  /**
+   * @description
+   * Access to the store api that will be passed to the actions and callbacks
+   */
+  private configurationCallbackParam!: StoreTools<State, Metadata>;
+
+  public subscribers = new Set<SubscriberParameters>();
 
   public state: State;
 
@@ -98,24 +115,35 @@ export class GlobalStore<
     parameters: StoreTools<State, Metadata> & StateChanges<State>
   ) => boolean;
 
+  /**
+   * @description
+   * Initializes the global store, setting up the main hook and actions map if applicable,
+   */
   protected initialize = async () => {
     const shouldCreateActionsMap = Object.keys(this.actionsConfig ?? {}).length > 0;
 
+    // actions should be created first than the main hook and the configuration callback param
+    // because both depend on the actions map being created
     if (shouldCreateActionsMap) {
       this.actions = this.getStoreActionsMap();
     }
+
+    this.use = this.getMainHook();
+    this.configurationCallbackParam = this.getConfigCallbackParam();
 
     const { onInit } = this;
     const { onInit: onInitFromConfig } = this.callbacks ?? {};
 
     if (!onInit && !onInitFromConfig) return;
 
-    const parameters = this.getConfigCallbackParam();
-
-    onInit?.(parameters);
-    if (!isNil(onInitFromConfig)) onInitFromConfig?.(parameters);
+    onInit?.(this.configurationCallbackParam);
+    if (!isNil(onInitFromConfig)) onInitFromConfig?.(this.configurationCallbackParam);
   };
 
+  /**
+   * set the state for a single subscriber
+   * validate if the state should be updated by comparing the previous state and the new state
+   */
   protected executeSetStateForSubscriber = (
     subscription: SubscriberParameters,
     args: {
@@ -143,7 +171,7 @@ export class GlobalStore<
     }
 
     // update the current state of the subscription
-    this.partialUpdateSubscription(subscription.subscriptionId, {
+    this.partialUpdateSubscription(subscription, {
       currentState: newChildState,
     });
 
@@ -168,7 +196,7 @@ export class GlobalStore<
    * @param {boolean} [options.forceUpdate] - Whether to force the update even if the state is the same
    * @param {string} [options.identifier] - An optional identifier for the state change
    * */
-  protected setState = (
+  protected setSubscribersState = (
     newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string }
   ): void => {
@@ -197,28 +225,46 @@ export class GlobalStore<
    * Set the value of the metadata property, this is no reactive and will not trigger a re-render
    * @param {MetadataSetter<Metadata>} setter - The setter function or the value to set
    * */
-  protected setMetadata: MetadataSetter<Metadata> = (setter) => {
+  public setMetadata: MetadataSetter<Metadata> = (setter) => {
     const metadata = isFunction(setter) ? setter(this.metadata) : setter;
 
     this.metadata = metadata;
   };
 
-  protected getMetadata = () => this.metadata;
+  /**
+   * Returns the metadata [non-reactive additional information associated with the global state]
+   */
+  public getMetadata = () => this.metadata;
 
-  public getState = ((
-    param1?: SubscribeCallback<unknown> | SelectorCallback<unknown, unknown>,
-    param2?: SubscribeCallback<unknown>,
-    param3?: SubscribeCallbackConfig<unknown>
-  ) => {
-    // if there is no subscription callback return the state
-    if (!param1) return this.state;
+  /**
+   * Get the current value of the state
+   */
+  public getState = () => {
+    return this.state;
+  };
 
+  public subscribe(
+    subscription: SubscribeCallback<State>,
+    config?: SubscribeCallbackConfig<State>
+  ): UnsubscribeCallback;
+
+  public subscribe<TDerivate>(
+    selector: SelectorCallback<State, TDerivate>,
+    subscription: SubscribeCallback<TDerivate>,
+    config?: SubscribeCallbackConfig<TDerivate>
+  ): UnsubscribeCallback;
+
+  public subscribe<TDerivate>(
+    ...[param1, param2, param3]: [
+      SubscribeCallback<State> | SelectorCallback<State, TDerivate>,
+      (SubscribeCallbackConfig<State> | SubscribeCallback<TDerivate>)?,
+      SubscribeCallbackConfig<State | TDerivate>?
+    ]
+  ): UnsubscribeCallback {
     const hasExplicitSelector = isFunction(param2);
 
     const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
-
     const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
-
     const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
 
     const initialState = selector ? selector(this.state) : this.state;
@@ -227,59 +273,51 @@ export class GlobalStore<
       callback(initialState);
     }
 
-    const subscriptionId = uniqueId('gs:');
-
-    this.subscribe({
-      subscriptionId,
+    const subscription: SubscriberParameters = {
       selector,
       getConfig: () => config,
       currentState: initialState,
       callback: ({ state }: { state: unknown }) => callback(state),
-    });
+    };
+
+    this.subscribeCallback(subscription);
 
     return () => {
-      this.subscribers.delete(subscriptionId);
+      this.subscribers.delete(subscription);
     };
-  }) as StateGetter<State>;
+  }
 
   /**
    * get the parameters object to pass to the callback functions:
    * onInit, onStateChanged, onSubscribed, computePreventStateChange
    * */
   public getConfigCallbackParam = (): StoreTools<State, Metadata> => {
-    const { setMetadata, getMetadata, getState, actions, setStateWrapper } = this;
+    const { setMetadata, getMetadata, getState, subscribe, actions, setState } = this;
 
     return {
       setMetadata,
       getMetadata,
       getState,
-      subscribe: getState,
-      setState: setStateWrapper,
+      subscribe,
+      setState,
       actions,
     };
   };
 
-  protected lastSubscriptionId: string | null = null;
-
-  protected subscribe = (subscription: SubscriberParameters) => {
-    const { subscriptionId } = subscription;
-
+  protected subscribeCallback = (subscription: SubscriberParameters) => {
     this.executeOnSubscribed(subscription);
 
-    this.subscribers.set(subscriptionId, subscription);
-    this.lastSubscriptionId = subscriptionId;
+    this.subscribers.add(subscription);
 
     return () => {
-      this.subscribers.delete(subscriptionId);
+      this.subscribers.delete(subscription);
     };
   };
 
   protected partialUpdateSubscription = (
-    subscriptionId: string,
+    subscription: SubscriberParameters,
     values: Partial<SubscriberParameters>
   ): void => {
-    const subscription = this.subscribers.get(subscriptionId);
-
     if (!isRecord(subscription)) return;
 
     Object.assign(subscription, values);
@@ -290,10 +328,8 @@ export class GlobalStore<
     const onSubscribedFromConfig = this.callbacks?.onSubscribed;
 
     if (onSubscribed || onSubscribedFromConfig) {
-      const parameters = this.getConfigCallbackParam();
-
-      onSubscribed?.(parameters, subscription);
-      onSubscribedFromConfig?.(parameters, subscription);
+      onSubscribed?.(this.configurationCallbackParam, subscription);
+      onSubscribedFromConfig?.(this.configurationCallbackParam, subscription);
     }
   };
 
@@ -301,19 +337,14 @@ export class GlobalStore<
    * Returns a custom hook that allows to handle a global state
    * @returns {[State, StateMutator, Metadata]} - The state, the state setter or the actions map, the metadata
    * */
-  public getHook = () => {
-    const useHook = (
-      selector?: SelectorCallback<unknown, unknown>,
-      args: UseHookConfig<unknown, unknown> | unknown[] = []
+  public getMainHook = () => {
+    const use = ((
+      selector?: <Selection>(state: State) => Selection,
+      args: UseHookConfig<unknown, State> | unknown[] = []
     ) => {
-      if (this.wasDisposed) throw new Error('The global state was disposed');
+      const config = isArray(args) ? { dependencies: args } : args ?? {};
 
-      const config: UseHookConfig<unknown, unknown> = isArray(args) ? { dependencies: args } : args ?? {};
-
-      const hooksProps = useRef<{
-        selector: SelectorCallback<unknown, unknown> | undefined;
-        config: UseHookConfig<unknown, unknown>;
-      }>({
+      const hooksProps = useRef({
         selector,
         config,
       });
@@ -324,8 +355,8 @@ export class GlobalStore<
       hooksProps.current.selector = selector;
       hooksProps.current.config = config;
 
-      const { subscribe, getSnapshot, subscription } = useMemo(() => {
-        const selectorFn = (state: unknown) => {
+      const { subscribe, getSnapshot, getServerSnapshot, subscription } = useMemo(() => {
+        const selectorFn = (state: State) => {
           const { selector } = hooksProps.current;
           return isFunction(selector) ? selector(state) : state;
         };
@@ -335,7 +366,6 @@ export class GlobalStore<
         };
 
         const subscription: SubscriberParameters = {
-          subscriptionId: uniqueId('ss:'),
           currentState: selectorFn(this.state),
           selector: selectorFn,
           getConfig,
@@ -347,178 +377,99 @@ export class GlobalStore<
         const subscribe = (onStoreChange: () => void) => {
           subscription.callback = onStoreChange;
 
-          return this.subscribe(subscription);
+          // the other
+          return this.subscribeCallback(subscription);
         };
 
         const getSnapshot = () => {
           return subscription.currentState;
         };
 
-        return { subscribe, getSnapshot, subscription };
+        const getServerSnapshot = getSnapshot;
+
+        return { subscribe, getSnapshot, getServerSnapshot, subscription };
       }, []);
 
       // keeps the state on sync with the store
-      useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+      useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
       return [
         this.computeSelectedState({
-          subscriptionRef: subscription,
+          subscription: subscription,
           currentDependencies,
         }),
         this.getStateOrchestrator(),
         this.metadata,
       ];
+    }) as unknown as StateHook<State, StateDispatch, PublicStateMutator, Metadata> & {
+      removeSubscriptions: () => void;
+      dispose: () => void;
     };
 
     /**
      * Extended properties and methods of the hook
      */
-    useHook.stateControls = this.stateControls;
-    useHook.createSelectorHook = this.createSelectorHook;
-    useHook.createObservable = this.createObservable;
-    useHook.removeSubscriptions = this.removeSubscriptions;
-    useHook.dispose = this.dispose;
+    const useExtensions: StateApi<State, StateDispatch, PublicStateMutator, Metadata> & {
+      removeSubscriptions: () => void;
+      dispose: () => void;
+    } = {
+      setMetadata: this.setMetadata.bind(this),
+      getMetadata: this.getMetadata.bind(this),
+      actions: this.actions,
 
-    return useHook as unknown as StateHook<State, PublicStateMutator, Metadata>;
+      setState: (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
+        ? StateDispatch
+        : null,
+
+      getState: this.getState.bind(this),
+      subscribe: this.subscribe.bind(this),
+      createSelectorHook: this.createSelectorHook.bind(use) as typeof use.createSelectorHook,
+      createObservable: this.createObservable.bind(use) as typeof use.createObservable,
+
+      // secret methods
+      removeSubscriptions: this.removeSubscriptions.bind(this),
+      dispose: this.dispose.bind(this),
+    };
+
+    Object.assign(use, useExtensions);
+
+    return use;
   };
 
   protected computeSelectedState = ({
-    subscriptionRef,
+    subscription,
     currentDependencies,
   }: {
-    subscriptionRef: SubscriberParameters;
+    subscription: SubscriberParameters;
     currentDependencies: unknown[] | undefined;
   }) => {
-    if (!subscriptionRef.selector) return subscriptionRef.currentState;
+    if (!subscription.selector) return subscription.currentState;
 
-    const { dependencies: newDependencies } = (subscriptionRef.getConfig() ?? {}) as UseHookConfig<
+    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookConfig<
       unknown,
       unknown
     >;
 
     // if the dependencies are the same we don't need to compute the state
-    if (currentDependencies === newDependencies) return subscriptionRef.currentState;
+    if (currentDependencies === newDependencies) return subscription.currentState;
 
     const isLengthEqual = currentDependencies?.length === newDependencies?.length;
     const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
 
     // if values are the same we don't need to compute the state
-    if (isSameValues) return subscriptionRef.currentState;
+    if (isSameValues) return subscription.currentState;
 
     // update the current state without re-rendering the component
-    this.partialUpdateSubscription(subscriptionRef.subscriptionId, {
-      currentState: subscriptionRef.selector(this.state),
+    this.partialUpdateSubscription(subscription, {
+      currentState: subscription.selector(this.state),
     });
 
-    return subscriptionRef.currentState;
+    return subscription.currentState;
   };
 
-  /**
-   * @description
-   * Use this function to create a custom global hook which contains a fragment of the state of another hook
-   */
-  public createSelectorHook = <
-    RootState,
-    StateMutator,
-    SelectorMetadata extends BaseMetadata,
-    RootSelectorResult,
-    RootDerivate = RootSelectorResult extends never ? RootState : RootSelectorResult
-  >(
-    mainSelector: (state: RootState) => RootSelectorResult,
-    {
-      isEqualRoot: mainIsEqualRoot,
-      isEqual: mainIsEqualFun,
-      name: selectorName,
-    }: {
-      isEqual?: (current: RootDerivate, next: RootDerivate) => boolean;
-      isEqualRoot?: (current: RootState, next: RootState) => boolean;
-      name?: string;
-    } = {}
-  ): StateHook<RootDerivate, StateMutator, SelectorMetadata> => {
-    const [rootStateRetriever, rootMutator, metadataRetriever] = this.stateControls() as unknown as [
-      StateGetter<RootState>,
-      StateMutator,
-      MetadataGetter<SelectorMetadata>
-    ];
+  public createSelectorHook = createSelectorHook.bind(this as any); // todo
 
-    let root = rootStateRetriever();
-    let rootDerivate = (mainSelector ?? ((s) => s))(root) as unknown as RootDerivate;
-
-    // derivate states do not have lifecycle methods or actions
-    const childStore = new GlobalStore(rootDerivate, {
-      name: selectorName ?? uniqueId('sh:'),
-    });
-
-    const [childStateRetriever, setChildState] = childStore.stateControls();
-
-    // keeps the root state and the derivate state in sync
-    const unsubscribe = rootStateRetriever(
-      (newRoot) => {
-        const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
-
-        if (isRootEqual) return;
-
-        root = newRoot;
-
-        const newRootDerivate = mainSelector(newRoot) as unknown as RootDerivate;
-        const isRootDerivateEqual = (mainIsEqualFun ?? Object.is)(rootDerivate, newRootDerivate);
-
-        if (isRootDerivateEqual) return;
-
-        rootDerivate = newRootDerivate;
-
-        setChildState(newRootDerivate);
-      },
-      { skipFirst: true }
-    );
-
-    const useChildHook = childStore.getHook();
-
-    const useChildHookWrapper = ((
-      selector?: (root: unknown) => unknown,
-      config?: UseHookConfig<unknown, unknown>
-    ) => {
-      const [childState] = isFunction(selector) ? useChildHook(selector, config) : useChildHook();
-
-      // child state do not expose specific state controls instead inherit from the root state
-      // all the state mutations will be derived from the root state
-      return [childState, rootMutator, metadataRetriever()];
-    }) as unknown as StateHook<unknown, unknown, unknown> & {
-      removeSubscriptions: () => void;
-      dispose: () => void;
-    };
-
-    useChildHookWrapper.stateControls = () => [childStateRetriever, rootMutator, metadataRetriever];
-
-    useChildHookWrapper.createSelectorHook =
-      childStore.createSelectorHook as unknown as typeof useChildHookWrapper.createSelectorHook;
-
-    useChildHookWrapper.createObservable = this.createObservable.bind(useChildHookWrapper);
-
-    useChildHookWrapper.removeSubscriptions = () => {
-      unsubscribe();
-      childStore.removeSubscriptions();
-    };
-
-    useChildHookWrapper.dispose = () => {
-      useChildHookWrapper.removeSubscriptions();
-      childStore.dispose();
-    };
-
-    return useChildHookWrapper as StateHook<RootDerivate, StateMutator, SelectorMetadata>;
-  };
-
-  public stateControls = () => {
-    const stateOrchestrator = this.getStateOrchestrator();
-
-    const { getMetadata, getState } = this;
-
-    return [getState, stateOrchestrator, getMetadata] as [
-      retriever: StateGetter<State>,
-      mutator: typeof stateOrchestrator,
-      metadata: MetadataGetter<Metadata>
-    ];
-  };
+  public createObservable = createObservable.bind(this as any);
 
   /**
    * Returns the state setter or the actions map
@@ -530,17 +481,18 @@ export class GlobalStore<
         return this.actions;
       }
 
-      return this.setStateWrapper;
+      return this.setState;
     })() as PublicStateMutator;
   };
 
   /**
+   * This is the only setState function that should be exposed outside the class
    * This is responsible for defining whenever or not the state change should be allowed or prevented
    * the function also execute the functions:
    * - onStateChanged (if defined) - this function is executed after the state change
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
-  protected setStateWrapper = (
+  public setState = (
     setter: Parameters<React.Dispatch<React.SetStateAction<State>>>[0],
     {
       forceUpdate,
@@ -557,12 +509,12 @@ export class GlobalStore<
     // if the state didn't change, we don't need to do anything
     if (!forceUpdate && this.state === newState) return;
 
-    const { setMetadata, getMetadata, getState, actions, setState } = this;
+    const { setMetadata, getMetadata, getState, actions, setSubscribersState } = this;
 
     const callbackParameter = {
       setMetadata,
       getMetadata,
-      setState: setState,
+      setState: setSubscribersState,
       getState,
       actions,
       previousState,
@@ -583,7 +535,7 @@ export class GlobalStore<
       if (shouldPreventStateChange) return;
     }
 
-    this.setState(newState, { forceUpdate, identifier });
+    this.setSubscribersState(newState, { forceUpdate, identifier });
 
     const { onStateChanged } = this;
     const onStateChangedFromConfig = this.callbacks?.onStateChanged;
@@ -600,14 +552,10 @@ export class GlobalStore<
    * This creates a map of actions that can be used to modify or interact with the state
    * @returns {ActionCollectionResult<State, Metadata, StateMutator>} - The actions map result of the configuration object passed to the constructor
    * */
-  public getStoreActionsMap = (): null | ActionCollectionResult<
-    State,
-    Metadata,
-    NonNullable<ActionsConfig>
-  > => {
-    if (!isRecord(this.actionsConfig)) return null;
+  public getStoreActionsMap = (): typeof this.actions => {
+    if (!isRecord(this.actionsConfig)) return null as typeof this.actions;
 
-    const { actionsConfig, setMetadata, setStateWrapper, getState, getMetadata } = this;
+    const { actionsConfig, setMetadata, setState: setStateWrapper, getState, getMetadata } = this;
     const actionsKeys = Object.keys(actionsConfig);
 
     // we bind the functions to the actions object to allow reusing actions in the same api config by using the -this- keyword
@@ -643,99 +591,8 @@ export class GlobalStore<
       return accumulator;
     }, {} as ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>);
 
-    return actions;
+    return actions as typeof this.actions;
   };
-
-  public createObservable<Fragment>(
-    mainSelector: (state: State) => Fragment,
-    {
-      isEqualRoot: mainIsEqualRoot,
-      isEqual: mainIsEqualFun,
-      name: selectorName,
-    }: {
-      isEqual?: (current: Fragment, next: Fragment) => boolean;
-      isEqualRoot?: (current: State, next: State) => boolean;
-      name?: string;
-    } = {}
-  ): ObservableFragment<Fragment> {
-    const [rootStateRetriever] = this.stateControls() as unknown as [StateGetter<State>];
-    const subscriptions: (() => void)[] = [];
-
-    let root = rootStateRetriever();
-    let rootDerivate = (mainSelector ?? ((s) => s))(rootStateRetriever());
-
-    const unsubscribe = rootStateRetriever(
-      (newRoot) => {
-        const isRootEqual = (mainIsEqualRoot ?? Object.is)(root, newRoot);
-
-        if (isRootEqual) return;
-
-        root = newRoot;
-
-        const newRootDerivate = mainSelector(newRoot);
-        const isRootDerivateEqual = (mainIsEqualFun ?? Object.is)(rootDerivate, newRootDerivate);
-
-        if (isRootDerivateEqual) return;
-
-        rootDerivate = newRootDerivate;
-
-        subscriptions.forEach((update) => update());
-      },
-      { skipFirst: true }
-    );
-
-    const getFragment = (
-      param1?: SubscribeCallback<unknown> | SelectorCallback<unknown, unknown>,
-      param2?: SubscribeCallback<unknown>,
-      param3?: SubscribeCallbackConfig<unknown>
-    ) => {
-      // if there is no subscription callback return the state
-      if (!param1) return rootDerivate;
-
-      const hasExplicitSelector = isFunction(param2);
-      const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
-      const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
-      const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
-      const executeCallback = () => callback(selector ? selector(rootDerivate) : rootDerivate);
-
-      if (!config?.skipFirst) {
-        executeCallback();
-      }
-
-      const subscription = () => {
-        executeCallback();
-      };
-
-      subscriptions.push(subscription);
-
-      return () => {
-        subscriptions.splice(subscriptions.indexOf(subscription), 1);
-      };
-    };
-
-    const observable = getFragment as ObservableFragment<Fragment>;
-
-    observable._name = selectorName ?? uniqueId('ob:');
-
-    observable.createObservable = this.createObservable.bind(
-      observable
-    ) as unknown as typeof observable.createObservable;
-
-    observable.removeSubscriptions = () => {
-      subscriptions.forEach((remove) => remove());
-      subscriptions.length = 0;
-      unsubscribe();
-    };
-
-    // parasite the state controls to allow endless observables
-    (
-      observable as unknown as {
-        stateControls: () => Readonly<[retriever: ObservableFragment<Fragment>]>;
-      }
-    ).stateControls = () => [observable];
-
-    return observable;
-  }
 
   removeSubscriptions = () => {
     this.subscribers.clear();
@@ -743,16 +600,196 @@ export class GlobalStore<
 
   public dispose = () => {
     // clean up all the references while keep the structure helps the garbage collector
-    this.wasDisposed = true;
     this.removeSubscriptions();
 
     this._name = '';
     this.actionsConfig = null;
     this.callbacks = null;
     this.metadata = {} as Metadata;
-    this.actions = null;
+    this.actions = null as typeof this.actions;
     this.state = Object.create(null);
   };
+}
+
+function createObservable<
+  RootState,
+  PublicStateMutator,
+  Metadata extends BaseMetadata,
+  Selected,
+  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>
+>(
+  this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
+  selector: (state: RootState) => Selected,
+  options?: {
+    isEqual?: (current: Selected, next: Selected) => boolean;
+    isEqualRoot?: (current: RootState, next: RootState) => boolean;
+    name?: string;
+  }
+): ObservableFragment<Selected, StateDispatch, PublicStateMutator, Metadata> {
+  const selectorName = options?.name;
+  const mainIsEqualRoot = options?.isEqualRoot;
+  const mainIsEqual = options?.isEqual;
+
+  let rootState = this.getState();
+  let selectedState = (selector ?? ((s) => s))(rootState);
+
+  const childStore = new GlobalStore(selectedState, {
+    name: selectorName ?? uniqueId('sh:'),
+  });
+
+  // keeps the root state and the derivate state in sync
+  const unsubscribe = this.subscribe(
+    (newRoot) => {
+      const isRootEqual = (mainIsEqualRoot ?? Object.is)(rootState, newRoot);
+
+      if (isRootEqual) return;
+
+      rootState = newRoot;
+
+      const selectedState$ = selector(newRoot);
+      const isSelectedValueEqual = (mainIsEqual ?? Object.is)(selectedState, selectedState$);
+
+      if (isSelectedValueEqual) return;
+
+      selectedState = selectedState$;
+
+      childStore.setState(selectedState$);
+    },
+    { skipFirst: true }
+  );
+
+  const setState = (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
+    ? StateDispatch
+    : null;
+
+  const observable = childStore.subscribe.bind(childStore) as SubscribeToState<Selected> &
+    StateApi<unknown, unknown, unknown, BaseMetadata>;
+
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> & {
+    removeSubscriptions: () => void;
+    dispose: () => void;
+  } = {
+    setMetadata: this.setMetadata.bind(this),
+    getMetadata: this.getMetadata.bind(this),
+    actions: this.actions,
+    setState,
+    getState: childStore.getState.bind(childStore),
+    subscribe: childStore.subscribe.bind(childStore),
+    createSelectorHook: createSelectorHook.bind(observable) as typeof extensions.createSelectorHook,
+    createObservable: createObservable.bind(observable) as typeof extensions.createObservable,
+
+    // secret methods
+    removeSubscriptions: () => {
+      unsubscribe();
+      childStore.removeSubscriptions();
+    },
+
+    dispose: () => {
+      childStore.removeSubscriptions();
+      childStore.dispose();
+    },
+  };
+
+  Object.assign(observable, extensions);
+
+  return observable as ObservableFragment<Selected, StateDispatch, PublicStateMutator, Metadata>;
+}
+
+/**
+ * @description
+ * Creates a derived hook bound to a selected fragment of the root state.
+ * The derived hook re-renders only when the selected value changes and
+ * exposes the same API as the parent state hook.
+ */
+function createSelectorHook<
+  RootState,
+  PublicStateMutator,
+  Metadata extends BaseMetadata,
+  Selected,
+  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>
+>(
+  this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
+  selector: (state: RootState) => Selected,
+  options?: {
+    isEqual?: (current: Selected, next: Selected) => boolean;
+    isEqualRoot?: (current: RootState, next: RootState) => boolean;
+    name?: string;
+  }
+): StateHook<Selected, StateDispatch, PublicStateMutator, Metadata> {
+  const selectorName = options?.name;
+  const mainIsEqualRoot = options?.isEqualRoot;
+  const mainIsEqual = options?.isEqual;
+
+  let rootState = this.getState();
+  let selectedState = (selector ?? ((s) => s))(rootState);
+
+  const derivedStore = new GlobalStore(selectedState, {
+    name: selectorName ?? uniqueId('sh:'),
+  });
+
+  // keeps the root state and the derivate state in sync
+  const unsubscribe = this.subscribe(
+    (newRoot) => {
+      const isRootEqual = (mainIsEqualRoot ?? Object.is)(rootState, newRoot);
+
+      if (isRootEqual) return;
+
+      rootState = newRoot;
+
+      const selectedState$ = selector(newRoot);
+      const isSelectedValueEqual = (mainIsEqual ?? Object.is)(selectedState, selectedState$);
+
+      if (isSelectedValueEqual) return;
+
+      selectedState = selectedState$;
+
+      derivedStore.setState(selectedState$);
+    },
+    { skipFirst: true }
+  );
+
+  const stateMutator = this.actions ?? this.setState;
+
+  const setState = (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
+    ? StateDispatch
+    : null;
+
+  const selectorHook = ((...args: Parameters<typeof derivedStore.use>) => {
+    const [selection] = derivedStore.use(...args);
+
+    return [selection, stateMutator, this.getMetadata()];
+  }) as unknown as StateHook<unknown, unknown, unknown, BaseMetadata> & {
+    removeSubscriptions: () => void;
+    dispose: () => void;
+  };
+
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> & {
+    removeSubscriptions: () => void;
+    dispose: () => void;
+  } = {
+    setMetadata: this.setMetadata.bind(this),
+    getMetadata: this.getMetadata.bind(this),
+    actions: this.actions,
+    setState,
+    getState: this.getState.bind(this),
+    subscribe: this.subscribe.bind(this),
+    createSelectorHook: createSelectorHook.bind(selectorHook) as typeof extensions.createSelectorHook,
+    createObservable: createObservable.bind(selectorHook) as typeof extensions.createObservable,
+
+    // secret methods
+    removeSubscriptions: () => {
+      unsubscribe();
+      derivedStore.removeSubscriptions();
+    },
+    dispose: () => {
+      derivedStore.removeSubscriptions();
+      derivedStore.dispose();
+    },
+  };
+
+  Object.assign(selectorHook, extensions);
+
+  return selectorHook as StateHook<Selected, StateDispatch, PublicStateMutator, Metadata>;
 }
 
 export default GlobalStore;

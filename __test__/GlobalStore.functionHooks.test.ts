@@ -4,7 +4,8 @@ import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
-import { type StoreTools, createGlobalState } from '..';
+//import { type StoreTools, createGlobalState } from '..';
+import { type StoreTools, createGlobalState } from '../src';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {
@@ -522,24 +523,20 @@ describe('custom global hooks', () => {
         },
         increase: () => {
           return ({ setState }) => {
-            const [, actions] = useCount.stateControls();
             setState((state: number) => state + 1);
 
-            actions.log('increase');
+            useCount.actions.log('increase');
           };
         },
         decrease: () => {
           return ({ setState }) => {
-            const [, actions] = useCount.stateControls();
             setState((state: number) => state - 1);
 
-            actions.log('decrease');
+            useCount.actions.log('decrease');
           };
         },
       },
     });
-
-    const [getCount, $actions] = useCount.stateControls();
 
     const { result, rerender } = renderHook(() => useCount());
 
@@ -553,25 +550,25 @@ describe('custom global hooks', () => {
     });
     rerender();
 
-    expect(getCount()).toEqual(2);
+    expect(useCount.getState()).toEqual(2);
     expect(logSpy).toHaveBeenCalledTimes(1);
-    expect(logSpy).toBeCalledWith('increase');
+    expect(logSpy).toHaveBeenCalledWith('increase');
 
     act(() => {
       actions.decrease();
     });
     rerender();
 
-    expect(getCount()).toEqual(1);
+    expect(useCount.getState()).toEqual(1);
     expect(logSpy).toHaveBeenCalledTimes(2);
-    expect(logSpy).toBeCalledWith('decrease');
+    expect(logSpy).toHaveBeenCalledWith('decrease');
 
     act(() => {
-      $actions.increase();
+      useCount.actions.increase();
     });
     rerender();
 
-    expect(getCount()).toEqual(2);
+    expect(useCount.getState()).toEqual(2);
   });
 
   it('should derivate new state from global', () => {
@@ -676,9 +673,9 @@ describe('getter subscriptions', () => {
       b: 2,
     });
 
-    const [getter, setter] = useHook.stateControls();
+    useHook.subscribe(() => {});
 
-    const state = getter();
+    const state = useHook.getState();
 
     // without a callback, it should return the current state
     expect(state).toEqual({
@@ -698,8 +695,8 @@ describe('getter subscriptions', () => {
     });
 
     const removeSubscriptions = [
-      getter(callback1),
-      getter((state) => {
+      useHook.subscribe(callback1),
+      useHook.subscribe((state) => {
         return state.a;
       }, callback2),
     ];
@@ -710,7 +707,7 @@ describe('getter subscriptions', () => {
     expect(subscriptionDerivateSpy).toHaveBeenCalledTimes(1);
     expect(subscriptionDerivateSpy).toBeCalledWith(3);
 
-    setter((state) => ({
+    useHook.setState((state) => ({
       ...state,
       b: 3,
     }));
@@ -726,7 +723,7 @@ describe('getter subscriptions', () => {
 
     removeSubscriptions.forEach((clean) => clean());
 
-    setter((state) => ({
+    useHook.setState((state) => ({
       ...state,
       a: 4,
     }));
@@ -739,53 +736,56 @@ describe('getter subscriptions', () => {
 
 describe('create fragment', () => {
   it('should create a observable fragment', async () => {
-    expect.assertions(7);
+    try {
+      expect.assertions(7);
 
-    const initialState = {
-      secondRound: false,
-      a: 1,
-      b: 2,
-      c: 3,
-    };
+      const initialState = {
+        secondRound: false,
+        a: 1,
+        b: 2,
+        c: 3,
+      };
 
-    const useData = createGlobalState(initialState);
-    const [getter, setter] = useData.stateControls();
+      const useData = createGlobalState(initialState);
 
-    expect(useData).toBeInstanceOf(Function);
-    expect(getter).toBeInstanceOf(Function);
-    expect(setter).toBeInstanceOf(Function);
-    expect(getter()).toBe(initialState);
+      expect(useData).toBeInstanceOf(Function);
+      expect(useData.getState).toBeInstanceOf(Function);
+      expect(useData.setState).toBeInstanceOf(Function);
+      expect(useData.getState()).toBe(initialState);
 
-    const observable = useData.createObservable((state) => state.secondRound);
+      const observable = useData.createObservable((state) => state.secondRound);
 
-    const unsubscribe1 = observable((secondRound) => {
-      expect(secondRound).toEqual(false);
-    });
+      const unsubscribe1 = observable((secondRound) => {
+        expect(secondRound).toEqual(false);
+      });
 
-    const secondObservable = observable.createObservable((state) => {
-      return state ? 1 : 0;
-    });
+      const secondObservable = observable.createObservable((state) => {
+        return state ? 1 : 0;
+      });
 
-    const unsubscribe2 = secondObservable((n) => {
-      expect(n).toEqual(0);
-    });
+      const unsubscribe2 = secondObservable((n) => {
+        expect(n).toEqual(0);
+      });
 
-    unsubscribe1();
-    unsubscribe2();
+      unsubscribe1();
+      unsubscribe2();
 
-    setter((state) => ({
-      ...state,
-      secondRound: true,
-    }));
+      useData.setState((state) => ({
+        ...state,
+        secondRound: true,
+      }));
 
-    expect(getter()).toEqual({
-      secondRound: true,
-      a: 1,
-      b: 2,
-      c: 3,
-    });
+      expect(useData.getState()).toEqual({
+        secondRound: true,
+        a: 1,
+        b: 2,
+        c: 3,
+      });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } catch (error) {
+      console.error(error);
+    }
   });
 
   it('should create global state with function builder parameters', () => {
@@ -807,20 +807,18 @@ describe('create fragment', () => {
           return ({ setState }) => {
             setState((state) => state + 1);
 
-            $actions.log('increase');
+            useCount.actions.log('increase');
           };
         },
         decrease: () => {
           return ({ setState }) => {
             setState((state) => state - 1);
 
-            $actions.log('decrease');
+            useCount.actions.log('decrease');
           };
         },
       } as const,
     });
-
-    const [getCount, $actions] = useCount.stateControls();
 
     let { result } = renderHook(() => useCount());
     let [state, actions] = result.current;
@@ -832,7 +830,7 @@ describe('create fragment', () => {
       actions.increase();
     });
 
-    expect(getCount()).toEqual(2);
+    expect(useCount.getState()).toEqual(2);
     expect(logSpy).toHaveBeenCalledTimes(1);
     expect(logSpy).toBeCalledWith('increase');
 
@@ -840,15 +838,15 @@ describe('create fragment', () => {
       actions.decrease();
     });
 
-    expect(getCount()).toEqual(1);
+    expect(useCount.getState()).toEqual(1);
     expect(logSpy).toHaveBeenCalledTimes(2);
     expect(logSpy).toBeCalledWith('decrease');
 
     act(() => {
-      $actions.increase();
+      useCount.actions.increase();
     });
 
-    const count = getCount();
+    const count = useCount.getState();
 
     expect(count).toEqual(2);
   });

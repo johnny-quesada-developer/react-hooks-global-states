@@ -28,7 +28,12 @@ export interface CreateGlobalState {
    *   );
    * }
    */
-  <State>(state: State): StateHook<State, React.Dispatch<React.SetStateAction<State>>, BaseMetadata>;
+  <State, StateDispatch = React.Dispatch<React.SetStateAction<State>>>(state: State): StateHook<
+    State,
+    StateDispatch,
+    StateDispatch,
+    BaseMetadata
+  >;
 
   /**
    * Creates a global state hook that you can use across your application
@@ -81,11 +86,12 @@ export interface CreateGlobalState {
    */
   <
     State,
-    Metadata extends BaseMetadata | unknown,
+    Metadata extends BaseMetadata,
     ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
-      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
+      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
+    StateDispatch = React.Dispatch<React.SetStateAction<State>>
   >(
     state: State,
     args: {
@@ -94,7 +100,7 @@ export interface CreateGlobalState {
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions?: ActionsConfig;
     }
-  ): StateHook<State, PublicStateMutator, Metadata>;
+  ): StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
 
   /**
    * Creates a global state hook that you can use across your application
@@ -147,8 +153,9 @@ export interface CreateGlobalState {
    */
   <
     State,
-    Metadata extends BaseMetadata | unknown,
-    ActionsConfig extends ActionCollectionConfig<State, Metadata>
+    Metadata extends BaseMetadata,
+    ActionsConfig extends ActionCollectionConfig<State, Metadata>,
+    StateDispatch = React.Dispatch<React.SetStateAction<State>>
   >(
     state: State,
     args: {
@@ -157,21 +164,14 @@ export interface CreateGlobalState {
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions: ActionsConfig;
     }
-  ): StateHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
+  ): StateHook<State, StateDispatch, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
 }
 
 /**
  * Creates a global state hook
  */
-export const createGlobalState = ((
-  state: unknown,
-  args: {
-    name?: string;
-    metadata?: unknown;
-    callbacks?: GlobalStoreCallbacks<unknown, unknown>;
-    actions?: ActionCollectionConfig<unknown, unknown>;
-  }
-) => new GlobalStore(state, args).getHook()) as CreateGlobalState;
+export const createGlobalState = ((...[state, args]: ConstructorParameters<typeof GlobalStore>) =>
+  new GlobalStore(state, args).use) as CreateGlobalState;
 
 /**
  * Infers the actions type from a StateHook
@@ -180,4 +180,4 @@ export const createGlobalState = ((
  * type CounterActions = InferActionsType<typeof useCounter>;
  * ```
  */
-export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook['stateControls']>['1'];
+export type InferActionsType<Hook extends StateHook<any, any, any, any>> = ReturnType<Hook['actions']>['1'];
