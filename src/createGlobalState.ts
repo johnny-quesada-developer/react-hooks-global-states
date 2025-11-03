@@ -28,12 +28,9 @@ export interface CreateGlobalState {
    *   );
    * }
    */
-  <State, StateDispatch = React.Dispatch<React.SetStateAction<State>>>(state: State): StateHook<
-    State,
-    StateDispatch,
-    StateDispatch,
-    BaseMetadata
-  >;
+  <State, StateDispatch = React.Dispatch<React.SetStateAction<State>>>(
+    state: State,
+  ): StateHook<State, StateDispatch, StateDispatch, BaseMetadata>;
 
   /**
    * Creates a global state hook that you can use across your application
@@ -91,7 +88,7 @@ export interface CreateGlobalState {
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
       : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-    StateDispatch = React.Dispatch<React.SetStateAction<State>>
+    StateDispatch = React.Dispatch<React.SetStateAction<State>>,
   >(
     state: State,
     args: {
@@ -99,7 +96,7 @@ export interface CreateGlobalState {
       metadata?: Metadata;
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions?: ActionsConfig;
-    }
+    },
   ): StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
 
   /**
@@ -155,7 +152,7 @@ export interface CreateGlobalState {
     State,
     Metadata extends BaseMetadata,
     ActionsConfig extends ActionCollectionConfig<State, Metadata>,
-    StateDispatch = React.Dispatch<React.SetStateAction<State>>
+    StateDispatch = React.Dispatch<React.SetStateAction<State>>,
   >(
     state: State,
     args: {
@@ -163,7 +160,7 @@ export interface CreateGlobalState {
       metadata?: Metadata;
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions: ActionsConfig;
-    }
+    },
   ): StateHook<State, StateDispatch, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
 }
 

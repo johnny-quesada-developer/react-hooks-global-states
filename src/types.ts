@@ -54,7 +54,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
     selector: (state: State) => Selection,
     args?: Omit<UseHookConfig<Selection, State>, 'dependencies'> & {
       name?: string;
-    }
+    },
   ) => StateHook<Selection, StateDispatch, StateMutator, Metadata>;
 
   /**
@@ -72,7 +72,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
        * @description Name of the observable fragment for debugging purposes
        */
       name?: string;
-    }
+    },
   ) => ObservableFragment<Selection, StateDispatch, StateMutator, Metadata>;
 };
 
@@ -83,24 +83,26 @@ export type ObservableFragment<
   State,
   StateDispatch,
   StateMutator,
-  Metadata extends BaseMetadata
+  Metadata extends BaseMetadata,
 > = SubscribeToState<State> & StateApi<State, StateDispatch, StateMutator, Metadata>;
 
 export interface StateHook<State, StateDispatch, StateMutator, Metadata extends BaseMetadata>
   extends StateApi<State, StateDispatch, StateMutator, Metadata> {
   (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
 
-  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
+  <Derivate>(
+    selector: (state: State) => Derivate,
+    dependencies?: unknown[],
+  ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 
-  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
+  <Derivate>(
+    selector: (state: State) => Derivate,
+    config?: UseHookConfig<Derivate, State>,
+  ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 }
 
 export type MetadataSetter<Metadata extends BaseMetadata> = (
-  setter: Metadata | ((metadata: Metadata) => Metadata)
+  setter: Metadata | ((metadata: Metadata) => Metadata),
 ) => void;
 
 export type StateChanges<State> = {
@@ -115,7 +117,7 @@ export type StateChanges<State> = {
 export type StoreTools<
   State,
   Metadata extends BaseMetadata = BaseMetadata,
-  Actions extends undefined | unknown | Record<string, AnyFunction> = unknown
+  Actions extends undefined | unknown | Record<string, AnyFunction> = unknown,
 > = {
   setMetadata: MetadataSetter<Metadata>;
   setState: React.Dispatch<React.SetStateAction<State>>;
@@ -131,12 +133,15 @@ export type StoreTools<
 export interface ActionCollectionConfig<
   State,
   Metadata extends BaseMetadata,
-  ThisAPI = Record<string, (...parameters: any[]) => unknown>
+  ThisAPI = Record<string, (...parameters: any[]) => unknown>,
 > {
   readonly [key: string]: {
-    (this: ThisAPI, ...parameters: any[]): (
+    (
       this: ThisAPI,
-      storeTools: StoreTools<State, Metadata, Record<string, (...parameters: any[]) => unknown | void>>
+      ...parameters: any[]
+    ): (
+      this: ThisAPI,
+      storeTools: StoreTools<State, Metadata, Record<string, (...parameters: any[]) => unknown | void>>,
     ) => unknown | void;
   };
 }
@@ -144,7 +149,7 @@ export interface ActionCollectionConfig<
 export type ActionCollectionResult<
   State,
   Metadata extends BaseMetadata,
-  ActionsConfig extends ActionCollectionConfig<State, Metadata>
+  ActionsConfig extends ActionCollectionConfig<State, Metadata>,
 > = {
   [key in keyof ActionsConfig]: {
     (...params: Parameters<ActionsConfig[key]>): ReturnType<ReturnType<ActionsConfig[key]>>;
@@ -212,7 +217,7 @@ export type SubscribeToState<State> = {
   <TDerivate>(
     selector: SelectorCallback<State, TDerivate>,
     subscription: SubscribeCallback<TDerivate>,
-    config?: SubscribeCallbackConfig<TDerivate>
+    config?: SubscribeCallbackConfig<TDerivate>,
   ): UnsubscribeCallback;
 };
 
@@ -222,12 +227,12 @@ export type MetadataGetter<Metadata extends BaseMetadata> = () => Metadata;
 
 export type CustomGlobalHookBuilderParams<
   TCustomConfig extends BaseMetadata | unknown,
-  Metadata extends BaseMetadata
+  Metadata extends BaseMetadata,
 > = {
   onInitialize?: (args: StoreTools<unknown, Metadata, unknown>, config: TCustomConfig | undefined) => void;
   onChange?: (
     args: StoreTools<unknown, Metadata, unknown> & StateChanges<unknown>,
-    config: TCustomConfig | undefined
+    config: TCustomConfig | undefined,
   ) => void;
 };
 
@@ -249,5 +254,5 @@ export type SubscriberParameters = {
  */
 export type SubscriptionCallback<State = unknown> = (
   params: { state: State },
-  args: { identifier?: string }
+  args: { identifier?: string },
 ) => void;

@@ -37,7 +37,7 @@ export class GlobalStore<
   PublicStateMutator = keyof ActionsConfig extends never | undefined
     ? React.Dispatch<React.SetStateAction<State>>
     : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-  StateDispatch = React.Dispatch<React.SetStateAction<State>>
+  StateDispatch = React.Dispatch<React.SetStateAction<State>>,
 > {
   protected _name: string;
 
@@ -77,7 +77,7 @@ export class GlobalStore<
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions?: ActionsConfig;
       name?: string;
-    }
+    },
   );
 
   constructor(
@@ -87,7 +87,7 @@ export class GlobalStore<
       callbacks?: GlobalStoreCallbacks<State, Metadata>;
       actions?: ActionsConfig;
       name?: string;
-    } = { metadata: {} as Metadata }
+    } = { metadata: {} as Metadata },
   ) {
     const { metadata, callbacks, actions, name: storeName } = args;
 
@@ -112,7 +112,7 @@ export class GlobalStore<
   protected onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
   protected onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
   protected computePreventStateChange?: (
-    parameters: StoreTools<State, Metadata> & StateChanges<State>
+    parameters: StoreTools<State, Metadata> & StateChanges<State>,
   ) => boolean;
 
   /**
@@ -151,7 +151,7 @@ export class GlobalStore<
       newState: State;
       currentState: State;
       identifier: string | undefined;
-    }
+    },
   ): {
     didUpdate: boolean;
   } => {
@@ -183,7 +183,7 @@ export class GlobalStore<
       },
       {
         identifier: args.identifier,
-      }
+      },
     );
 
     return { didUpdate: true };
@@ -198,7 +198,7 @@ export class GlobalStore<
    * */
   protected setSubscribersState = (
     newState: State,
-    { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string }
+    { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string },
   ): void => {
     const currentState = this.state;
 
@@ -245,20 +245,20 @@ export class GlobalStore<
 
   public subscribe(
     subscription: SubscribeCallback<State>,
-    config?: SubscribeCallbackConfig<State>
+    config?: SubscribeCallbackConfig<State>,
   ): UnsubscribeCallback;
 
   public subscribe<TDerivate>(
     selector: SelectorCallback<State, TDerivate>,
     subscription: SubscribeCallback<TDerivate>,
-    config?: SubscribeCallbackConfig<TDerivate>
+    config?: SubscribeCallbackConfig<TDerivate>,
   ): UnsubscribeCallback;
 
   public subscribe<TDerivate>(
     ...[param1, param2, param3]: [
       SubscribeCallback<State> | SelectorCallback<State, TDerivate>,
       (SubscribeCallbackConfig<State> | SubscribeCallback<TDerivate>)?,
-      SubscribeCallbackConfig<State | TDerivate>?
+      SubscribeCallbackConfig<State | TDerivate>?,
     ]
   ): UnsubscribeCallback {
     const hasExplicitSelector = isFunction(param2);
@@ -316,7 +316,7 @@ export class GlobalStore<
 
   protected partialUpdateSubscription = (
     subscription: SubscriberParameters,
-    values: Partial<SubscriberParameters>
+    values: Partial<SubscriberParameters>,
   ): void => {
     if (!isRecord(subscription)) return;
 
@@ -340,9 +340,9 @@ export class GlobalStore<
   public getMainHook = () => {
     const use = ((
       selector?: <Selection>(state: State) => Selection,
-      args: UseHookConfig<unknown, State> | unknown[] = []
+      args: UseHookConfig<unknown, State> | unknown[] = [],
     ) => {
-      const config = isArray(args) ? { dependencies: args } : args ?? {};
+      const config = isArray(args) ? { dependencies: args } : (args ?? {});
 
       const hooksProps = useRef({
         selector,
@@ -500,7 +500,7 @@ export class GlobalStore<
     }: {
       forceUpdate?: boolean;
       identifier?: string;
-    } = {}
+    } = {},
   ) => {
     const previousState = this.state;
 
@@ -529,7 +529,7 @@ export class GlobalStore<
       const shouldPreventStateChange =
         computePreventStateChange?.(callbackParameter) ||
         computePreventStateChangeFromConfig?.(
-          callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>
+          callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>,
         );
 
       if (shouldPreventStateChange) return;
@@ -544,7 +544,7 @@ export class GlobalStore<
 
     onStateChanged?.(callbackParameter);
     onStateChangedFromConfig?.(
-      callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>
+      callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>,
     );
   };
 
@@ -559,37 +559,40 @@ export class GlobalStore<
     const actionsKeys = Object.keys(actionsConfig);
 
     // we bind the functions to the actions object to allow reusing actions in the same api config by using the -this- keyword
-    const actions = actionsKeys.reduce((accumulator, action_key) => {
-      Object.assign(accumulator, {
-        [action_key](...parameters: unknown[]) {
-          const actionConfig = actionsConfig[action_key] as (
-            ...args: unknown[]
-          ) => (...args: unknown[]) => unknown;
+    const actions = actionsKeys.reduce(
+      (accumulator, action_key) => {
+        Object.assign(accumulator, {
+          [action_key](...parameters: unknown[]) {
+            const actionConfig = actionsConfig[action_key] as (
+              ...args: unknown[]
+            ) => (...args: unknown[]) => unknown;
 
-          const action = actionConfig.apply(actions, parameters);
-          const actionIsNotAFunction = typeof action !== 'function';
+            const action = actionConfig.apply(actions, parameters);
+            const actionIsNotAFunction = typeof action !== 'function';
 
-          // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
-          if (actionIsNotAFunction) {
-            throwWrongKeyOnActionCollectionConfig(action_key);
-          }
+            // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
+            if (actionIsNotAFunction) {
+              throwWrongKeyOnActionCollectionConfig(action_key);
+            }
 
-          // executes the actions bringing access to the state setter and a copy of the state
-          const result = action.call(actions, {
-            setState: setStateWrapper,
-            getState,
-            setMetadata,
-            getMetadata,
-            actions: actions,
-          });
+            // executes the actions bringing access to the state setter and a copy of the state
+            const result = action.call(actions, {
+              setState: setStateWrapper,
+              getState,
+              setMetadata,
+              getMetadata,
+              actions: actions,
+            });
 
-          // we return the result of the actions to the invoker
-          return result;
-        },
-      });
+            // we return the result of the actions to the invoker
+            return result;
+          },
+        });
 
-      return accumulator;
-    }, {} as ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>);
+        return accumulator;
+      },
+      {} as ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
+    );
 
     return actions as typeof this.actions;
   };
@@ -616,7 +619,7 @@ function createObservable<
   PublicStateMutator,
   Metadata extends BaseMetadata,
   Selected,
-  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>
+  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
 >(
   this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
   selector: (state: RootState) => Selected,
@@ -624,7 +627,7 @@ function createObservable<
     isEqual?: (current: Selected, next: Selected) => boolean;
     isEqualRoot?: (current: RootState, next: RootState) => boolean;
     name?: string;
-  }
+  },
 ): ObservableFragment<Selected, StateDispatch, PublicStateMutator, Metadata> {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
@@ -655,7 +658,7 @@ function createObservable<
 
       childStore.setState(selectedState$);
     },
-    { skipFirst: true }
+    { skipFirst: true },
   );
 
   const setState = (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
@@ -706,7 +709,7 @@ function createSelectorHook<
   PublicStateMutator,
   Metadata extends BaseMetadata,
   Selected,
-  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>
+  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
 >(
   this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
   selector: (state: RootState) => Selected,
@@ -714,7 +717,7 @@ function createSelectorHook<
     isEqual?: (current: Selected, next: Selected) => boolean;
     isEqualRoot?: (current: RootState, next: RootState) => boolean;
     name?: string;
-  }
+  },
 ): StateHook<Selected, StateDispatch, PublicStateMutator, Metadata> {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
@@ -745,7 +748,7 @@ function createSelectorHook<
 
       derivedStore.setState(selectedState$);
     },
-    { skipFirst: true }
+    { skipFirst: true },
   );
 
   const stateMutator = this.actions ?? this.setState;

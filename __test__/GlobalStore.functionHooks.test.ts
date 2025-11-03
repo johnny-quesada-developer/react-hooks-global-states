@@ -170,7 +170,7 @@ describe('with configuration callbacks', () => {
         callbacks: {
           onSubscribed: onSubscribedSpy,
         },
-      }
+      },
     );
 
     expect(onSubscribedSpy).toHaveBeenCalledTimes(0);
@@ -196,7 +196,7 @@ describe('with configuration callbacks', () => {
         callbacks: {
           onStateChanged: onStateChangedSpy,
         },
-      }
+      },
     );
 
     expect(onStateChangedSpy).toHaveBeenCalledTimes(0);
@@ -306,7 +306,7 @@ describe('custom global hooks', () => {
         'items',
         formatToStore(newState, {
           stringify: true,
-        })
+        }),
       );
     });
 
@@ -372,7 +372,7 @@ describe('custom global hooks', () => {
         'items',
         formatToStore(newState, {
           stringify: true,
-        })
+        }),
       );
     });
 
@@ -392,7 +392,7 @@ describe('custom global hooks', () => {
           }),
           {
             forceUpdate: true,
-          }
+          },
         );
       });
 
@@ -422,7 +422,7 @@ describe('custom global hooks', () => {
       new Map([
         [1, { name: 'john' }],
         [2, { name: 'doe' }],
-      ])
+      ]),
     );
 
     expect(metadata).toEqual({
@@ -451,7 +451,7 @@ describe('custom global hooks', () => {
         'items',
         formatToStore(newState, {
           stringify: true,
-        })
+        }),
       );
 
       tools.resolve();

@@ -8,7 +8,7 @@ describe('createContext', () => {
       { count: 0 },
       {
         metadata: { name: 'TestContext' },
-      }
+      },
     );
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -53,7 +53,7 @@ describe('createContext', () => {
       { count: 1 },
       {
         metadata: { name: 'CounterState' },
-      }
+      },
     );
 
     const useSelector = store.use.createSelectorHook((state) => state.count * 2);

@@ -92,9 +92,10 @@ export interface ContextBaseHook<State, StateMutator, Metadata extends BaseMetad
    * @param dependencies Optional array of dependencies to control when the selector is re-evaluated.
    * @returns A read-only tuple containing the derived state, state mutator (setState or actions), and metadata.
    */
-  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
+  <Derivate>(
+    selector: (state: State) => Derivate,
+    dependencies?: unknown[],
+  ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 
   /**
    * @description Retrieves a derived value from the state using the provided selector function.
@@ -102,9 +103,10 @@ export interface ContextBaseHook<State, StateMutator, Metadata extends BaseMetad
    * @param dependencies Optional array of dependencies to control when the selector is re-evaluated.
    * @returns A read-only tuple containing the derived state, state mutator (setState or actions), and metadata.
    */
-  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Readonly<
-    [state: Derivate, stateMutator: StateMutator, metadata: Metadata]
-  >;
+  <Derivate>(
+    selector: (state: State) => Derivate,
+    config?: UseHookConfig<Derivate, State>,
+  ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 }
 
 /**
@@ -177,7 +179,7 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata> =
     selector: (state: State) => Derivate,
     args?: Omit<UseHookConfig<Derivate, State>, 'dependencies'> & {
       name?: string;
-    }
+    },
   ) => ContextBaseHook<Derivate, StateMutator, Metadata>;
 
   /**
@@ -233,7 +235,7 @@ export interface CreateContext {
     ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
-      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>
+      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
   >(
     value: State | (() => State),
     args: {
@@ -241,7 +243,7 @@ export interface CreateContext {
       metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
       actions?: ActionsConfig;
-    }
+    },
   ): {
     use: ContextHook<State, PublicStateMutator, Metadata>;
     Provider: ContextProvider<State, PublicStateMutator, Metadata>;
@@ -271,7 +273,7 @@ export interface CreateContext {
       metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
       actions: ActionsConfig;
-    }
+    },
   ): {
     use: ContextHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
     Provider: ContextProvider<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
@@ -298,7 +300,7 @@ export const createContext = ((
     metadata?: BaseMetadata | (() => BaseMetadata);
     callbacks?: GlobalStoreCallbacks<unknown, BaseMetadata> & { onUnMount?: () => void };
     actions?: ActionCollectionConfig<unknown, BaseMetadata>;
-  } = {}
+  } = {},
 ) => {
   const Context = reactCreateContext<StateHook<unknown, any, any, BaseMetadata> | null>(null);
 
@@ -358,7 +360,7 @@ export const createContext = ((
               options?.onCreated?.(ctx);
             },
           },
-          children
+          children,
         );
       };
 
@@ -443,10 +445,9 @@ export const createContext = ((
  * ContextApi<number, React.Dispatch<React.SetStateAction<number>>, BaseMetadata>;
  * ```
  */
-export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> = NonNullable<
-  React.ContextType<Context>
-> extends ContextHook<infer State, infer StateMutator, infer Metadata>
-  ? ContextApi<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
-  : never;
+export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> =
+  NonNullable<React.ContextType<Context>> extends ContextHook<infer State, infer StateMutator, infer Metadata>
+    ? ContextApi<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
+    : never;
 
 export default createContext;

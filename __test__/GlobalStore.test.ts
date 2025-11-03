@@ -258,7 +258,7 @@ describe('GlobalStore with configuration callbacks', () => {
             expect(getState()).toEqual({ count: 0 });
           },
         },
-      }
+      },
     );
 
     expect(onSubscribedSpy).toHaveBeenCalledTimes(0);
@@ -294,7 +294,7 @@ describe('GlobalStore with configuration callbacks', () => {
             expect(getState()).toEqual({ count: 1 });
           },
         },
-      }
+      },
     );
 
     expect(onStateChangedSpy).toHaveBeenCalledTimes(0);
@@ -326,7 +326,7 @@ describe('GlobalStore with configuration callbacks', () => {
             return false;
           },
         },
-      }
+      },
     );
 
     expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
@@ -359,7 +359,7 @@ describe('GlobalStore with configuration callbacks', () => {
             return true;
           },
         },
-      }
+      },
     );
 
     expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
@@ -573,7 +573,7 @@ describe('Custom store by using config parameter', () => {
       const stored = await fakeAsyncStorage.getItem('items');
 
       expect(stored).toEqual(
-        '{"$t":"map","$v":[[1,{"name":"john"}],[2,{"name":"doe"}],[3,{"name":"jane"}]]}'
+        '{"$t":"map","$v":[[1,{"name":"john"}],[2,{"name":"doe"}],[3,{"name":"jane"}]]}',
       );
 
       tools.resolve();
