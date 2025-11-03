@@ -734,58 +734,52 @@ describe('getter subscriptions', () => {
   });
 });
 
-describe('create fragment', () => {
+describe('createObservable', () => {
   it('should create a observable fragment', async () => {
-    try {
-      expect.assertions(7);
+    expect.assertions(7);
 
-      const initialState = {
-        secondRound: false,
-        a: 1,
-        b: 2,
-        c: 3,
-      };
+    const initialState = {
+      secondRound: false,
+      a: 1,
+      b: 2,
+      c: 3,
+    };
 
-      const useData = createGlobalState(initialState);
+    const useData = createGlobalState(initialState);
 
-      expect(useData).toBeInstanceOf(Function);
-      expect(useData.getState).toBeInstanceOf(Function);
-      expect(useData.setState).toBeInstanceOf(Function);
-      expect(useData.getState()).toBe(initialState);
+    expect(useData).toBeInstanceOf(Function);
+    expect(useData.getState).toBeInstanceOf(Function);
+    expect(useData.setState).toBeInstanceOf(Function);
+    expect(useData.getState()).toBe(initialState);
 
-      const observable = useData.createObservable((state) => state.secondRound);
+    const observable = useData.createObservable((state) => state.secondRound);
 
-      const unsubscribe1 = observable((secondRound) => {
-        expect(secondRound).toEqual(false);
-      });
+    const unsubscribe1 = observable((secondRound) => {
+      expect(secondRound).toEqual(false);
+    });
 
-      const secondObservable = observable.createObservable((state) => {
-        return state ? 1 : 0;
-      });
+    const secondObservable = observable.createObservable((state) => {
+      return state ? 1 : 0;
+    });
 
-      const unsubscribe2 = secondObservable((n) => {
-        expect(n).toEqual(0);
-      });
+    const unsubscribe2 = secondObservable((n) => {
+      expect(n).toEqual(0);
+    });
 
-      unsubscribe1();
-      unsubscribe2();
+    unsubscribe1();
+    unsubscribe2();
 
-      useData.setState((state) => ({
-        ...state,
-        secondRound: true,
-      }));
+    useData.setState((state) => ({
+      ...state,
+      secondRound: true,
+    }));
 
-      expect(useData.getState()).toEqual({
-        secondRound: true,
-        a: 1,
-        b: 2,
-        c: 3,
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    } catch (error) {
-      console.error(error);
-    }
+    expect(useData.getState()).toEqual({
+      secondRound: true,
+      a: 1,
+      b: 2,
+      c: 3,
+    });
   });
 
   it('should create global state with function builder parameters', () => {
@@ -849,5 +843,60 @@ describe('create fragment', () => {
     const count = useCount.getState();
 
     expect(count).toEqual(2);
+  });
+});
+
+describe('createSelectorHook', () => {
+  it('should create a selector hook from the global store', () => {
+    const useCount = createGlobalState({
+      count: 1,
+    });
+
+    const useCountNumber = useCount.createSelectorHook((state) => state.count);
+    const useCountValuePlus2 = useCountNumber.createSelectorHook((state) => state + 2);
+    const useCountValuePlus3 = useCountValuePlus2.createSelectorHook((state) => state + 2);
+
+    const { result: useCountValueResult } = renderHook(() => useCountNumber());
+    let [useCountNumberValue, useCountNumberSetState, useCountNumberMetadata] = useCountValueResult.current;
+
+    // hook return the correct value
+    expect(useCountNumberValue).toEqual(1);
+
+    // hook getState returns the correct value
+    expect(useCountNumber.getState()).toEqual(1);
+
+    // hook return the correct tuple
+    expect(useCountNumberSetState).toBeInstanceOf(Function);
+    expect(useCountNumberMetadata).toEqual({});
+    expect(useCountNumberMetadata).toBe(useCountNumber.getMetadata());
+
+    act(() => {
+      useCountNumberSetState((prev) => ({ ...prev, count: prev.count + 1 }));
+    });
+
+    // selector should listen to state changes
+    const [countAfterPlus] = useCountValueResult.current;
+
+    expect(countAfterPlus).toEqual(2);
+    expect(useCountNumber.getState()).toEqual(2);
+
+    const { result: useCountValuePlus2Result } = renderHook(() => useCountValuePlus2());
+    const [useCountValuePlus2Value, setState2] = useCountValuePlus2Result.current;
+
+    const { result: useCountValuePlus3Result, rerender: rerender3 } = renderHook(() => useCountValuePlus3());
+    let [useCountValuePlus3Value, , useCountValuePlus3Metadata] = useCountValuePlus3Result.current;
+
+    useCountNumber.setMetadata({ custom: 'metadata' });
+
+    // metadata is not reactive so we need to force a re-render
+    rerender3();
+
+    [useCountValuePlus3Value, , useCountValuePlus3Metadata] = useCountValuePlus3Result.current;
+
+    expect(useCountValuePlus2Value).toEqual(4);
+    expect(useCountValuePlus3Value).toEqual(6);
+
+    expect(setState2).toBeInstanceOf(Function);
+    expect(useCountValuePlus3Metadata).toEqual({ custom: 'metadata' });
   });
 });

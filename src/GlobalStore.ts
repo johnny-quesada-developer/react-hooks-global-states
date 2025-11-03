@@ -403,23 +403,26 @@ export class GlobalStore<
       ];
     }) as unknown as StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
 
+    // inherit extensions, they should remain the same as the root store
+    const { setMetadata, getMetadata, actions } = this;
+
+    const setState = (
+      this.actions ? null : this.setState.bind(this)
+    ) as PublicStateMutator extends AnyFunction ? StateDispatch : null;
+
     /**
      * Extended properties and methods of the hook
      */
     const useExtensions: StateApi<State, StateDispatch, PublicStateMutator, Metadata> = {
-      setMetadata: this.setMetadata.bind(this),
-      getMetadata: this.getMetadata.bind(this),
-      actions: this.actions,
-
-      setState: (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
-        ? StateDispatch
-        : null,
-
+      setMetadata,
+      getMetadata,
+      actions,
+      setState,
       getState: this.getState.bind(this),
       subscribe: this.subscribe.bind(this),
-      createSelectorHook: this.createSelectorHook.bind(use) as typeof use.createSelectorHook,
-      createObservable: this.createObservable.bind(use) as typeof use.createObservable,
       dispose: this.dispose.bind(this),
+      createSelectorHook: this.createSelectorHook.bind(this) as typeof use.createSelectorHook,
+      createObservable: this.createObservable.bind(this) as typeof use.createObservable,
     };
 
     Object.assign(use, useExtensions);
@@ -458,9 +461,9 @@ export class GlobalStore<
     return subscription.currentState;
   };
 
-  public createSelectorHook = createSelectorHook.bind(this as any); // todo
+  public createSelectorHook = createSelectorHook;
 
-  public createObservable = createObservable.bind(this as any);
+  public createObservable = createObservable;
 
   /**
    * Returns the state setter or the actions map
@@ -608,18 +611,18 @@ export class GlobalStore<
 function createObservable<
   RootState,
   PublicStateMutator,
-  Metadata extends BaseMetadata,
+  Metadata,
   Selected,
   StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
 >(
-  this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
-  selector: (state: RootState) => Selected,
+  this: StateApi<any, any, any, any>,
+  selector: (state: any) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;
-    isEqualRoot?: (current: RootState, next: RootState) => boolean;
+    isEqualRoot?: (current: any, next: any) => boolean;
     name?: string;
   },
-): ObservableFragment<Selected, StateDispatch, PublicStateMutator, Metadata> {
+) {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
   const mainIsEqual = options?.isEqual;
@@ -659,10 +662,13 @@ function createObservable<
   const observable = childStore.subscribe.bind(childStore) as SubscribeToState<Selected> &
     StateApi<unknown, unknown, unknown, BaseMetadata>;
 
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> = {
-    setMetadata: this.setMetadata.bind(this),
-    getMetadata: this.getMetadata.bind(this),
-    actions: this.actions,
+  // inherit extensions, they should remain the same as the root store
+  const { setMetadata, getMetadata, actions } = this;
+
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, any> = {
+    setMetadata,
+    getMetadata,
+    actions,
     setState,
     getState: childStore.getState.bind(childStore),
     subscribe: childStore.subscribe.bind(childStore),
@@ -676,7 +682,12 @@ function createObservable<
 
   Object.assign(observable, extensions);
 
-  return observable as ObservableFragment<Selected, StateDispatch, PublicStateMutator, Metadata>;
+  return observable as unknown as ObservableFragment<
+    Selected,
+    StateDispatch,
+    PublicStateMutator,
+    Metadata extends BaseMetadata ? Metadata : BaseMetadata
+  >;
 }
 
 /**
@@ -688,18 +699,18 @@ function createObservable<
 function createSelectorHook<
   RootState,
   PublicStateMutator,
-  Metadata extends BaseMetadata,
+  Metadata,
   Selected,
   StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
 >(
-  this: StateApi<RootState, StateDispatch, PublicStateMutator, Metadata>,
-  selector: (state: RootState) => Selected,
+  this: StateApi<any, any, any, any>,
+  selector: (state: any) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;
-    isEqualRoot?: (current: RootState, next: RootState) => boolean;
+    isEqualRoot?: (current: any, next: any) => boolean;
     name?: string;
   },
-): StateHook<Selected, StateDispatch, PublicStateMutator, Metadata> {
+): StateHook<Selected, StateDispatch, PublicStateMutator, any> {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
   const mainIsEqual = options?.isEqual;
@@ -746,13 +757,16 @@ function createSelectorHook<
     dispose: () => void;
   };
 
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> = {
-    setMetadata: this.setMetadata.bind(this),
-    getMetadata: this.getMetadata.bind(this),
-    actions: this.actions,
+  // inherit extensions, they should remain the same as the root store
+  const { setMetadata, getMetadata, actions } = this;
+
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, any> = {
+    setMetadata,
+    getMetadata,
+    actions,
     setState,
-    getState: this.getState.bind(this),
-    subscribe: this.subscribe.bind(this),
+    getState: () => derivedStore.getState(),
+    subscribe: derivedStore.subscribe.bind(derivedStore),
     createSelectorHook: createSelectorHook.bind(selectorHook) as typeof extensions.createSelectorHook,
     createObservable: createObservable.bind(selectorHook) as typeof extensions.createObservable,
 
@@ -764,7 +778,12 @@ function createSelectorHook<
 
   Object.assign(selectorHook, extensions);
 
-  return selectorHook as StateHook<Selected, StateDispatch, PublicStateMutator, Metadata>;
+  return selectorHook as unknown as StateHook<
+    Selected,
+    StateDispatch,
+    PublicStateMutator,
+    Metadata extends BaseMetadata ? Metadata : BaseMetadata
+  >;
 }
 
 export default GlobalStore;
