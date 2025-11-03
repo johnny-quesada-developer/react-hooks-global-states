@@ -103,12 +103,10 @@ module.exports = {
             toplevel: true,
             properties: false,
           },
-          format: {
-            format: {
-              comments: (_node, comment) => {
-                // Keep /** ... */ JSDoc-style comments only
-                return comment.type === 'comment2' && comment.value.startsWith('*');
-              },
+          output: {
+            // Keep only JSDoc-style comments (/** ... */)
+            comments: (_node, comment) => {
+              return comment.type === 'comment2' && comment.value.startsWith('*');
             },
           },
         },
