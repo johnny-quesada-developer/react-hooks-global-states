@@ -104,7 +104,12 @@ module.exports = {
             properties: false,
           },
           format: {
-            comments: false,
+            format: {
+              comments: (_node, comment) => {
+                // Keep /** ... */ JSDoc-style comments only
+                return comment.type === 'comment2' && comment.value.startsWith('*');
+              },
+            },
           },
         },
       }),

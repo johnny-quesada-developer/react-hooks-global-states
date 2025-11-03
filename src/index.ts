@@ -1,5 +1,5 @@
 export {
-  StateApi as HookExtensions,
+  StateApi,
   ObservableFragment,
   MetadataSetter,
   StateChanges,
@@ -38,7 +38,6 @@ export {
   type ContextApi as Context,
   type ContextProvider,
   type ContextHook,
-  type CreateContext,
-  type InferContextApi as InferContextType,
+  type InferContextApi,
   createContext,
 } from './createContext';
