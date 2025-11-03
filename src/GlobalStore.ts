@@ -401,18 +401,12 @@ export class GlobalStore<
         this.getStateOrchestrator(),
         this.metadata,
       ];
-    }) as unknown as StateHook<State, StateDispatch, PublicStateMutator, Metadata> & {
-      removeSubscriptions: () => void;
-      dispose: () => void;
-    };
+    }) as unknown as StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
 
     /**
      * Extended properties and methods of the hook
      */
-    const useExtensions: StateApi<State, StateDispatch, PublicStateMutator, Metadata> & {
-      removeSubscriptions: () => void;
-      dispose: () => void;
-    } = {
+    const useExtensions: StateApi<State, StateDispatch, PublicStateMutator, Metadata> = {
       setMetadata: this.setMetadata.bind(this),
       getMetadata: this.getMetadata.bind(this),
       actions: this.actions,
@@ -425,9 +419,6 @@ export class GlobalStore<
       subscribe: this.subscribe.bind(this),
       createSelectorHook: this.createSelectorHook.bind(use) as typeof use.createSelectorHook,
       createObservable: this.createObservable.bind(use) as typeof use.createObservable,
-
-      // secret methods
-      removeSubscriptions: this.removeSubscriptions.bind(this),
       dispose: this.dispose.bind(this),
     };
 
@@ -597,7 +588,7 @@ export class GlobalStore<
     return actions as typeof this.actions;
   };
 
-  removeSubscriptions = () => {
+  protected removeSubscriptions = () => {
     this.subscribers.clear();
   };
 
@@ -641,7 +632,7 @@ function createObservable<
   });
 
   // keeps the root state and the derivate state in sync
-  const unsubscribe = this.subscribe(
+  const unsubscribeFromRootState = this.subscribe(
     (newRoot) => {
       const isRootEqual = (mainIsEqualRoot ?? Object.is)(rootState, newRoot);
 
@@ -668,10 +659,7 @@ function createObservable<
   const observable = childStore.subscribe.bind(childStore) as SubscribeToState<Selected> &
     StateApi<unknown, unknown, unknown, BaseMetadata>;
 
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> & {
-    removeSubscriptions: () => void;
-    dispose: () => void;
-  } = {
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> = {
     setMetadata: this.setMetadata.bind(this),
     getMetadata: this.getMetadata.bind(this),
     actions: this.actions,
@@ -680,15 +668,8 @@ function createObservable<
     subscribe: childStore.subscribe.bind(childStore),
     createSelectorHook: createSelectorHook.bind(observable) as typeof extensions.createSelectorHook,
     createObservable: createObservable.bind(observable) as typeof extensions.createObservable,
-
-    // secret methods
-    removeSubscriptions: () => {
-      unsubscribe();
-      childStore.removeSubscriptions();
-    },
-
     dispose: () => {
-      childStore.removeSubscriptions();
+      unsubscribeFromRootState();
       childStore.dispose();
     },
   };
@@ -731,7 +712,7 @@ function createSelectorHook<
   });
 
   // keeps the root state and the derivate state in sync
-  const unsubscribe = this.subscribe(
+  const unsubscribeFromRootState = this.subscribe(
     (newRoot) => {
       const isRootEqual = (mainIsEqualRoot ?? Object.is)(rootState, newRoot);
 
@@ -762,14 +743,10 @@ function createSelectorHook<
 
     return [selection, stateMutator, this.getMetadata()];
   }) as unknown as StateHook<unknown, unknown, unknown, BaseMetadata> & {
-    removeSubscriptions: () => void;
     dispose: () => void;
   };
 
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> & {
-    removeSubscriptions: () => void;
-    dispose: () => void;
-  } = {
+  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, Metadata> = {
     setMetadata: this.setMetadata.bind(this),
     getMetadata: this.getMetadata.bind(this),
     actions: this.actions,
@@ -779,13 +756,8 @@ function createSelectorHook<
     createSelectorHook: createSelectorHook.bind(selectorHook) as typeof extensions.createSelectorHook,
     createObservable: createObservable.bind(selectorHook) as typeof extensions.createObservable,
 
-    // secret methods
-    removeSubscriptions: () => {
-      unsubscribe();
-      derivedStore.removeSubscriptions();
-    },
     dispose: () => {
-      derivedStore.removeSubscriptions();
+      unsubscribeFromRootState();
       derivedStore.dispose();
     },
   };

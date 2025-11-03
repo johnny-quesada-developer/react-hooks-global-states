@@ -74,6 +74,11 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
       name?: string;
     },
   ) => ObservableFragment<Selection, StateDispatch, StateMutator, Metadata>;
+
+  /**
+   * @description Disposes the global state instance, cleaning up all resources and subscriptions.
+   */
+  dispose: () => void;
 };
 
 /**

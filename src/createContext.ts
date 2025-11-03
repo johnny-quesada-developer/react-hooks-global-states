@@ -191,7 +191,7 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata> =
   api: () => ContextApi<State, StateMutator, Metadata>;
 };
 
-export interface CreateContext {
+interface CreateContext {
   /**
    * @description Creates a highly granular React context with its associated provider and state hook.
    * @param value Initial state value or initializer function.

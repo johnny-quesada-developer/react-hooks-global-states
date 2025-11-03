@@ -35,7 +35,7 @@ export { isRecord } from './isRecord';
 
 // context
 export {
-  type ContextApi as Context,
+  type ContextApi,
   type ContextProvider,
   type ContextHook,
   type InferContextApi,

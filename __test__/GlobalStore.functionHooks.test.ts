@@ -4,8 +4,8 @@ import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
-//import { type StoreTools, createGlobalState } from '..';
-import { type StoreTools, createGlobalState } from '../src';
+import { type StoreTools, createGlobalState } from '..';
+//import { type StoreTools, createGlobalState } from '../src';
 
 describe('basic', () => {
   it('should be able to create a new instance with state', () => {

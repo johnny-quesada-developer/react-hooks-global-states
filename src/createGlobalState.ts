@@ -8,7 +8,7 @@ import type {
 
 import { GlobalStore } from './GlobalStore';
 
-export interface CreateGlobalState {
+interface CreateGlobalState {
   /**
    * Creates a global state hook.
    * @param state initial state value
