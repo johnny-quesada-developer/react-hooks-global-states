@@ -28,9 +28,7 @@ interface CreateGlobalState {
    *   );
    * }
    */
-  <State, StateDispatch = React.Dispatch<React.SetStateAction<State>>>(
-    state: State,
-  ): StateHook<State, StateDispatch, StateDispatch, BaseMetadata>;
+  <State>(state: State): StateHook<State, React.Dispatch<React.SetStateAction<State>>, BaseMetadata>;
 
   /**
    * Creates a global state hook that you can use across your application
@@ -94,10 +92,10 @@ interface CreateGlobalState {
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions?: ActionsConfig;
     },
-  ): StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
+  ): StateHook<State, PublicStateMutator, Metadata>;
 
   /**
    * Creates a global state hook that you can use across your application
@@ -152,16 +150,16 @@ interface CreateGlobalState {
     State,
     Metadata extends BaseMetadata,
     ActionsConfig extends ActionCollectionConfig<State, Metadata>,
-    StateDispatch = React.Dispatch<React.SetStateAction<State>>,
+    PublicStateMutator = ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
   >(
     state: State,
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions: ActionsConfig;
     },
-  ): StateHook<State, StateDispatch, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
+  ): StateHook<State, PublicStateMutator, Metadata>;
 }
 
 /**
@@ -177,6 +175,8 @@ export const createGlobalState = ((...[state, args]: ConstructorParameters<typeo
  * type CounterActions = InferActionsType<typeof useCounter>;
  * ```
  */
-export type InferActionsType<Hook extends StateHook<any, any, any, any>> = ReturnType<Hook['actions']>['1'];
+export type InferActionsType<Hook extends StateHook<any, any, BaseMetadata>> = ReturnType<
+  Hook['actions']
+>['1'];
 
 export default createGlobalState;

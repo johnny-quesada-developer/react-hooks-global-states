@@ -18,6 +18,8 @@ import type {
   UnsubscribeCallback,
   AnyFunction,
   SubscribeToState,
+  ReadonlyHook,
+  ReadonlyStateApi,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -37,13 +39,12 @@ export class GlobalStore<
   PublicStateMutator = keyof ActionsConfig extends never | undefined
     ? React.Dispatch<React.SetStateAction<State>>
     : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-  StateDispatch = React.Dispatch<React.SetStateAction<State>>,
 > {
   protected _name: string;
 
   public actionsConfig: ActionsConfig | null = null;
 
-  public callbacks: GlobalStoreCallbacks<State, Metadata> | null = null;
+  public callbacks: GlobalStoreCallbacks<State, PublicStateMutator, Metadata> | null = null;
 
   public metadata: Metadata;
 
@@ -56,13 +57,13 @@ export class GlobalStore<
   /**
    * @description The main hook that will be used to interact with the global state
    */
-  public use!: StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
+  public use!: StateHook<State, PublicStateMutator, Metadata>;
 
   /**
    * @description
    * Access to the store api that will be passed to the actions and callbacks
    */
-  private configurationCallbackParam!: StoreTools<State, Metadata>;
+  private configurationCallbackParam!: StoreTools<State, PublicStateMutator, Metadata>;
 
   public subscribers = new Set<SubscriberParameters>();
 
@@ -74,7 +75,7 @@ export class GlobalStore<
     state: State,
     args: {
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions?: ActionsConfig;
       name?: string;
     },
@@ -84,7 +85,7 @@ export class GlobalStore<
     state: State,
     args: {
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions?: ActionsConfig;
       name?: string;
     } = { metadata: {} as Metadata },
@@ -108,11 +109,19 @@ export class GlobalStore<
     (this as GlobalStore<State, Metadata, ActionsConfig>).initialize();
   }
 
-  protected onInit?: (args: StoreTools<State, Metadata>) => void;
-  protected onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
-  protected onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
+  protected onInit?: (args: StoreTools<State, PublicStateMutator, Metadata>) => void;
+
+  protected onStateChanged?: (
+    args: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
+  ) => void;
+
+  protected onSubscribed?: (
+    args: StoreTools<State, PublicStateMutator, Metadata>,
+    subscription: SubscriberParameters,
+  ) => void;
+
   protected computePreventStateChange?: (
-    parameters: StoreTools<State, Metadata> & StateChanges<State>,
+    parameters: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
   ) => boolean;
 
   /**
@@ -291,7 +300,7 @@ export class GlobalStore<
    * get the parameters object to pass to the callback functions:
    * onInit, onStateChanged, onSubscribed, computePreventStateChange
    * */
-  public getConfigCallbackParam = (): StoreTools<State, Metadata> => {
+  public getConfigCallbackParam = (): StoreTools<State, PublicStateMutator, Metadata> => {
     const { setMetadata, getMetadata, getState, subscribe, actions, setState } = this;
 
     return {
@@ -401,19 +410,19 @@ export class GlobalStore<
         this.getStateOrchestrator(),
         this.metadata,
       ];
-    }) as unknown as StateHook<State, StateDispatch, PublicStateMutator, Metadata>;
+    }) as unknown as StateHook<State, PublicStateMutator, Metadata>;
 
     // inherit extensions, they should remain the same as the root store
     const { setMetadata, getMetadata, actions } = this;
 
     const setState = (
       this.actions ? null : this.setState.bind(this)
-    ) as PublicStateMutator extends AnyFunction ? StateDispatch : null;
+    ) as PublicStateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
 
     /**
      * Extended properties and methods of the hook
      */
-    const useExtensions: StateApi<State, StateDispatch, PublicStateMutator, Metadata> = {
+    const useExtensions: StateApi<State, PublicStateMutator, Metadata> = {
       setMetadata,
       getMetadata,
       actions,
@@ -514,7 +523,7 @@ export class GlobalStore<
       previousState,
       state: newState,
       identifier,
-    } as StoreTools<State, Metadata> & StateChanges<State>;
+    } as StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>;
 
     const { computePreventStateChange } = this;
     const computePreventStateChangeFromConfig = this.callbacks?.computePreventStateChange;
@@ -522,9 +531,7 @@ export class GlobalStore<
     if (computePreventStateChange || computePreventStateChangeFromConfig) {
       const shouldPreventStateChange =
         computePreventStateChange?.(callbackParameter) ||
-        computePreventStateChangeFromConfig?.(
-          callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>,
-        );
+        computePreventStateChangeFromConfig?.(callbackParameter);
 
       if (shouldPreventStateChange) return;
     }
@@ -537,9 +544,7 @@ export class GlobalStore<
     if (!onStateChanged && !onStateChangedFromConfig) return;
 
     onStateChanged?.(callbackParameter);
-    onStateChangedFromConfig?.(
-      callbackParameter as unknown as StoreTools<State, Metadata, {}> & StateChanges<State>,
-    );
+    onStateChangedFromConfig?.(callbackParameter);
   };
 
   /**
@@ -608,21 +613,15 @@ export class GlobalStore<
   };
 }
 
-function createObservable<
-  RootState,
-  PublicStateMutator,
-  Metadata,
-  Selected,
-  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
->(
-  this: StateApi<any, any, any, any>,
-  selector: (state: any) => Selected,
+function createObservable<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
+  this: ReadonlyStateApi<RootState, PublicStateMutator, Metadata>,
+  selector: (state: RootState) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;
-    isEqualRoot?: (current: any, next: any) => boolean;
+    isEqualRoot?: (current: RootState, next: RootState) => boolean;
     name?: string;
   },
-) {
+): ObservableFragment<Selected, PublicStateMutator, Metadata> {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
   const mainIsEqual = options?.isEqual;
@@ -655,21 +654,10 @@ function createObservable<
     { skipFirst: true },
   );
 
-  const setState = (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
-    ? StateDispatch
-    : null;
-
   const observable = childStore.subscribe.bind(childStore) as SubscribeToState<Selected> &
-    StateApi<unknown, unknown, unknown, BaseMetadata>;
+    StateApi<unknown, unknown, BaseMetadata>;
 
-  // inherit extensions, they should remain the same as the root store
-  const { setMetadata, getMetadata, actions } = this;
-
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, any> = {
-    setMetadata,
-    getMetadata,
-    actions,
-    setState,
+  const extensions: ReadonlyStateApi<unknown, PublicStateMutator, any> = {
     getState: childStore.getState.bind(childStore),
     subscribe: childStore.subscribe.bind(childStore),
     createSelectorHook: createSelectorHook.bind(observable) as typeof extensions.createSelectorHook,
@@ -682,12 +670,7 @@ function createObservable<
 
   Object.assign(observable, extensions);
 
-  return observable as unknown as ObservableFragment<
-    Selected,
-    StateDispatch,
-    PublicStateMutator,
-    Metadata extends BaseMetadata ? Metadata : BaseMetadata
-  >;
+  return observable as ObservableFragment<Selected, PublicStateMutator, Metadata>;
 }
 
 /**
@@ -696,21 +679,15 @@ function createObservable<
  * The derived hook re-renders only when the selected value changes and
  * exposes the same API as the parent state hook.
  */
-function createSelectorHook<
-  RootState,
-  PublicStateMutator,
-  Metadata,
-  Selected,
-  StateDispatch = React.Dispatch<React.SetStateAction<RootState>>,
->(
-  this: StateApi<any, any, any, any>,
-  selector: (state: any) => Selected,
+function createSelectorHook<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
+  this: ReadonlyStateApi<RootState, PublicStateMutator, Metadata>,
+  selector: (state: RootState) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;
-    isEqualRoot?: (current: any, next: any) => boolean;
+    isEqualRoot?: (current: RootState, next: RootState) => boolean;
     name?: string;
   },
-): StateHook<Selected, StateDispatch, PublicStateMutator, any> {
+): ReadonlyHook<Selected, PublicStateMutator, Metadata> {
   const selectorName = options?.name;
   const mainIsEqualRoot = options?.isEqualRoot;
   const mainIsEqual = options?.isEqual;
@@ -743,32 +720,23 @@ function createSelectorHook<
     { skipFirst: true },
   );
 
-  const stateMutator = this.actions ?? this.setState;
-
-  const setState = (this.actions ? null : this.setState) as PublicStateMutator extends AnyFunction
-    ? StateDispatch
-    : null;
-
   const selectorHook = ((...args: Parameters<typeof derivedStore.use>) => {
     const [selection] = derivedStore.use(...args);
 
-    return [selection, stateMutator, this.getMetadata()];
-  }) as unknown as StateHook<unknown, unknown, unknown, BaseMetadata> & {
-    dispose: () => void;
-  };
+    return selection;
+  }) as ReadonlyHook<Selected, PublicStateMutator, Metadata>;
 
-  // inherit extensions, they should remain the same as the root store
-  const { setMetadata, getMetadata, actions } = this;
-
-  const extensions: StateApi<unknown, StateDispatch, PublicStateMutator, any> = {
-    setMetadata,
-    getMetadata,
-    actions,
-    setState,
+  const extensions: ReadonlyStateApi<Selected, PublicStateMutator, Metadata> = {
     getState: () => derivedStore.getState(),
     subscribe: derivedStore.subscribe.bind(derivedStore),
-    createSelectorHook: createSelectorHook.bind(selectorHook) as typeof extensions.createSelectorHook,
-    createObservable: createObservable.bind(selectorHook) as typeof extensions.createObservable,
+
+    createSelectorHook: createSelectorHook.bind(
+      selectorHook as ReadonlyStateApi<any, any, any>,
+    ) as typeof extensions.createSelectorHook,
+
+    createObservable: createObservable.bind(
+      selectorHook as ReadonlyStateApi<any, any, any>,
+    ) as typeof extensions.createObservable,
 
     dispose: () => {
       unsubscribeFromRootState();
@@ -778,12 +746,7 @@ function createSelectorHook<
 
   Object.assign(selectorHook, extensions);
 
-  return selectorHook as unknown as StateHook<
-    Selected,
-    StateDispatch,
-    PublicStateMutator,
-    Metadata extends BaseMetadata ? Metadata : BaseMetadata
-  >;
+  return selectorHook;
 }
 
 export default GlobalStore;

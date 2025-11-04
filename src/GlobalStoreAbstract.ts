@@ -1,4 +1,10 @@
-import type { ActionCollectionConfig, StoreTools, BaseMetadata, StateChanges } from './types';
+import type {
+  ActionCollectionConfig,
+  StoreTools,
+  BaseMetadata,
+  StateChanges,
+  ActionCollectionResult,
+} from './types';
 import { GlobalStore } from './GlobalStore';
 
 /**
@@ -10,19 +16,26 @@ import { GlobalStore } from './GlobalStore';
 export abstract class GlobalStoreAbstract<
   State,
   Metadata extends BaseMetadata,
-  ActionsConfig extends ActionCollectionConfig<State, Metadata> | unknown,
-> extends GlobalStore<State, Metadata, ActionsConfig> {
-  protected onInit = (args: StoreTools<State, Metadata>) => {
+  ActionsConfig extends ActionCollectionConfig<State, Metadata> | undefined | unknown,
+  PublicStateMutator = keyof ActionsConfig extends never | undefined
+    ? React.Dispatch<React.SetStateAction<State>>
+    : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
+> extends GlobalStore<State, Metadata, ActionsConfig, PublicStateMutator> {
+  protected onInit = (args: StoreTools<State, PublicStateMutator, Metadata>) => {
     this.onInitialize(args);
   };
 
-  protected onStateChanged = (args: StoreTools<State, Metadata> & StateChanges<State>) => {
+  protected onStateChanged = (
+    args: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
+  ) => {
     this.onChange(args);
   };
 
-  protected abstract onInitialize: (args: StoreTools<State, Metadata>) => void;
+  protected abstract onInitialize: (args: StoreTools<State, PublicStateMutator, Metadata>) => void;
 
-  protected abstract onChange: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
+  protected abstract onChange: (
+    args: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
+  ) => void;
 }
 
 export default GlobalStoreAbstract;

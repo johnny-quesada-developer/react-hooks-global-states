@@ -1,11 +1,23 @@
 export type AnyFunction = (...args: any[]) => any;
 
 /**
+ * @description Represents a hook that returns a readonly state.
+ */
+export interface ReadonlyHook<State, StateMutator, Metadata extends BaseMetadata>
+  extends ReadonlyStateApi<State, StateMutator, Metadata> {
+  (): State;
+
+  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Derivate;
+
+  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Derivate;
+}
+
+/**
  * @description Represents the complete non-reactive API of a global state instance.
  * This API provides full control over the state, including reading, writing, subscribing,
  * and creating derived hooks or observable fragments.
  */
-export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMetadata> = {
+export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
    * Returns the metadata
    * Metadata is additional non reactive information associated with the global state
@@ -30,7 +42,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
    * When actions exist, direct state mutation via `setState` is disabled and this property will be `null`.
    * If no actions are provided, this property exposes the `setState` function.
    */
-  setState: StateMutator extends AnyFunction ? StateDispatch : null;
+  setState: StateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
 
   /**
    * @description Get the current state value
@@ -55,7 +67,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
     args?: Omit<UseHookConfig<Selection, State>, 'dependencies'> & {
       name?: string;
     },
-  ) => StateHook<Selection, StateDispatch, StateMutator, Metadata>;
+  ) => ReadonlyHook<Selection, StateMutator, Metadata>;
 
   /**
    * @description Creates a function that allows you to subscribe to a fragment of the state
@@ -63,7 +75,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
    * you can customize the equality function by passing the isEqualRoot and isEqual parameters
    */
   createObservable: <Selection>(
-    this: StateApi<State, StateDispatch, StateMutator, Metadata>,
+    this: StateApi<State, StateMutator, Metadata>,
     selector: (state: State) => Selection,
     args?: {
       isEqual?: (current: Selection, next: Selection) => boolean;
@@ -73,7 +85,7 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
        */
       name?: string;
     },
-  ) => ObservableFragment<Selection, StateDispatch, StateMutator, Metadata>;
+  ) => ObservableFragment<Selection, StateMutator, Metadata>;
 
   /**
    * @description Disposes the global state instance, cleaning up all resources and subscriptions.
@@ -82,17 +94,21 @@ export type StateApi<State, StateDispatch, StateMutator, Metadata extends BaseMe
 };
 
 /**
+ * @description Readonly version of the StateApi, excluding mutative methods.
+ */
+export type ReadonlyStateApi<State, StateMutator, Metadata extends BaseMetadata> = Pick<
+  StateApi<State, StateMutator, Metadata>,
+  'dispose' | 'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable'
+>;
+
+/**
  * @description Function that allows you to subscribe to a fragment of the state
  */
-export type ObservableFragment<
-  State,
-  StateDispatch,
-  StateMutator,
-  Metadata extends BaseMetadata,
-> = SubscribeToState<State> & StateApi<State, StateDispatch, StateMutator, Metadata>;
+export type ObservableFragment<State, StateMutator, Metadata extends BaseMetadata> = SubscribeToState<State> &
+  StateApi<State, StateMutator, Metadata>;
 
-export interface StateHook<State, StateDispatch, StateMutator, Metadata extends BaseMetadata>
-  extends StateApi<State, StateDispatch, StateMutator, Metadata> {
+export interface StateHook<State, StateMutator, Metadata extends BaseMetadata>
+  extends StateApi<State, StateMutator, Metadata> {
   (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
 
   <Derivate>(
@@ -121,15 +137,15 @@ export type StateChanges<State> = {
  **/
 export type StoreTools<
   State,
+  StateMutator = React.Dispatch<React.SetStateAction<State>>,
   Metadata extends BaseMetadata = BaseMetadata,
-  Actions extends undefined | unknown | Record<string, AnyFunction> = unknown,
 > = {
+  actions: StateMutator extends AnyFunction ? null : StateMutator;
+  getMetadata: () => Metadata;
+  getState: () => State;
   setMetadata: MetadataSetter<Metadata>;
   setState: React.Dispatch<React.SetStateAction<State>>;
-  getState: () => State;
   subscribe: SubscribeToState<State>;
-  getMetadata: () => Metadata;
-  actions: Actions;
 };
 
 /**
@@ -146,7 +162,7 @@ export interface ActionCollectionConfig<
       ...parameters: any[]
     ): (
       this: ThisAPI,
-      storeTools: StoreTools<State, Metadata, Record<string, (...parameters: any[]) => unknown | void>>,
+      storeTools: StoreTools<State, Record<string, (...parameters: any[]) => unknown | void>, Metadata>,
     ) => unknown | void;
   };
 }
@@ -164,31 +180,36 @@ export type ActionCollectionResult<
 /**
  * Callbacks for the global store lifecycle events
  */
-export type GlobalStoreCallbacks<State, Metadata extends BaseMetadata> = {
+export type GlobalStoreCallbacks<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
    * @description Called when the store is initialized
    */
-  onInit?: (args: StoreTools<State, Metadata>) => void;
+  onInit?: (args: StoreTools<State, StateMutator, Metadata>) => void;
 
   /**
    * @description Called when the state has changed
    */
-  onStateChanged?: (args: StoreTools<State, Metadata> & StateChanges<State>) => void;
+  onStateChanged?: (args: StoreTools<State, StateMutator, Metadata> & StateChanges<State>) => void;
 
   /**
    * @description Called when a new subscription is created
    */
-  onSubscribed?: (args: StoreTools<State, Metadata>, subscription: SubscriberParameters) => void;
+  onSubscribed?: (
+    args: StoreTools<State, StateMutator, Metadata>,
+    subscription: SubscriberParameters,
+  ) => void;
 
   /**
    * @description Called to determine whether to prevent a state change
    */
-  computePreventStateChange?: (args: StoreTools<State, Metadata> & StateChanges<State>) => boolean;
+  computePreventStateChange?: (
+    args: StoreTools<State, StateMutator, Metadata> & StateChanges<State>,
+  ) => boolean;
 
   /**
    * @description Called when the store is unmounted, only applicable in context stores
    */
-  onUnMount?: (store: StateApi<State, any, any, Metadata>) => void;
+  onUnMount?: (store: StoreTools<State, StateMutator, Metadata>) => void;
 };
 
 export type UseHookConfig<State, TRoot = any> = {
@@ -229,17 +250,6 @@ export type SubscribeToState<State> = {
 export type BaseMetadata = Record<string, unknown>;
 
 export type MetadataGetter<Metadata extends BaseMetadata> = () => Metadata;
-
-export type CustomGlobalHookBuilderParams<
-  TCustomConfig extends BaseMetadata | unknown,
-  Metadata extends BaseMetadata,
-> = {
-  onInitialize?: (args: StoreTools<unknown, Metadata, unknown>, config: TCustomConfig | undefined) => void;
-  onChange?: (
-    args: StoreTools<unknown, Metadata, unknown> & StateChanges<unknown>,
-    config: TCustomConfig | undefined,
-  ) => void;
-};
 
 export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
 

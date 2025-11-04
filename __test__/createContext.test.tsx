@@ -1,5 +1,6 @@
 import React from 'react';
 import { createContext } from '..';
+// import { createContext } from '../src';
 import { act, renderHook, render } from '@testing-library/react';
 
 describe('createContext', () => {
@@ -58,23 +59,22 @@ describe('createContext', () => {
 
     const useSelector = store.use.createSelectorHook((state) => state.count * 2);
 
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <store.Provider>{children}</store.Provider>
-    );
+    const { context, wrapper } = store.Provider.makeProviderWrapper();
 
     const { result, rerender } = renderHook(() => useSelector(), { wrapper });
-    let [state, setState, metadata] = result.current;
+    let state = result.current;
 
     expect(state).toEqual(2);
-    expect(metadata).toEqual({ name: 'CounterState' });
+    // expect(useSelector.createSelectorHook).toBeInstanceOf(Function);
+    expect(context.current.getMetadata()).toEqual({ name: 'CounterState' });
 
     act(() => {
-      setState((prev) => ({ ...prev, count: prev.count + 1 }));
+      context.current.setState((prev) => ({ ...prev, count: prev.count + 1 }));
     });
 
     rerender();
 
-    [state] = result.current;
+    state = result.current;
 
     expect(state).toEqual(4);
   });

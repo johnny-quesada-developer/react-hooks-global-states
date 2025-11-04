@@ -14,12 +14,13 @@ import type {
   StateHook,
   ActionCollectionResult,
   BaseMetadata,
-  MetadataSetter,
   GlobalStoreCallbacks,
   UseHookConfig,
-  SubscribeToState,
   AnyFunction,
   StateApi,
+  ReadonlyHook,
+  StoreTools,
+  SelectorCallback,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -27,16 +28,48 @@ import { isNil } from 'json-storage-formatter/isNil';
 /**
  * @description Context API
  */
-export type ContextApi<State, Actions, Metadata extends BaseMetadata> = {
-  actions: Actions;
-  getMetadata: () => Metadata;
-  getState: () => State;
-  setMetadata: MetadataSetter<Metadata>;
-  setState: React.Dispatch<React.SetStateAction<State>>;
-  subscribe: SubscribeToState<State>;
+export type ContextApi<State, StateMutator, Metadata extends BaseMetadata> = Pick<
+  StateApi<State, StateMutator, Metadata>,
+  'getMetadata' | 'setMetadata' | 'actions' | 'setState' | 'getState' | 'subscribe'
+> & {
+  /***
+   * @description Creates a new hooks that returns the result of the selector passed as a parameter
+   * Your can create selector hooks of other selectors hooks and extract as many derived states as or fragments of the state as you want
+   * The selector hook will be evaluated only if the result of the selector changes and the equality function returns false
+   * you can customize the equality function by passing the isEqualRoot and isEqual parameters
+   */
+  createSelectorHook: <Selection>(
+    selector: (state: State) => Selection,
+    args?: Omit<UseHookConfig<Selection, State>, 'dependencies'> & {
+      name?: string;
+    },
+  ) => ReadonlyContextHook<Selection, StateMutator, Metadata>;
+
+  // /**
+  //  * @description Creates a function that allows you to subscribe to a fragment of the state
+  //  * The observable selection will notify the subscribers only if the fragment changes and the equality function returns false
+  //  * you can customize the equality function by passing the isEqualRoot and isEqual parameters
+  //  */
+  // createObservable: <Selection>(
+  //   this: StateApi<State, StateMutator, Metadata>,
+  //   selector: (state: State) => Selection,
+  //   args?: {
+  //     isEqual?: (current: Selection, next: Selection) => boolean;
+  //     isEqualRoot?: (current: State, next: State) => boolean;
+  //     /**
+  //      * @description Name of the observable fragment for debugging purposes
+  //      */
+  //     name?: string;
+  //   },
+  // ) => ObservableFragment<Selection, StateMutator, Metadata>;
 };
 
-export type ContextProviderExtensions<State, Actions, Metadata extends BaseMetadata> = {
+export type ReadOnlyContextApi<State, StateMutator, Metadata extends BaseMetadata> = Pick<
+  ContextApi<State, StateMutator, Metadata>,
+  'getState' | 'subscribe' | 'createSelectorHook' //| 'createObservable'
+>;
+
+export type ContextProviderExtensions<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
    * Creates a provider wrapper which allows to capture the context value,
    * useful for testing purposes.
@@ -47,7 +80,9 @@ export type ContextProviderExtensions<State, Actions, Metadata extends BaseMetad
    */
   makeProviderWrapper: (options?: {
     value?: State | ((initialValue: State) => State);
-    onCreated?: (context: ContextApi<State, Actions, Metadata>) => void;
+    onCreated?: (
+      context: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+    ) => void;
   }) => {
     /**
      * Provider for the context
@@ -62,7 +97,7 @@ export type ContextProviderExtensions<State, Actions, Metadata extends BaseMetad
      * Reference to the current context value
      */
     context: {
-      current: ContextApi<State, Actions, Metadata>;
+      current: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>;
     };
   };
 };
@@ -72,13 +107,15 @@ export type ContextProviderExtensions<State, Actions, Metadata extends BaseMetad
  * @param value Optional initial state or initializer function, useful for testing.
  * @param onCreated Optional callback invoked after the context is created, receiving the full context instance.
  */
-export type ContextProvider<State, Actions, Metadata extends BaseMetadata> = React.FC<
+export type ContextProvider<State, StateMutator, Metadata extends BaseMetadata> = React.FC<
   PropsWithChildren<{
     value?: State | ((initialValue: State) => State);
-    onCreated?: (context: ContextApi<State, Actions, Metadata>) => void;
+    onCreated?: (
+      context: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+    ) => void;
   }>
 > &
-  ContextProviderExtensions<State, Actions, Metadata>;
+  ContextProviderExtensions<State, StateMutator, Metadata>;
 
 export interface ContextBaseHook<State, StateMutator, Metadata extends BaseMetadata> {
   /**
@@ -107,6 +144,18 @@ export interface ContextBaseHook<State, StateMutator, Metadata extends BaseMetad
     selector: (state: State) => Derivate,
     config?: UseHookConfig<Derivate, State>,
   ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
+}
+
+/**
+ * @description Represents a hook that returns a readonly state.
+ */
+export interface ReadonlyContextHook<State, StateMutator, Metadata extends BaseMetadata>
+  extends ReadOnlyContextApi<State, StateMutator, Metadata> {
+  (): State;
+
+  <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Derivate;
+
+  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Derivate;
 }
 
 /**
@@ -180,7 +229,13 @@ export type HookExtensions<State, StateMutator, Metadata extends BaseMetadata> =
     args?: Omit<UseHookConfig<Derivate, State>, 'dependencies'> & {
       name?: string;
     },
-  ) => ContextBaseHook<Derivate, StateMutator, Metadata>;
+  ) => {
+    (): State;
+
+    <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Derivate;
+
+    <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Derivate;
+  };
 
   /**
    * @description Hook that provides non-reactive access to the context API.
@@ -203,14 +258,12 @@ interface CreateContext {
    * - **`Context`** — The raw React `Context` object for advanced usage, such as integration with
    *   external tools or non-React consumers.
    */
-  <State>(value: State | (() => State)): {
-    use: ContextHook<State, React.Dispatch<React.SetStateAction<State>>, BaseMetadata>;
-    Provider: ContextProvider<State, null, BaseMetadata>;
-    Context: ReactContext<ContextHook<
-      State,
-      React.Dispatch<React.SetStateAction<State>>,
-      BaseMetadata
-    > | null>;
+  <State, StateMutator = React.Dispatch<React.SetStateAction<State>>>(
+    value: State | (() => State),
+  ): {
+    use: ContextHook<State, StateMutator, BaseMetadata>;
+    Provider: ContextProvider<State, StateMutator, BaseMetadata>;
+    Context: ReactContext<ContextHook<State, StateMutator, BaseMetadata> | null>;
   };
 
   /**
@@ -233,7 +286,7 @@ interface CreateContext {
     State,
     Metadata extends BaseMetadata,
     ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
-    PublicStateMutator = keyof ActionsConfig extends never | undefined
+    StateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
       : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
   >(
@@ -241,13 +294,13 @@ interface CreateContext {
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
+      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata> & { onUnMount?: () => void };
       actions?: ActionsConfig;
     },
   ): {
-    use: ContextHook<State, PublicStateMutator, Metadata>;
-    Provider: ContextProvider<State, PublicStateMutator, Metadata>;
-    Context: ReactContext<ContextHook<State, PublicStateMutator, Metadata> | null>;
+    use: ContextHook<State, StateMutator, Metadata>;
+    Provider: ContextProvider<State, StateMutator, Metadata>;
+    Context: ReactContext<ContextHook<State, StateMutator, Metadata> | null>;
   };
 
   /**
@@ -266,12 +319,17 @@ interface CreateContext {
    * - **`Context`** — The raw React `Context` object for advanced usage, such as integration with
    *   external tools or non-React consumers.
    */
-  <State, Metadata extends BaseMetadata, ActionsConfig extends ActionCollectionConfig<State, Metadata>>(
+  <
+    State,
+    Metadata extends BaseMetadata,
+    ActionsConfig extends ActionCollectionConfig<State, Metadata>,
+    StateMutator = React.Dispatch<React.SetStateAction<State>>,
+  >(
     value: State | (() => State),
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, Metadata> & { onUnMount?: () => void };
+      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata> & { onUnMount?: () => void };
       actions: ActionsConfig;
     },
   ): {
@@ -298,11 +356,11 @@ export const createContext = ((
   args: {
     name?: string;
     metadata?: BaseMetadata | (() => BaseMetadata);
-    callbacks?: GlobalStoreCallbacks<unknown, BaseMetadata> & { onUnMount?: () => void };
+    callbacks?: GlobalStoreCallbacks<unknown, unknown, BaseMetadata> & { onUnMount?: () => void };
     actions?: ActionCollectionConfig<unknown, BaseMetadata>;
   } = {},
 ) => {
-  const Context = reactCreateContext<StateHook<unknown, any, any, BaseMetadata> | null>(null);
+  const Context = reactCreateContext<StateHook<unknown, unknown, BaseMetadata> | null>(null);
 
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
@@ -328,12 +386,14 @@ export const createContext = ((
     // cleanup function to be called when the component unmounts
     useEffect(() => {
       return () => {
-        store.callbacks?.onUnMount?.(store as StateApi<unknown, unknown, any, BaseMetadata>);
+        store.callbacks?.onUnMount?.(store);
 
         /**
          * Required by the global hooks developer tools
          */
-        (store as unknown as { __onUnMountContext: (...args: any[]) => unknown }).__onUnMountContext?.(store);
+        (store as unknown as { __onUnMountContext: (...args: unknown[]) => unknown }).__onUnMountContext?.(
+          store,
+        );
 
         store.dispose();
       };
@@ -347,7 +407,7 @@ export const createContext = ((
   const providerExtensions: ContextProviderExtensions<unknown, unknown, BaseMetadata> = {
     makeProviderWrapper: (options) => {
       const context = {
-        current: undefined as unknown as ContextApi<unknown, unknown, BaseMetadata>,
+        current: undefined as unknown as StoreTools<any, any, any>,
       };
 
       const wrapper = ({ children }: PropsWithChildren) => {
@@ -381,16 +441,17 @@ export const createContext = ((
 
     // the hook contains the api methods
     // no need to build anything else
-    return hook as ContextApi<unknown, any, BaseMetadata>;
+    return hook as ContextApi<unknown, unknown, BaseMetadata>;
   };
 
-  const useExtensions: HookExtensions<unknown, any, BaseMetadata> = {
-    /**
-     * Store selectors are not created until the first time they are used
-     */
-    createSelectorHook: (selector, hookConfig) => {
+  const useExtensions: HookExtensions<unknown, unknown, BaseMetadata> = {
+    // Store selectors are not created until the first time they are used
+    createSelectorHook: <Derivate>(
+      selector: SelectorCallback<unknown, Derivate>,
+      hookConfig?: UseHookConfig<Derivate, unknown>,
+    ) => {
       type SelectorArgs = Parameters<
-        ReturnType<ContextHook<unknown, any, BaseMetadata>['createSelectorHook']>
+        ReturnType<ContextHook<unknown, unknown, BaseMetadata>['createSelectorHook']>
       >;
 
       return ((...selectorArgs: SelectorArgs) => {
@@ -404,9 +465,7 @@ export const createContext = ((
           return useContextHook.createSelectorHook((...args) => {
             return selectorRef.current(...args);
           }, hookConfig);
-        }, [useContextHook]) as StateHook<unknown, unknown, unknown, BaseMetadata> & {
-          dispose: () => void;
-        };
+        }, [useContextHook]) as ReadonlyHook<unknown, unknown, BaseMetadata>;
 
         // cleanup previous hook if it has changed
         useEffect(() => {
@@ -416,7 +475,7 @@ export const createContext = ((
         }, [useChildHook]);
 
         return useChildHook(...selectorArgs);
-      }) as ContextBaseHook<any, any, BaseMetadata>;
+      }) as ReadonlyContextHook<Derivate, unknown, BaseMetadata>;
     },
 
     api,
@@ -445,7 +504,7 @@ export const createContext = ((
  * ContextApi<number, React.Dispatch<React.SetStateAction<number>>, BaseMetadata>;
  * ```
  */
-export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> =
+export type InferContextApi<Context extends ReactContext<ContextHook<any, any, BaseMetadata> | null>> =
   NonNullable<React.ContextType<Context>> extends ContextHook<infer State, infer StateMutator, infer Metadata>
     ? ContextApi<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
     : never;

@@ -12,7 +12,6 @@ export {
   SubscribeCallback,
   BaseMetadata,
   MetadataGetter,
-  CustomGlobalHookBuilderParams,
   SelectorCallback,
   SubscriberParameters,
   SubscriptionCallback,

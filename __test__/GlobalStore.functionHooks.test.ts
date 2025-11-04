@@ -848,16 +848,16 @@ describe('createObservable', () => {
 
 describe('createSelectorHook', () => {
   it('should create a selector hook from the global store', () => {
-    const useCount = createGlobalState({
+    const counter = createGlobalState({
       count: 1,
     });
 
-    const useCountNumber = useCount.createSelectorHook((state) => state.count);
+    const useCountNumber = counter.createSelectorHook((state) => state.count);
     const useCountValuePlus2 = useCountNumber.createSelectorHook((state) => state + 2);
     const useCountValuePlus3 = useCountValuePlus2.createSelectorHook((state) => state + 2);
 
     const { result: useCountValueResult } = renderHook(() => useCountNumber());
-    let [useCountNumberValue, useCountNumberSetState, useCountNumberMetadata] = useCountValueResult.current;
+    let useCountNumberValue = useCountValueResult.current;
 
     // hook return the correct value
     expect(useCountNumberValue).toEqual(1);
@@ -866,37 +866,35 @@ describe('createSelectorHook', () => {
     expect(useCountNumber.getState()).toEqual(1);
 
     // hook return the correct tuple
-    expect(useCountNumberSetState).toBeInstanceOf(Function);
-    expect(useCountNumberMetadata).toEqual({});
-    expect(useCountNumberMetadata).toBe(useCountNumber.getMetadata());
+    expect(useCountNumber.createObservable).toBeInstanceOf(Function);
+    expect(useCountNumber.createSelectorHook).toBeInstanceOf(Function);
 
     act(() => {
-      useCountNumberSetState((prev) => ({ ...prev, count: prev.count + 1 }));
+      counter.setState((prev) => ({ ...prev, count: prev.count + 1 }));
     });
 
     // selector should listen to state changes
-    const [countAfterPlus] = useCountValueResult.current;
+    const countAfterPlus = useCountValueResult.current;
 
     expect(countAfterPlus).toEqual(2);
     expect(useCountNumber.getState()).toEqual(2);
 
     const { result: useCountValuePlus2Result } = renderHook(() => useCountValuePlus2());
-    const [useCountValuePlus2Value, setState2] = useCountValuePlus2Result.current;
+    const useCountValuePlus2Value = useCountValuePlus2Result.current;
 
     const { result: useCountValuePlus3Result, rerender: rerender3 } = renderHook(() => useCountValuePlus3());
-    let [useCountValuePlus3Value, , useCountValuePlus3Metadata] = useCountValuePlus3Result.current;
+    let useCountValuePlus3Value = useCountValuePlus3Result.current;
 
-    useCountNumber.setMetadata({ custom: 'metadata' });
+    counter.setMetadata({ custom: 'metadata' });
 
     // metadata is not reactive so we need to force a re-render
     rerender3();
 
-    [useCountValuePlus3Value, , useCountValuePlus3Metadata] = useCountValuePlus3Result.current;
+    useCountValuePlus3Value = useCountValuePlus3Result.current;
 
     expect(useCountValuePlus2Value).toEqual(4);
     expect(useCountValuePlus3Value).toEqual(6);
 
-    expect(setState2).toBeInstanceOf(Function);
-    expect(useCountValuePlus3Metadata).toEqual({ custom: 'metadata' });
+    expect(counter.getMetadata()).toEqual({ custom: 'metadata' });
   });
 });
