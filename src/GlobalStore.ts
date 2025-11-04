@@ -419,6 +419,8 @@ export class GlobalStore<
       this.actions ? null : this.setState.bind(this)
     ) as PublicStateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
 
+    const apiAsReadOnly = this as ReadonlyStateApi<unknown, unknown, BaseMetadata>;
+
     /**
      * Extended properties and methods of the hook
      */
@@ -430,8 +432,8 @@ export class GlobalStore<
       getState: this.getState.bind(this),
       subscribe: this.subscribe.bind(this),
       dispose: this.dispose.bind(this),
-      createSelectorHook: this.createSelectorHook.bind(this) as typeof use.createSelectorHook,
-      createObservable: this.createObservable.bind(this) as typeof use.createObservable,
+      createSelectorHook: this.createSelectorHook.bind(apiAsReadOnly) as typeof use.createSelectorHook,
+      createObservable: this.createObservable.bind(apiAsReadOnly) as typeof use.createObservable,
     };
 
     Object.assign(use, useExtensions);
@@ -613,8 +615,8 @@ export class GlobalStore<
   };
 }
 
-function createObservable<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
-  this: ReadonlyStateApi<RootState, PublicStateMutator, Metadata>,
+export function createObservable<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
+  this: Pick<ReadonlyStateApi<RootState, PublicStateMutator, Metadata>, 'getState' | 'subscribe'>,
   selector: (state: RootState) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;
@@ -679,8 +681,8 @@ function createObservable<RootState, PublicStateMutator, Metadata extends BaseMe
  * The derived hook re-renders only when the selected value changes and
  * exposes the same API as the parent state hook.
  */
-function createSelectorHook<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
-  this: ReadonlyStateApi<RootState, PublicStateMutator, Metadata>,
+export function createSelectorHook<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(
+  this: Pick<ReadonlyStateApi<RootState, PublicStateMutator, Metadata>, 'getState' | 'subscribe'>,
   selector: (state: RootState) => Selected,
   options?: {
     isEqual?: (current: Selected, next: Selected) => boolean;

@@ -33,10 +33,4 @@ export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCo
 export { isRecord } from './isRecord';
 
 // context
-export {
-  type ContextApi,
-  type ContextProvider,
-  type ContextHook,
-  type InferContextApi,
-  createContext,
-} from './createContext';
+export { type ContextProvider, type ContextHook, type InferContextApi, createContext } from './createContext';

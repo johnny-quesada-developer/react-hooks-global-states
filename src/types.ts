@@ -75,7 +75,7 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
    * you can customize the equality function by passing the isEqualRoot and isEqual parameters
    */
   createObservable: <Selection>(
-    this: StateApi<State, StateMutator, Metadata>,
+    this: ReadonlyStateApi<State, StateMutator, Metadata>,
     selector: (state: State) => Selection,
     args?: {
       isEqual?: (current: Selection, next: Selection) => boolean;

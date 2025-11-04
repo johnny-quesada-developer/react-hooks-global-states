@@ -49,7 +49,7 @@ describe('createContext', () => {
     rerender();
   });
 
-  it('should correctly create a selector hook', () => {
+  it('should correctly create a selector hooks endlessly', () => {
     const store = createContext(
       { count: 1 },
       {
@@ -57,26 +57,30 @@ describe('createContext', () => {
       },
     );
 
-    const useSelector = store.use.createSelectorHook((state) => state.count * 2);
+    const useSelector = store.use.createSelectorHook(({ count }) => count + 1); // 2
+    const useSelector2 = useSelector.createSelectorHook((count) => count + 1); // 3
+    const useSelector3 = useSelector2.createSelectorHook((count) => count + 1); // 4
 
     const { context, wrapper } = store.Provider.makeProviderWrapper();
 
-    const { result, rerender } = renderHook(() => useSelector(), { wrapper });
+    const { result, rerender } = renderHook(() => useSelector3(), { wrapper });
     let state = result.current;
 
-    expect(state).toEqual(2);
-    // expect(useSelector.createSelectorHook).toBeInstanceOf(Function);
+    expect(state).toEqual(4);
+
+    expect(useSelector3.createSelectorHook).toBeInstanceOf(Function);
     expect(context.current.getMetadata()).toEqual({ name: 'CounterState' });
 
     act(() => {
-      context.current.setState((prev) => ({ ...prev, count: prev.count + 1 }));
+      context.current.setState((state) => ({ ...state, count: state.count + 1 }));
     });
 
     rerender();
 
+    // result of the third level selector should now be 5 ( count:2 -> 3 ->4 ->5 )
     state = result.current;
 
-    expect(state).toEqual(4);
+    expect(state).toEqual(5);
   });
 
   it('should allow testing of context actions', () => {
