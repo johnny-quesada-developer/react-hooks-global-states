@@ -192,8 +192,6 @@ export const createGlobalState = ((...[state, args]: ConstructorParameters<typeo
  * type CounterActions = InferActionsType<typeof useCounter>;
  * ```
  */
-export type InferActionsType<Hook extends StateHook<any, any, BaseMetadata>> = ReturnType<
-  Hook['actions']
->['1'];
+export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook['actions']>['1'];
 
 export default createGlobalState;

@@ -4,7 +4,7 @@ import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
-import { type StoreTools, createGlobalState } from '..';
+import { createGlobalState } from '..';
 //import { type StoreTools, createGlobalState } from '../src';
 
 describe('createGlobalState', () => {
@@ -71,10 +71,6 @@ describe('createGlobalState', () => {
 
 describe('with actions', () => {
   it('should be able to create a new instance with state and actions, setter should be and object', () => {
-    type Metadata = {
-      modificationsCounter: number;
-    };
-
     const useCount = createGlobalState(1, {
       metadata: {
         modificationsCounter: 0,
@@ -90,7 +86,7 @@ describe('with actions', () => {
         },
 
         increase(increase: number = 1) {
-          return ({ setState, getState }: StoreTools<number, Metadata>) => {
+          return ({ setState, getState }) => {
             setState((state) => state + increase);
 
             this.logModification();
@@ -100,7 +96,7 @@ describe('with actions', () => {
         },
 
         decrease(decrease: number = 1) {
-          return ({ setState, getState }: StoreTools<number, Metadata>) => {
+          return ({ setState, getState }) => {
             setState((state) => state - decrease);
 
             this.logModification();
