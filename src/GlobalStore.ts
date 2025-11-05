@@ -4,7 +4,7 @@ import type {
   GlobalStoreCallbacks,
   ActionCollectionResult,
   MetadataSetter,
-  UseHookConfig,
+  UseHookOptions,
   SubscribeCallbackConfig,
   SubscribeCallback,
   SelectorCallback,
@@ -17,9 +17,9 @@ import type {
   StateApi,
   UnsubscribeCallback,
   AnyFunction,
-  SubscribeToState,
   ReadonlyHook,
   ReadonlyStateApi,
+  SelectHook,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -349,7 +349,7 @@ export class GlobalStore<
   public getMainHook = () => {
     const use = ((
       selector?: <Selection>(state: State) => Selection,
-      args: UseHookConfig<unknown, State> | unknown[] = [],
+      args: UseHookOptions<unknown, State> | unknown[] = [],
     ) => {
       const config = isArray(args) ? { dependencies: args } : (args ?? {});
 
@@ -421,19 +421,21 @@ export class GlobalStore<
 
     const apiAsReadOnly = this as ReadonlyStateApi<unknown, unknown, BaseMetadata>;
 
-    /**
-     * Extended properties and methods of the hook
-     */
+    // Extended properties and methods of the hook
     const useExtensions: StateApi<State, PublicStateMutator, Metadata> = {
-      setMetadata,
-      getMetadata,
       actions,
-      setState,
-      getState: this.getState.bind(this),
-      subscribe: this.subscribe.bind(this),
-      dispose: this.dispose.bind(this),
-      createSelectorHook: this.createSelectorHook.bind(apiAsReadOnly) as typeof use.createSelectorHook,
       createObservable: this.createObservable.bind(apiAsReadOnly) as typeof use.createObservable,
+      createSelectorHook: this.createSelectorHook.bind(apiAsReadOnly) as typeof use.createSelectorHook,
+      dispose: this.dispose.bind(this),
+      getMetadata,
+      getState: this.getState.bind(this),
+      setMetadata,
+      setState,
+      subscribe: this.subscribe.bind(this),
+
+      // sugar syntax
+      use,
+      select: ((...args: Parameters<typeof use>) => use(...args)[0]) as SelectHook<State>,
     };
 
     Object.assign(use, useExtensions);
@@ -450,7 +452,7 @@ export class GlobalStore<
   }) => {
     if (!subscription.selector) return subscription.currentState;
 
-    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookConfig<
+    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookOptions<
       unknown,
       unknown
     >;
@@ -656,8 +658,11 @@ export function createObservable<RootState, PublicStateMutator, Metadata extends
     { skipFirst: true },
   );
 
-  const observable = childStore.subscribe.bind(childStore) as SubscribeToState<Selected> &
-    StateApi<unknown, unknown, BaseMetadata>;
+  const observable = childStore.subscribe.bind(childStore) as ObservableFragment<
+    Selected,
+    PublicStateMutator,
+    Metadata
+  >;
 
   const extensions: ReadonlyStateApi<unknown, PublicStateMutator, any> = {
     getState: childStore.getState.bind(childStore),

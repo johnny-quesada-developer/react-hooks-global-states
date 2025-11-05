@@ -7,7 +7,7 @@ import { act, renderHook } from '@testing-library/react';
 import { type StoreTools, createGlobalState } from '..';
 //import { type StoreTools, createGlobalState } from '../src';
 
-describe('basic', () => {
+describe('createGlobalState', () => {
   it('should be able to create a new instance with state', () => {
     const stateValue = 'test';
 
@@ -47,6 +47,25 @@ describe('basic', () => {
     expect(state).toBe('test21');
 
     expect(spy).toHaveBeenCalledTimes(5);
+  });
+
+  it('should be able to use sugar syntax hook.use', () => {
+    const counter = createGlobalState(0);
+
+    const { result } = renderHook(() => counter.use());
+    const [state, setState, metadata] = result.current;
+
+    expect(state).toBe(0);
+    expect(typeof setState).toBe('function');
+    expect(metadata).toEqual({});
+  });
+
+  it('should be able to use sugar syntax hook.select', () => {
+    const counter = createGlobalState(0);
+
+    const { result } = renderHook(() => counter.select((state) => state + 10));
+
+    expect(result.current).toBe(10);
   });
 });
 

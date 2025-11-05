@@ -1,6 +1,6 @@
 import React from 'react';
 import { createContext } from '..';
-// import { createContext } from '../src';
+//import { createContext } from '../src';
 import { act, renderHook, render } from '@testing-library/react';
 
 describe('createContext', () => {
@@ -33,7 +33,7 @@ describe('createContext', () => {
     expect(state).toEqual({ count: 1 });
   });
 
-  it('should correctly export api hooks from the context', () => {
+  it('should correctly export api hook from the context', () => {
     const store = createContext({ count: 0 });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -49,38 +49,230 @@ describe('createContext', () => {
     rerender();
   });
 
-  it('should correctly create a selector hooks endlessly', () => {
+  it('should correctly export actions hook from the context', () => {
+    const spy = jest.fn();
+
     const store = createContext(
-      { count: 1 },
+      { count: 0 },
       {
-        metadata: { name: 'CounterState' },
+        actions: {
+          test() {
+            return () => {
+              spy();
+            };
+          },
+        },
       },
     );
 
-    const useSelector = store.use.createSelectorHook(({ count }) => count + 1); // 2
-    const useSelector2 = useSelector.createSelectorHook((count) => count + 1); // 3
-    const useSelector3 = useSelector2.createSelectorHook((count) => count + 1); // 4
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
+
+    const { result } = renderHook(() => store.use.actions(), { wrapper });
+
+    result.current.test();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should correctly export select hook from the context', () => {
+    const store = createContext({
+      count: {
+        value: 0,
+      },
+    });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
+
+    const { result } = renderHook(() => store.use.select((state) => state.count.value), { wrapper });
+
+    expect(result.current).toEqual(0);
+  });
+
+  it('should correctly export observable hook from the context', () => {
+    const store = createContext({
+      count: 0,
+    });
 
     const { context, wrapper } = store.Provider.makeProviderWrapper();
 
-    const { result, rerender } = renderHook(() => useSelector3(), { wrapper });
-    let state = result.current;
+    const { result } = renderHook(() => store.use.observable((state) => state.count), { wrapper });
 
-    expect(state).toEqual(4);
+    const observable = result.current;
+    const spy = jest.fn();
 
-    expect(useSelector3.createSelectorHook).toBeInstanceOf(Function);
-    expect(context.current.getMetadata()).toEqual({ name: 'CounterState' });
+    observable.subscribe(spy);
 
     act(() => {
-      context.current.setState((state) => ({ ...state, count: state.count + 1 }));
+      context.current.setState({ count: 10 });
     });
 
-    rerender();
+    expect(spy).toHaveBeenCalledWith(10);
+    expect(observable.getState()).toBe(10);
+  });
 
-    // result of the third level selector should now be 5 ( count:2 -> 3 ->4 ->5 )
-    state = result.current;
+  it('should createSelectorHook from the context hook', () => {
+    const count = createContext(0);
 
-    expect(state).toEqual(5);
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCountX10 = count.use.createSelectorHook((count) => count * 10);
+    const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
+
+    const { result } = renderHook(
+      () => ({
+        countX10: useCountX10(),
+        countX20: useCountX20(),
+      }),
+      { wrapper },
+    );
+
+    expect(context.current.getState()).toBe(0);
+    expect(result.current.countX10).toBe(0);
+    expect(result.current.countX20).toBe(0);
+
+    act(() => {
+      context.current.setState(1);
+    });
+
+    expect(context.current.getState()).toBe(1);
+    expect(result.current.countX10).toBe(10);
+    expect(result.current.countX20).toBe(20);
+
+    act(() => {
+      context.current.setState(2);
+    });
+
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.countX10).toBe(20);
+    expect(result.current.countX20).toBe(40);
+
+    expect(context.current.actions).toBeNull();
+    expect(context.current.getMetadata()).toEqual({});
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
+
+    act(() => {
+      context.current.setMetadata({ test: 'metadata' });
+      context.current.setState(3);
+    });
+
+    expect(context.current.getMetadata()).toEqual({ test: 'metadata' });
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
+    expect(context.current.actions).toBeNull();
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
+
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.countX10).toBe(30);
+    expect(result.current.countX20).toBe(60);
+  });
+
+  it('should be able to create a hook from an observable fragment and an observable from a hook', async () => {
+    const count = createContext(0);
+
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCountX10 = count.use.createSelectorHook((count) => count * 10);
+    const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
+
+    const { result } = renderHook(
+      () => ({
+        countX10: useCountX10(),
+        countX20: useCountX20(),
+      }),
+      { wrapper },
+    );
+
+    const contextApi = context.current;
+
+    act(() => {
+      contextApi.setState(2);
+    });
+
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.countX10).toBe(20);
+    expect(result.current.countX20).toBe(40);
+
+    act(() => {
+      context.current.setState(3);
+    });
+
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.countX10).toBe(30);
+    expect(result.current.countX20).toBe(60);
+  });
+
+  it('should correctly create a selector hooks endlessly', () => {
+    const count = createContext(0);
+
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCount1 = count.use.createSelectorHook((count) => count + 1);
+    const useCount2 = useCount1.createSelectorHook((count) => count + 2);
+
+    const useCount3 = useCount1.createSelectorHook((count) => count + 1);
+    const useCount4 = useCount2.createSelectorHook((count) => count + 1);
+
+    const { result } = renderHook(
+      () => ({
+        count3: useCount3.api(),
+        count4: useCount4.api(),
+      }),
+      { wrapper },
+    );
+
+    const contextApi = context.current;
+    const useCount5 = result.current.count3.createObservable((count) => count + 1);
+    const useCount6 = result.current.count4.createObservable((count) => count + 1);
+
+    expect(useCount5.getState()).toBe(3);
+    expect(useCount6.getState()).toBe(5);
+
+    act(() => {
+      contextApi.setState(2);
+    });
+
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.count3.getState()).toBe(4);
+    expect(result.current.count4.getState()).toBe(6);
+    expect(useCount5.getState()).toBe(5);
+    expect(useCount6.getState()).toBe(7);
+
+    act(() => {
+      context.current.setState(3);
+    });
+
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.count3.getState()).toBe(5);
+    expect(result.current.count4.getState()).toBe(7);
+    expect(useCount5.getState()).toBe(6);
+    expect(useCount6.getState()).toBe(8);
+
+    const useCount7 = useCount5.createSelectorHook((count) => count + 1);
+    const useCount8 = useCount6.createSelectorHook((count) => count + 1);
+
+    const { result: result2 } = renderHook(
+      () => ({
+        a: useCount7(),
+        b: useCount8(),
+      }),
+      { wrapper },
+    );
+
+    expect(result2.current.a).toBe(7);
+    expect(result2.current.b).toBe(9);
+
+    act(() => {
+      context.current.setState(4);
+    });
+
+    expect(context.current.getState()).toBe(4);
+    expect(result.current.count3.getState()).toBe(5);
+    expect(result.current.count4.getState()).toBe(7);
+    expect(useCount5.getState()).toBe(6);
+    expect(useCount6.getState()).toBe(8);
   });
 
   it('should allow testing of context actions', () => {

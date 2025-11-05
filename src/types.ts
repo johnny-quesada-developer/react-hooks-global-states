@@ -5,11 +5,41 @@ export type AnyFunction = (...args: any[]) => any;
  */
 export interface ReadonlyHook<State, StateMutator, Metadata extends BaseMetadata>
   extends ReadonlyStateApi<State, StateMutator, Metadata> {
+  /**
+   * @description Returns the current state value.
+   */
   (): State;
 
+  /**
+   * @description Returns a derived state based on the provided selector function.
+   */
   <Derivate>(selector: (state: State) => Derivate, dependencies?: unknown[]): Derivate;
 
-  <Derivate>(selector: (state: State) => Derivate, config?: UseHookConfig<Derivate, State>): Derivate;
+  /**
+   * @description Returns a derived state based on the provided selector function and configuration.
+   */
+  <Derivate>(selector: (state: State) => Derivate, config?: UseHookOptions<Derivate, State>): Derivate;
+}
+
+/**
+ * @description Hook to select a fragment of the state
+ */
+export interface SelectHook<State> {
+  /**
+   * @description Selects a fragment of the state using the provided selector function.
+   * @param selector - The function to select a fragment of the state.
+   * @param dependencies - Optional dependencies array to control re-evaluation.
+   * @returns The selected fragment of the state.
+   */
+  <Selection>(selector: (state: State) => Selection, dependencies?: unknown[]): Selection;
+
+  /**
+   * @description Selects a fragment of the state using the provided selector function and configuration.
+   * @param selector - The function to select a fragment of the state.
+   * @param args - Configuration options for the selection.
+   * @returns The selected fragment of the state.
+   */
+  <Selection>(selector: (state: State) => Selection, args?: UseHookOptions<Selection, State>): Selection;
 }
 
 /**
@@ -64,7 +94,7 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
    */
   createSelectorHook: <Selection>(
     selector: (state: State) => Selection,
-    args?: Omit<UseHookConfig<Selection, State>, 'dependencies'> & {
+    args?: Omit<UseHookOptions<Selection, State>, 'dependencies'> & {
       name?: string;
     },
   ) => ReadonlyHook<Selection, StateMutator, Metadata>;
@@ -88,6 +118,42 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
   ) => ObservableFragment<Selection, StateMutator, Metadata>;
 
   /**
+   * @description Selects a fragment of the state using the provided selector function.
+   */
+  select: SelectHook<State>;
+
+  /**
+   * @description Sugared hook to use the global state in React components
+   * Allows you to tread the global hook as an store, with better semantics
+   *
+   * @example
+   * ```tsx
+   * const contacts = createContext<ContactType[]>([]);
+   *
+   * function ContactsList() {
+   *   const [contacts, setContacts] = contacts.use();
+   * ```
+   *
+   * This is more practical since the StateApi is slightly more complex than a simple hook
+   *
+   * @example
+   * Using a global state:
+   *
+   * ```tsx
+   * const [state, setState, metadata] = state.use();
+   *
+   * const selection = state.select((state) => state.someFragment);
+   *
+   * const unsubscribe = state.subscribe((state) => { ... });
+   *
+   * const useFragment = state.createSelectorHook((state) => state.someFragment);
+   *
+   * const observable = state.createObservable((state) => state.someFragment);
+   * ```
+   */
+  use: StateHook<State, StateMutator, Metadata>;
+
+  /**
    * @description Disposes the global state instance, cleaning up all resources and subscriptions.
    */
   dispose: () => void;
@@ -105,27 +171,46 @@ export type ReadonlyStateApi<State, StateMutator, Metadata extends BaseMetadata>
  * @description Function that allows you to subscribe to a fragment of the state
  */
 export type ObservableFragment<State, StateMutator, Metadata extends BaseMetadata> = SubscribeToState<State> &
-  StateApi<State, StateMutator, Metadata>;
+  Pick<
+    StateApi<State, StateMutator, Metadata>,
+    'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable' | 'dispose'
+  >;
 
 export interface StateHook<State, StateMutator, Metadata extends BaseMetadata>
   extends StateApi<State, StateMutator, Metadata> {
+  /**
+   * @description React hook that provides access to the state, state mutator, and metadata.
+   */
   (): Readonly<[state: State, stateMutator: StateMutator, metadata: Metadata]>;
 
+  /**
+   * @description React hook that provides a derived state based on the provided selector function.
+   */
   <Derivate>(
     selector: (state: State) => Derivate,
     dependencies?: unknown[],
   ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 
+  /**
+   * @description React hook that provides a derived state based on the provided selector function and configuration.
+   */
   <Derivate>(
     selector: (state: State) => Derivate,
-    config?: UseHookConfig<Derivate, State>,
+    config?: UseHookOptions<Derivate, State>,
   ): Readonly<[state: Derivate, stateMutator: StateMutator, metadata: Metadata]>;
 }
 
+/**
+ * @description Function to set the metadata value
+ * The metadata value is not reactive and wont trigger re-renders
+ */
 export type MetadataSetter<Metadata extends BaseMetadata> = (
   setter: Metadata | ((metadata: Metadata) => Metadata),
 ) => void;
 
+/**
+ * @description Represents the changes in the state
+ */
 export type StateChanges<State> = {
   state: State;
   previousState: State | undefined;
@@ -140,11 +225,46 @@ export type StoreTools<
   StateMutator = React.Dispatch<React.SetStateAction<State>>,
   Metadata extends BaseMetadata = BaseMetadata,
 > = {
+  /**
+   * The actions available for the global state
+   */
   actions: StateMutator extends AnyFunction ? null : StateMutator;
+
+  /**
+   * @description Metadata associated with the global state
+   */
   getMetadata: () => Metadata;
+
+  /**
+   * @description Current state value
+   */
   getState: () => State;
+
+  /**
+   * @description Sets the metadata value
+   */
   setMetadata: MetadataSetter<Metadata>;
+
+  /**
+   * @description Function to set the state value
+   */
   setState: React.Dispatch<React.SetStateAction<State>>;
+
+  /**
+   * @description Subscribe to the state changes
+   * You can subscribe to the whole state or to a fragment of the state by passing a selector as first parameter,
+   * this can be used in non react environments to listen to the state changes
+   *
+   * @example
+   * ```ts
+   * const unsubscribe = storeTools.subscribe((state) => {
+   *   console.log('State changed:', state);
+   * });
+   *
+   * // To unsubscribe later
+   * unsubscribe();
+   * ```
+   */
   subscribe: SubscribeToState<State>;
 };
 
@@ -167,6 +287,9 @@ export interface ActionCollectionConfig<
   };
 }
 
+/**
+ * @description Resulting type of the action collection configuration
+ */
 export type ActionCollectionResult<
   State,
   Metadata extends BaseMetadata,
@@ -212,15 +335,24 @@ export type GlobalStoreCallbacks<State, StateMutator, Metadata extends BaseMetad
   onUnMount?: (store: StoreTools<State, StateMutator, Metadata>) => void;
 };
 
-export type UseHookConfig<State, TRoot = any> = {
+/**
+ * @description Configuration options for the use hook
+ */
+export type UseHookOptions<State, TRoot = any> = {
   isEqual?: (current: State, next: State) => boolean;
   isEqualRoot?: (current: TRoot, next: TRoot) => boolean;
   dependencies?: unknown[];
 };
 
+/**
+ * @description Callback function to unsubscribe from the store changes
+ */
 export type UnsubscribeCallback = () => void;
 
-export type SubscribeCallbackConfig<State> = UseHookConfig<State> & {
+/**
+ * @description Configuration for the subscribe callback
+ */
+export type SubscribeCallbackConfig<State> = UseHookOptions<State> & {
   /**
    * By default the callback is executed immediately after the subscription
    */
@@ -238,8 +370,39 @@ export type SubscribeCallback<State> = (state: State) => void;
  * This can be used in non react environments to listen to the state changes
  */
 export type SubscribeToState<State> = {
+  /**
+   * @description Subscribe to the whole state changes
+   *
+   * @example
+   * ```ts
+   * const unsubscribe = store.subscribe((state) => {
+   *   console.log('State changed:', state);
+   * });
+   *
+   * // To unsubscribe later
+   * unsubscribe();
+   * ```
+   */
   (subscription: SubscribeCallback<State>, config?: SubscribeCallbackConfig<State>): UnsubscribeCallback;
 
+  /**
+   * @description Subscribe to a fragment of the state changes
+   *
+   * @example
+   * ```ts
+   * const unsubscribe = store.subscribe(
+   *   (fragment) => {
+   *     console.log('Fragment changed:', fragment);
+   *   },
+   *   (state) => {
+   *     console.log('Selected fragment changed:', state.someFragment);
+   *   }
+   * );
+   *
+   * // To unsubscribe later
+   * unsubscribe();
+   * ```
+   */
   <TDerivate>(
     selector: SelectorCallback<State, TDerivate>,
     subscription: SubscribeCallback<TDerivate>,
@@ -247,16 +410,37 @@ export type SubscribeToState<State> = {
   ): UnsubscribeCallback;
 };
 
+/**
+ * @description Metadata, non reactive additional information associated with the global state
+ */
 export type BaseMetadata = Record<string, unknown>;
 
+/**
+ * @description Function to get the metadata
+ */
 export type MetadataGetter<Metadata extends BaseMetadata> = () => Metadata;
 
+/**
+ * @description Selector function to derive a fragment of the state
+ */
 export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
 
+/**
+ * @description Parameters for the store subscription
+ */
 export type SubscriberParameters = {
   selector: SelectorCallback<any, any> | undefined;
-  getConfig: () => UseHookConfig<any> | SubscribeCallbackConfig<any> | undefined;
+
+  /**
+   * Uses a function to avoid losing the reference when the subscription is created
+   */
+  getConfig: () => UseHookOptions<any> | SubscribeCallbackConfig<any> | undefined;
+
   currentState: unknown;
+
+  /**
+   * @description notification callback
+   */
   callback: SubscriptionCallback | (() => void);
 };
 

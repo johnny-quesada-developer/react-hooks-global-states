@@ -13,7 +13,9 @@ interface CreateGlobalState {
    * Creates a global state hook.
    * @param state initial state value
    * @returns a state hook for your components
+   *
    * @example
+   * ```tsx
    * const useCounter = createGlobalState(0);
    *
    * function Counter() {
@@ -27,6 +29,21 @@ interface CreateGlobalState {
    *     </div>
    *   );
    * }
+   * ```
+   *
+   * @example You can also use a more semantic and declarative approach
+   * ```tsx
+   * const counter = createGlobalState(0);
+   *
+   * function Counter() {
+   *   const [count, setCount] = counter.use();
+   *   const count = counter.use.select();
+   *
+   *   counter.setState(prev => prev + 1);
+   *
+   *   // if you have actions
+   *   counter.actions.someAction();
+   * ```
    */
   <State>(state: State): StateHook<State, React.Dispatch<React.SetStateAction<State>>, BaseMetadata>;
 
