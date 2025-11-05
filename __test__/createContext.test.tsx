@@ -275,6 +275,25 @@ describe('createContext', () => {
     expect(useCount6.getState()).toBe(8);
   });
 
+  it('should allow onCreated callback in the provider', () => {
+    expect.assertions(3);
+
+    const counter = createContext(0);
+
+    const type = counter.Provider;
+
+    const { context, wrapper } = type.makeProviderWrapper({
+      onCreated: (api) => {
+        expect(api.getState()).toBe(0);
+      },
+    });
+
+    const { container } = render(<counter.Provider></counter.Provider>, { wrapper });
+
+    expect(container).toBeTruthy();
+    expect(context.current).toBeDefined();
+  });
+
   it('should allow testing of context actions', () => {
     expect.assertions(2);
 

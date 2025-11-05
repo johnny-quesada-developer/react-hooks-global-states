@@ -721,7 +721,7 @@ export const createContext = ((
  */
 export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> =
   NonNullable<React.ContextType<Context>> extends ContextHook<infer State, infer StateMutator, infer Metadata>
-    ? StateApi<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
+    ? StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
     : never;
 
 function createSelectorHook(
