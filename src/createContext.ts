@@ -719,7 +719,7 @@ export const createContext = ((
  * ContextApi<number, React.Dispatch<React.SetStateAction<number>>, BaseMetadata>;
  * ```
  */
-export type InferContextApi<Context extends ReactContext<ContextHook<any, any, BaseMetadata> | null>> =
+export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> =
   NonNullable<React.ContextType<Context>> extends ContextHook<infer State, infer StateMutator, infer Metadata>
     ? StateApi<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
     : never;
