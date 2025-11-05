@@ -5,7 +5,7 @@ import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
 import { createGlobalState } from '..';
-//import { type StoreTools, createGlobalState } from '../src';
+// import { createGlobalState } from '../src';
 
 describe('createGlobalState', () => {
   it('should be able to create a new instance with state', () => {
@@ -66,6 +66,23 @@ describe('createGlobalState', () => {
     const { result } = renderHook(() => counter.select((state) => state + 10));
 
     expect(result.current).toBe(10);
+  });
+
+  it('should correctly subscribe to state changes with subscribe callback on initialization', () => {
+    const subscribeSpy = jest.fn();
+
+    const counter = createGlobalState(0, {
+      callbacks: {
+        onInit: ({ subscribe }) => {
+          subscribe(subscribeSpy);
+        },
+      },
+    });
+
+    const { result } = renderHook(() => counter());
+
+    expect(result.current).toEqual([0, expect.any(Function), expect.any(Object)]);
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
   });
 });
 

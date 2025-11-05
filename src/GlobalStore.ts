@@ -20,6 +20,7 @@ import type {
   ReadonlyHook,
   ReadonlyStateApi,
   SelectHook,
+  SubscribeToState,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -252,24 +253,16 @@ export class GlobalStore<
     return this.state;
   };
 
-  public subscribe(
-    subscription: SubscribeCallback<State>,
-    config?: SubscribeCallbackConfig<State>,
-  ): UnsubscribeCallback;
-
-  public subscribe<TDerivate>(
-    selector: SelectorCallback<State, TDerivate>,
-    subscription: SubscribeCallback<TDerivate>,
-    config?: SubscribeCallbackConfig<TDerivate>,
-  ): UnsubscribeCallback;
-
-  public subscribe<TDerivate>(
+  /**
+   * Subscribe to the state changes
+   */
+  public subscribe = (<TDerivate>(
     ...[param1, param2, param3]: [
       SubscribeCallback<State> | SelectorCallback<State, TDerivate>,
       (SubscribeCallbackConfig<State> | SubscribeCallback<TDerivate>)?,
       SubscribeCallbackConfig<State | TDerivate>?,
     ]
-  ): UnsubscribeCallback {
+  ): UnsubscribeCallback => {
     const hasExplicitSelector = isFunction(param2);
 
     const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
@@ -294,7 +287,7 @@ export class GlobalStore<
     return () => {
       this.subscribers.delete(subscription);
     };
-  }
+  }) as SubscribeToState<State>;
 
   /**
    * get the parameters object to pass to the callback functions:
