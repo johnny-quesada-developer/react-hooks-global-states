@@ -1,9 +1,91 @@
 import React from 'react';
 import { createContext } from '..';
-//import { createContext } from '../src';
+// import { createContext } from '../src';
 import { act, renderHook, render } from '@testing-library/react';
+import { ContextStoreTools } from '../src/createContext';
 
 describe('createContext', () => {
+  it('should pass down the proper store tools to the actions', () => {
+    let storeTools!: ContextStoreTools<any, any, any>;
+
+    const store = createContext(0, {
+      actions: {
+        testAction() {
+          return (tools) => {
+            storeTools = tools;
+          };
+        },
+      },
+    });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <store.Provider>{children}</store.Provider>
+    );
+
+    const { result } = renderHook(() => store.use.actions(), { wrapper });
+
+    result.current.testAction();
+
+    expect(storeTools).toBeDefined();
+    expect(storeTools.getState).toBeInstanceOf(Function);
+    expect(storeTools.setState).toBeInstanceOf(Function);
+    expect(storeTools.getMetadata).toBeInstanceOf(Function);
+    expect(storeTools.setMetadata).toBeInstanceOf(Function);
+    expect(storeTools.subscribe).toBeInstanceOf(Function);
+    expect(storeTools.actions).toBeDefined();
+    expect(storeTools.use).toBeDefined();
+  });
+
+  it('should be able to use hooks as actions and receive store tools', () => {
+    const store = createContext(0, {
+      actions: {
+        useCount() {
+          return ({ use }) => {
+            return use()[0];
+          };
+        },
+      },
+    });
+
+    const { context, wrapper } = store.Provider.makeProviderWrapper();
+    const renderSpy = jest.fn();
+
+    const Component = () => {
+      store.use.actions();
+      const { getState } = store.use.api();
+      renderSpy(getState());
+      return null;
+    };
+
+    const Component2 = () => {
+      const { useCount } = store.use.actions();
+      const count = useCount();
+
+      renderSpy(count);
+
+      return null;
+    };
+
+    render(
+      <>
+        <Component />
+        <Component2 />
+      </>,
+      { wrapper },
+    );
+
+    expect(renderSpy).toHaveBeenCalledTimes(2);
+    expect(renderSpy).toHaveBeenCalledWith(0);
+
+    act(() => {
+      context.current.setState(1);
+    });
+
+    // there should be no renders for api hook
+    expect(renderSpy).toHaveBeenCalledTimes(3);
+    expect(renderSpy).toHaveBeenCalledWith(1);
+  });
+
   it('should correctly create a context hook and provider', () => {
     const store = createContext(
       { count: 0 },

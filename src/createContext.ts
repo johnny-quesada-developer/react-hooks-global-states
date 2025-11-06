@@ -10,22 +10,109 @@ import React, {
 } from 'react';
 import { createObservable, createSelectorHook as createSelectorHookBase, GlobalStore } from './GlobalStore';
 import type {
-  ActionCollectionConfig,
   StateHook,
-  ActionCollectionResult,
   BaseMetadata,
   GlobalStoreCallbacks,
   UseHookOptions,
   AnyFunction,
-  StateApi,
-  StoreTools,
+  StoreTools as StoreToolsBase,
   SelectorCallback,
   ReadonlyStateApi,
   SelectHook,
   ObservableFragment,
+  StateApi,
+  StoreTools,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
+
+/**
+ * @description Resulting type of the action collection configuration
+ */
+export type ContextActionCollectionResult<
+  State,
+  Metadata extends BaseMetadata,
+  ActionsConfig extends ContextActionCollectionConfig<State, Metadata>,
+> = {
+  [key in keyof ActionsConfig]: {
+    (...params: Parameters<ActionsConfig[key]>): ReturnType<ReturnType<ActionsConfig[key]>>;
+  };
+};
+
+/**
+ * contract for the storeActionsConfig configuration
+ */
+export interface ContextActionCollectionConfig<
+  State,
+  Metadata extends BaseMetadata,
+  ThisAPI = Record<string, (...parameters: any[]) => unknown>,
+> {
+  readonly [key: string]: {
+    (
+      this: ThisAPI,
+      ...parameters: any[]
+    ): (
+      this: ThisAPI,
+      storeTools: ContextStoreTools<
+        State,
+        Record<string, (...parameters: any[]) => unknown | void>,
+        Metadata
+      >,
+    ) => unknown | void;
+  };
+}
+
+/**
+ * @description Extensions methods for the context store tools
+ */
+export type ContextStoreToolsExtensions<State, StateMutator, Metadata extends BaseMetadata> = {
+  /**
+   * @description Main hook of the context
+   *
+   * @example
+   * ```tsx
+   * type CounterContext = import('../../stores/counter').CounterContext;
+   *
+   * const useLogCount = () => {
+   *   return ({ use }: CounterContext) => {
+   *     const count = use.select(s => s.count);
+   *
+   *     console.log('Count changed:', count);
+   *   };
+   * }
+   *
+   * // Usage in store
+   * import useLogCount from './actions/useLogCount';
+   *
+   * const counter = createContext({ count: 0 }, {
+   *    actions: {
+   *      useLogCount,
+   *    }
+   * });
+   *
+   * // Usage in component
+   * import counter from '../stores/counter';
+   *
+   * const CounterLogger = () => {
+   *   // access to the actions is NOT-REACTIVE
+   *   const { useLogCount } = counter.use.actions();
+   *
+   *   useLogCount();
+   * }
+   * ```
+   */
+  use: ContextHook<State, StateMutator, Metadata>;
+};
+
+/**
+ * @description Store tools specialized for context usage
+ */
+export type ContextStoreTools<State, StateMutator, Metadata extends BaseMetadata> = StoreToolsBase<
+  State,
+  StateMutator,
+  Metadata
+> &
+  ContextStoreToolsExtensions<State, StateMutator, Metadata>;
 
 /**
  * @description Extensions methods for the ContextProvider component
@@ -385,10 +472,10 @@ interface CreateContext {
   <
     State,
     Metadata extends BaseMetadata,
-    ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
+    ActionsConfig extends ContextActionCollectionConfig<State, Metadata> | null | {},
     StateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
-      : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
+      : ContextActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
   >(
     /**
      * @description Initial state value or initializer function.
@@ -476,7 +563,7 @@ interface CreateContext {
   <
     State,
     Metadata extends BaseMetadata,
-    ActionsConfig extends ActionCollectionConfig<State, Metadata>,
+    ActionsConfig extends ContextActionCollectionConfig<State, Metadata>,
     StateMutator = React.Dispatch<React.SetStateAction<State>>,
   >(
     /**
@@ -533,19 +620,19 @@ interface CreateContext {
      *   // ...
      * }
      */
-    use: ContextHook<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
+    use: ContextHook<State, ContextActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
 
     /**
      * @description Provider for the context
      */
-    Provider: ContextProvider<State, ActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
+    Provider: ContextProvider<State, ContextActionCollectionResult<State, Metadata, ActionsConfig>, Metadata>;
 
     /**
      * @description Raw React Context object
      */
     Context: ReactContext<ContextHook<
       State,
-      ActionCollectionResult<State, Metadata, ActionsConfig>,
+      ContextActionCollectionResult<State, Metadata, ActionsConfig>,
       Metadata
     > | null>;
   };
@@ -561,11 +648,13 @@ interface CreateContext {
  */
 export const createContext = ((
   valueArg: unknown | (() => unknown),
-  args: {
+  {
+    ...args
+  }: {
     name?: string;
     metadata?: BaseMetadata | (() => BaseMetadata);
     callbacks?: GlobalStoreCallbacks<unknown, unknown, BaseMetadata> & { onUnMount?: () => void };
-    actions?: ActionCollectionConfig<unknown, BaseMetadata>;
+    actions?: ContextActionCollectionConfig<unknown, BaseMetadata>;
   } = {},
 ) => {
   const Context = reactCreateContext<StateHook<unknown, unknown, BaseMetadata> | null>(null);
@@ -588,6 +677,13 @@ export const createContext = ((
         metadata: (isFunction(args.metadata) ? args.metadata() : args.metadata) ?? {},
       });
 
+      const storeToolsExtensions: ContextStoreToolsExtensions<unknown, unknown, BaseMetadata> = {
+        use,
+      };
+
+      // exposes the main hook as part of the store tools
+      Object.assign(store.storeTools, storeToolsExtensions);
+
       return store;
     }, []);
 
@@ -605,7 +701,7 @@ export const createContext = ((
       };
     }, [store]);
 
-    onCreated?.(store.getConfigCallbackParam());
+    onCreated?.(store.storeTools);
 
     return reactCreateElement(Context.Provider, { value: store.use }, children);
   };

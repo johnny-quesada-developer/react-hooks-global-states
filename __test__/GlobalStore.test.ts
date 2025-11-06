@@ -1,4 +1,6 @@
-import { type StoreTools, GlobalStore } from '..';
+//import { type StoreTools, GlobalStore } from '..';
+import { type StoreTools, GlobalStore } from '../src';
+
 import { CancelablePromise, createDecoupledPromise } from 'easy-cancelable-promise';
 import { formatFromStore, formatToStore, isNil } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
@@ -119,7 +121,7 @@ describe('GlobalStore with actions', () => {
     expect(store.actionsConfig).toBeDefined();
     expect(store.use).toBeInstanceOf(Function);
 
-    const actions = store.getStoreActionsMap();
+    const { actions } = store.getStoreActionsMap();
 
     if (isNil(actions)) return;
 

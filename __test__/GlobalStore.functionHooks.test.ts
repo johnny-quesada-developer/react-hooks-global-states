@@ -4,10 +4,35 @@ import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act, renderHook } from '@testing-library/react';
 
-import { createGlobalState } from '..';
-// import { createGlobalState } from '../src';
+import { createGlobalState, StoreTools } from '..';
+// import { createGlobalState, StoreTools } from '../src';
 
 describe('createGlobalState', () => {
+  it('should pass down the proper store tools to the actions', () => {
+    let storeTools!: StoreTools<any, any, any>;
+
+    const store = createGlobalState(0, {
+      actions: {
+        testAction() {
+          return (tools) => {
+            storeTools = tools;
+          };
+        },
+      },
+    });
+
+    store.actions.testAction();
+
+    expect(storeTools).toBeDefined();
+    expect(storeTools.getState).toBeInstanceOf(Function);
+    expect(storeTools.setState).toBeInstanceOf(Function);
+    expect(storeTools.getMetadata).toBeInstanceOf(Function);
+    expect(storeTools.setMetadata).toBeInstanceOf(Function);
+    expect(storeTools.actions).toBeDefined();
+    expect(storeTools.subscribe).toBeInstanceOf(Function);
+    expect((storeTools as any).use).not.toBeDefined();
+  });
+
   it('should be able to create a new instance with state', () => {
     const stateValue = 'test';
 

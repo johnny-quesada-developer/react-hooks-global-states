@@ -55,16 +55,12 @@ export class GlobalStore<
   public actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator =
     null as PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
 
+  public storeTools!: StoreTools<State, PublicStateMutator, Metadata>;
+
   /**
    * @description The main hook that will be used to interact with the global state
    */
   public use!: StateHook<State, PublicStateMutator, Metadata>;
-
-  /**
-   * @description
-   * Access to the store api that will be passed to the actions and callbacks
-   */
-  private configurationCallbackParam!: StoreTools<State, PublicStateMutator, Metadata>;
 
   public subscribers = new Set<SubscriberParameters>();
 
@@ -130,24 +126,22 @@ export class GlobalStore<
    * Initializes the global store, setting up the main hook and actions map if applicable,
    */
   protected initialize = async () => {
-    const shouldCreateActionsMap = Object.keys(this.actionsConfig ?? {}).length > 0;
-
     // actions should be created first than the main hook and the configuration callback param
     // because both depend on the actions map being created
-    if (shouldCreateActionsMap) {
-      this.actions = this.getStoreActionsMap();
-    }
+    const { actions, storeTools } = this.getStoreActionsMap();
+
+    this.actions = actions;
+    this.storeTools = storeTools;
 
     this.use = this.getMainHook();
-    this.configurationCallbackParam = this.getConfigCallbackParam();
 
     const { onInit } = this;
     const { onInit: onInitFromConfig } = this.callbacks ?? {};
 
     if (!onInit && !onInitFromConfig) return;
 
-    onInit?.(this.configurationCallbackParam);
-    if (!isNil(onInitFromConfig)) onInitFromConfig?.(this.configurationCallbackParam);
+    onInit?.(storeTools);
+    if (!isNil(onInitFromConfig)) onInitFromConfig?.(storeTools);
   };
 
   /**
@@ -289,23 +283,6 @@ export class GlobalStore<
     };
   }) as SubscribeToState<State>;
 
-  /**
-   * get the parameters object to pass to the callback functions:
-   * onInit, onStateChanged, onSubscribed, computePreventStateChange
-   * */
-  public getConfigCallbackParam = (): StoreTools<State, PublicStateMutator, Metadata> => {
-    const { setMetadata, getMetadata, getState, subscribe, actions, setState } = this;
-
-    return {
-      setMetadata,
-      getMetadata,
-      getState,
-      subscribe,
-      setState,
-      actions,
-    };
-  };
-
   protected subscribeCallback = (subscription: SubscriberParameters) => {
     this.executeOnSubscribed(subscription);
 
@@ -330,8 +307,8 @@ export class GlobalStore<
     const onSubscribedFromConfig = this.callbacks?.onSubscribed;
 
     if (onSubscribed || onSubscribedFromConfig) {
-      onSubscribed?.(this.configurationCallbackParam, subscription);
-      onSubscribedFromConfig?.(this.configurationCallbackParam, subscription);
+      onSubscribed?.(this.storeTools, subscription);
+      onSubscribedFromConfig?.(this.storeTools, subscription);
     }
   };
 
@@ -548,49 +525,64 @@ export class GlobalStore<
    * This creates a map of actions that can be used to modify or interact with the state
    * @returns {ActionCollectionResult<State, Metadata, StateMutator>} - The actions map result of the configuration object passed to the constructor
    * */
-  public getStoreActionsMap = (): typeof this.actions => {
-    if (!isRecord(this.actionsConfig)) return null as typeof this.actions;
+  public getStoreActionsMap = (): {
+    actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
+    storeTools: StoreTools<State, PublicStateMutator, Metadata>;
+  } => {
+    const { actionsConfig, getMetadata, getState, setMetadata, setState: setStateWrapper, subscribe } = this;
 
-    const { actionsConfig, setMetadata, setState: setStateWrapper, getState, getMetadata } = this;
+    // passes the same object to all the actions
+    const storeTools: typeof this.storeTools = {
+      setMetadata,
+      getMetadata,
+      getState,
+      setState: setStateWrapper,
+      subscribe,
+      actions: null as (typeof this.storeTools)['actions'],
+    };
+
+    if (!isRecord(actionsConfig)) {
+      return {
+        actions: null as typeof this.actions,
+        storeTools,
+      };
+    }
+
+    const actions = {} as NonNullable<typeof storeTools.actions>;
+
+    storeTools.actions = actions;
+
     const actionsKeys = Object.keys(actionsConfig);
 
     // we bind the functions to the actions object to allow reusing actions in the same api config by using the -this- keyword
-    const actions = actionsKeys.reduce(
-      (accumulator, action_key) => {
-        Object.assign(accumulator, {
-          [action_key](...parameters: unknown[]) {
-            const actionConfig = actionsConfig[action_key] as (
-              ...args: unknown[]
-            ) => (...args: unknown[]) => unknown;
+    for (const action_key of actionsKeys) {
+      Object.assign(actions, {
+        [action_key](...parameters: unknown[]) {
+          const actionConfig = actionsConfig[action_key] as (
+            ...args: unknown[]
+          ) => (...args: unknown[]) => unknown;
 
-            const action = actionConfig.apply(actions, parameters);
-            const actionIsNotAFunction = typeof action !== 'function';
+          const action = actionConfig.apply(actions, parameters);
+          const actionIsNotAFunction = typeof action !== 'function';
 
-            // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
-            if (actionIsNotAFunction) {
-              throwWrongKeyOnActionCollectionConfig(action_key);
-            }
+          // we throw an error if the action is not a function, this is mandatory for the correct execution of the actions
+          if (actionIsNotAFunction) {
+            throwWrongKeyOnActionCollectionConfig(action_key);
+          }
 
-            // executes the actions bringing access to the state setter and a copy of the state
-            const result = action.call(actions, {
-              setState: setStateWrapper,
-              getState,
-              setMetadata,
-              getMetadata,
-              actions: actions,
-            });
+          // executes the actions bringing access to the state setter and a copy of the state
+          const result = action.call(actions, storeTools);
 
-            // we return the result of the actions to the invoker
-            return result;
-          },
-        });
+          // we return the result of the actions to the invoker
+          return result;
+        },
+      });
+    }
 
-        return accumulator;
-      },
-      {} as ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-    );
-
-    return actions as typeof this.actions;
+    return {
+      actions,
+      storeTools,
+    };
   };
 
   protected removeSubscriptions = () => {
