@@ -21,7 +21,6 @@ import type {
   SelectHook,
   ObservableFragment,
   StateApi,
-  StoreTools,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -138,7 +137,7 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
       /**
        * @description Full context instance
        */
-      context: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+      context: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
     ) => void;
   }) => {
     /**
@@ -160,7 +159,7 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
       /**
        * @description Current context value
        */
-      current: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>;
+      current: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>;
     };
   };
 };
@@ -184,7 +183,7 @@ export type ContextProvider<State, StateMutator, Metadata extends BaseMetadata> 
       /**
        * @description Full context instance
        */
-      context: StoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+      context: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
     ) => void;
   }>
 > &
@@ -701,7 +700,7 @@ export const createContext = ((
       };
     }, [store]);
 
-    onCreated?.(store.storeTools);
+    onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
 
     return reactCreateElement(Context.Provider, { value: store.use }, children);
   };
@@ -709,7 +708,7 @@ export const createContext = ((
   const providerExtensions: ContextProviderExtensions<unknown, unknown, BaseMetadata> = {
     makeProviderWrapper: (options) => {
       const context = {
-        current: undefined as unknown as StoreTools<any, any, any>,
+        current: undefined as unknown as ContextStoreTools<any, any, any>,
       };
 
       const wrapper = ({ children }: PropsWithChildren) => {
