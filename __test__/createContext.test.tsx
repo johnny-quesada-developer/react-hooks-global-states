@@ -1,7 +1,7 @@
 import React from 'react';
 import { createContext } from '..';
 // import { createContext } from '../src';
-import { act, renderHook, render } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import { ContextStoreTools } from '../src/createContext';
 
 describe('createContext', () => {

@@ -159,18 +159,20 @@ export class GlobalStore<
   ): {
     didUpdate: boolean;
   } => {
-    const { selector, callback, currentState: currentChildState, getConfig } = subscription;
-    const config = getConfig?.() ?? {};
+    const { selector, callback, currentState: currentChildState, options } = subscription;
 
     // compare the root state, there should not be a re-render if the root state is the same
-    if (!args.forceUpdate && (config?.isEqualRoot ?? ((a, b) => a === b))(args.currentState, args.newState)) {
+    if (
+      !args.forceUpdate &&
+      (options?.isEqualRoot ?? ((a, b) => a === b))(args.currentState, args.newState)
+    ) {
       return { didUpdate: false };
     }
 
     const newChildState = selector ? selector(args.newState) : args.newState;
 
     // compare the state of the selected part of the state, there should not be a re-render if the state is the same
-    if (!args.forceUpdate && (config?.isEqual ?? ((a, b) => a === b))(currentChildState, newChildState)) {
+    if (!args.forceUpdate && (options?.isEqual ?? ((a, b) => a === b))(currentChildState, newChildState)) {
       return { didUpdate: false };
     }
 
@@ -261,17 +263,17 @@ export class GlobalStore<
 
     const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
     const callback = (hasExplicitSelector ? param2 : param1) as SubscribeCallback<unknown>;
-    const config = (hasExplicitSelector ? param3 : param2) ?? undefined;
+    const options = (hasExplicitSelector ? param3 : param2) ?? undefined;
 
     const initialState = selector ? selector(this.state) : this.state;
 
-    if (!config?.skipFirst) {
+    if (!options?.skipFirst) {
       callback(initialState);
     }
 
     const subscription: SubscriberParameters = {
       selector,
-      getConfig: () => config,
+      options,
       currentState: initialState,
       callback: ({ state }: { state: unknown }) => callback(state),
     };
@@ -321,52 +323,51 @@ export class GlobalStore<
       selector?: <Selection>(state: State) => Selection,
       args: UseHookOptions<unknown, State> | unknown[] = [],
     ) => {
-      const config = isArray(args) ? { dependencies: args } : (args ?? {});
+      const options = isArray(args) ? { dependencies: args } : (args ?? {});
 
-      const hooksProps = useRef({
-        selector,
-        config,
-      });
+      const subscriptionRef = useRef<SubscriberParameters>(null!);
 
-      const currentDependencies = hooksProps.current.config.dependencies;
+      const selectorWrapper = (state: State) => {
+        return isFunction(selector) ? selector(state) : state;
+      };
 
-      // keep the hook props updated
-      hooksProps.current.selector = selector;
-      hooksProps.current.config = config;
+      // builds the subscription object or retrieves the existing one
+      subscriptionRef.current = ((): SubscriberParameters => {
+        if (subscriptionRef.current) return subscriptionRef.current;
 
-      const { subscribe, getSnapshot, getServerSnapshot, subscription } = useMemo(() => {
-        const selectorFn = (state: State) => {
-          const { selector } = hooksProps.current;
-          return isFunction(selector) ? selector(state) : state;
-        };
-
-        const getConfig = () => {
-          return hooksProps.current.config;
-        };
-
-        const subscription: SubscriberParameters = {
-          currentState: selectorFn(this.state),
-          selector: selectorFn,
-          getConfig,
+        return {
+          options,
+          selector: selectorWrapper,
+          currentState: selectorWrapper(this.state),
           callback: () => {
             throw new Error('Callback not set');
           },
         };
+      })();
 
+      const currentDependencies = subscriptionRef.current.options?.dependencies;
+      const newDependencies = options?.dependencies;
+
+      // keep the hook props updated
+      Object.assign(subscriptionRef.current, {
+        selector: selectorWrapper,
+        options,
+      });
+
+      const { subscribe, getSnapshot, getServerSnapshot } = useMemo(() => {
         const subscribe = (onStoreChange: () => void) => {
-          subscription.callback = onStoreChange;
+          subscriptionRef.current.callback = onStoreChange;
 
-          // the other
-          return this.subscribeCallback(subscription);
+          return this.subscribeCallback(subscriptionRef.current);
         };
 
         const getSnapshot = () => {
-          return subscription.currentState;
+          return subscriptionRef.current.currentState;
         };
 
         const getServerSnapshot = getSnapshot;
 
-        return { subscribe, getSnapshot, getServerSnapshot, subscription };
+        return { subscribe, getSnapshot, getServerSnapshot };
       }, []);
 
       // keeps the state on sync with the store
@@ -374,7 +375,8 @@ export class GlobalStore<
 
       return [
         this.computeSelectedState({
-          subscription: subscription,
+          subscription: subscriptionRef.current,
+          newDependencies,
           currentDependencies,
         }),
         this.getStateOrchestrator(),
@@ -415,17 +417,14 @@ export class GlobalStore<
 
   protected computeSelectedState = ({
     subscription,
+    newDependencies,
     currentDependencies,
   }: {
     subscription: SubscriberParameters;
+    newDependencies: unknown[] | undefined;
     currentDependencies: unknown[] | undefined;
   }) => {
     if (!subscription.selector) return subscription.currentState;
-
-    const { dependencies: newDependencies } = (subscription.getConfig() ?? {}) as UseHookOptions<
-      unknown,
-      unknown
-    >;
 
     // if the dependencies are the same we don't need to compute the state
     if (currentDependencies === newDependencies) return subscription.currentState;

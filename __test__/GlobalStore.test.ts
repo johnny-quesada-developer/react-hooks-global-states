@@ -1,10 +1,11 @@
 //import { type StoreTools, GlobalStore } from '..';
 import { type StoreTools, GlobalStore } from '../src';
+import $it from './$it';
+// import { type StoreTools, GlobalStore } from '../src/GlobalStore';
 
 import { CancelablePromise, createDecoupledPromise } from 'easy-cancelable-promise';
 import { formatFromStore, formatToStore, isNil } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
-import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 
 const countStoreInitialState = 1;
@@ -43,7 +44,7 @@ const createCountStoreWithActions = (spy?: jest.Mock) => {
 };
 
 describe('GlobalStore Basic', () => {
-  it('should be able to create a new instance with state', () => {
+  $it('should be able to create a new instance with state', () => {
     const stateValue = 'test';
     const store = new GlobalStore(stateValue);
 
@@ -52,7 +53,7 @@ describe('GlobalStore Basic', () => {
     expect(store.actions).toBe(null);
   });
 
-  it('state setter should be a function', () => {
+  $it('state setter should be a function', () => {
     const stateValue = 'test';
     const store = new GlobalStore(stateValue);
 
@@ -61,7 +62,7 @@ describe('GlobalStore Basic', () => {
     expect(store.use.setState).toBeInstanceOf(Function);
   });
 
-  it('should be able to get the state', () => {
+  $it('should be able to get the state', () => {
     const stateValue = 1;
     const store = new GlobalStore(stateValue);
 
@@ -69,7 +70,7 @@ describe('GlobalStore Basic', () => {
     expect(store.use.getState()).toBe(stateValue);
   });
 
-  it('should be able to set the state', () => {
+  $it('should be able to set the state', () => {
     const stateValue = 'test';
     const store = new GlobalStore(stateValue);
 
@@ -87,7 +88,7 @@ describe('GlobalStore Basic', () => {
     expect(store.use.getState()).toBe('test2');
   });
 
-  it('should notify initialize all subscribers of the store', () => {
+  $it('should notify initialize all subscribers of the store', ({ renderHook }) => {
     const stateValue = 'test';
     const stateValue2 = 'test2';
 
@@ -111,7 +112,7 @@ describe('GlobalStore Basic', () => {
 });
 
 describe('GlobalStore with actions', () => {
-  it('should be able to create a new instance with state and actions, setter should be and object', () => {
+  $it('should be able to create a new instance with state and actions, setter should be and object', () => {
     const store = createCountStoreWithActions();
 
     expect(store.actions).toBeDefined();
@@ -129,13 +130,13 @@ describe('GlobalStore with actions', () => {
     expect(actions.increase).toBeDefined();
   });
 
-  it('should be able to get the state', () => {
+  $it('should be able to get the state', () => {
     const store = createCountStoreWithActions();
 
     expect(store.getState()).toBe(countStoreInitialState);
   });
 
-  it('should be able to set the state', () => {
+  $it('should be able to set the state', () => {
     const store = createCountStoreWithActions();
 
     store.actions.increase();
@@ -143,7 +144,7 @@ describe('GlobalStore with actions', () => {
     expect(store.getState()).toBe(2);
   });
 
-  it('should initialize all subscribers of the store', () => {
+  $it('should initialize all subscribers of the store', ({ renderHook }) => {
     const store = createCountStoreWithActions();
 
     renderHook(() => store.use());
@@ -158,7 +159,7 @@ describe('GlobalStore with actions', () => {
     expect(subscription2.callback).toHaveBeenCalledTimes(0);
   });
 
-  it('should update all subscribers of the store', () => {
+  $it('should update all subscribers of the store', ({ renderHook }) => {
     const store = createCountStoreWithActions();
 
     renderHook(() => store.use());
@@ -179,7 +180,7 @@ describe('GlobalStore with actions', () => {
 });
 
 describe('GlobalStore with configuration callbacks', () => {
-  it('should execute onInit callback', () => {
+  $it('should execute onInit callback', () => {
     expect.assertions(6);
 
     const initialState = { count: 0 };
@@ -204,7 +205,7 @@ describe('GlobalStore with configuration callbacks', () => {
     expect(onInitSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('should execute onInit callback with metadata', () => {
+  $it('should execute onInit callback with metadata', () => {
     expect.assertions(3);
 
     const initialState = { count: 0 };
@@ -238,8 +239,8 @@ describe('GlobalStore with configuration callbacks', () => {
     expect(onInitSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('should execute onSubscribed callback every time a subscriber is added', () => {
-    expect.assertions(18);
+  $it('should execute onSubscribed callback every time a subscriber is added', ({ renderHook, strict }) => {
+    // expect.assertions(18);
 
     let onSubscribedSpy = jest.fn();
 
@@ -267,15 +268,15 @@ describe('GlobalStore with configuration callbacks', () => {
 
     renderHook(() => store.use());
 
-    expect(onSubscribedSpy).toHaveBeenCalledTimes(1);
+    expect(onSubscribedSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
 
     renderHook(() => store.use());
     renderHook(() => store.use());
 
-    expect(onSubscribedSpy).toHaveBeenCalledTimes(3);
+    expect(onSubscribedSpy).toHaveBeenCalledTimes(strict ? 6 : 3);
   });
 
-  it('should execute onStateChanged callback every time the state is changed', () => {
+  $it('should execute onStateChanged callback every time the state is changed', () => {
     expect.assertions(7);
 
     const onStateChangedSpy = jest.fn();
@@ -306,71 +307,77 @@ describe('GlobalStore with configuration callbacks', () => {
     expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('should execute computePreventStateChange callback before state is changed and continue if it returns false', () => {
-    expect.assertions(7);
+  $it(
+    'should execute computePreventStateChange callback before state is changed and continue if it returns false',
+    () => {
+      expect.assertions(7);
 
-    const computePreventStateChangeSpy = jest.fn();
+      const computePreventStateChangeSpy = jest.fn();
 
-    const store = new GlobalStore(
-      { count: 0 },
-      {
-        callbacks: {
-          computePreventStateChange: (parameters) => {
-            computePreventStateChangeSpy();
+      const store = new GlobalStore(
+        { count: 0 },
+        {
+          callbacks: {
+            computePreventStateChange: (parameters) => {
+              computePreventStateChangeSpy();
 
-            const { setState, getMetadata, setMetadata, actions } = parameters;
+              const { setState, getMetadata, setMetadata, actions } = parameters;
 
-            expect(getMetadata()).toEqual({});
-            expect(setState).toBeInstanceOf(Function);
-            expect(setMetadata).toBeInstanceOf(Function);
-            expect(actions).toBe(null);
+              expect(getMetadata()).toEqual({});
+              expect(setState).toBeInstanceOf(Function);
+              expect(setMetadata).toBeInstanceOf(Function);
+              expect(actions).toBe(null);
 
-            return false;
+              return false;
+            },
           },
         },
-      },
-    );
+      );
 
-    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
+      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
-    store.setState((state) => ({ count: state.count + 1 }));
+      store.setState((state) => ({ count: state.count + 1 }));
 
-    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
-    expect(store.getState()).toEqual({ count: 1 });
-  });
+      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
+      expect(store.getState()).toEqual({ count: 1 });
+    },
+  );
 
-  it('should execute computePreventStateChange callback before state is changed and prevent state change if it returns true', () => {
-    expect.assertions(7);
+  $it(
+    'should execute computePreventStateChange callback before state is changed and prevent state change if it returns true',
+    () => {
+      expect.assertions(7);
 
-    const computePreventStateChangeSpy = jest.fn();
+      const computePreventStateChangeSpy = jest.fn();
 
-    const store = new GlobalStore(
-      { count: 0 },
-      {
-        callbacks: {
-          computePreventStateChange: (parameters) => {
-            computePreventStateChangeSpy();
+      const store = new GlobalStore(
+        { count: 0 },
+        {
+          callbacks: {
+            computePreventStateChange: (parameters) => {
+              computePreventStateChangeSpy();
 
-            const { setState, getMetadata, setMetadata, actions } = parameters;
+              const { setState, getMetadata, setMetadata, actions } = parameters;
 
-            expect(getMetadata()).toEqual({});
-            expect(setState).toBeInstanceOf(Function);
-            expect(setMetadata).toBeInstanceOf(Function);
-            expect(actions).toBe(null);
+              expect(getMetadata()).toEqual({});
+              expect(setState).toBeInstanceOf(Function);
+              expect(setMetadata).toBeInstanceOf(Function);
+              expect(actions).toBe(null);
 
-            return true;
+              return true;
+            },
           },
         },
-      },
-    );
+      );
 
-    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
+      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
-    store.setState((state) => ({ count: state.count + 1 }));
+      store.setState((state) => ({ count: state.count + 1 }));
 
-    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
-    expect(store.getState()).toEqual({ count: 0 });
-  });
+      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
+      expect(store.getState()).toEqual({ count: 0 });
+    },
+  );
 });
 
 describe('Custom store by using config parameter', () => {
@@ -381,7 +388,7 @@ describe('Custom store by using config parameter', () => {
     ]);
   };
 
-  it('should initialize the store with the initial state where there is no async storage data', async () => {
+  $it('should initialize the store with the initial state where there is no async storage data', async () => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
@@ -443,75 +450,78 @@ describe('Custom store by using config parameter', () => {
     return mainPromise;
   });
 
-  it('should initialize the store with the async storage data where there is async storage data', async () => {
-    const initialState = getInitialState();
-    const { fakeAsyncStorage } = getFakeAsyncStorage();
-    const onStateChangedSpy = jest.fn();
-    const onInitSpy = jest.fn();
+  $it(
+    'should initialize the store with the async storage data where there is async storage data',
+    async () => {
+      const initialState = getInitialState();
+      const { fakeAsyncStorage } = getFakeAsyncStorage();
+      const onStateChangedSpy = jest.fn();
+      const onInitSpy = jest.fn();
 
-    const { promise: mainPromise, ...tools } = createDecoupledPromise();
+      const { promise: mainPromise, ...tools } = createDecoupledPromise();
 
-    const storedMap = new Map(initialState);
-    storedMap.set(3, { name: 'jane' });
+      const storedMap = new Map(initialState);
+      storedMap.set(3, { name: 'jane' });
 
-    fakeAsyncStorage.setItem('items', formatToStore(storedMap));
+      fakeAsyncStorage.setItem('items', formatToStore(storedMap));
 
-    setTimeout(async () => {
-      let store!: GlobalStore<any, any, any>;
+      setTimeout(async () => {
+        let store!: GlobalStore<any, any, any>;
 
-      await new CancelablePromise<void>((resolve) => {
-        store = new GlobalStore(initialState, {
-          metadata: {
-            isAsyncStorageReady: false,
-          },
-          callbacks: {
-            onInit: async (parameters) => {
-              onInitSpy();
+        await new CancelablePromise<void>((resolve) => {
+          store = new GlobalStore(initialState, {
+            metadata: {
+              isAsyncStorageReady: false,
+            },
+            callbacks: {
+              onInit: async (parameters) => {
+                onInitSpy();
 
-              const { setMetadata, setState } = parameters;
+                const { setMetadata, setState } = parameters;
 
-              const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
+                const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
 
-              setMetadata({
-                // @ts-ignore
-                isAsyncStorageReady: true,
-              });
+                setMetadata({
+                  // @ts-ignore
+                  isAsyncStorageReady: true,
+                });
 
-              if (!stored) {
+                if (!stored) {
+                  resolve();
+
+                  return;
+                }
+
+                const items = formatFromStore(JSON.parse(stored)) as Map<number, { name: string }>;
+
+                setState(items);
                 resolve();
+              },
+              onStateChanged: ({ getState }) => {
+                onStateChangedSpy();
 
-                return;
-              }
+                const newState = getState();
 
-              const items = formatFromStore(JSON.parse(stored)) as Map<number, { name: string }>;
-
-              setState(items);
-              resolve();
+                fakeAsyncStorage.setItem('items', formatToStore(newState));
+              },
             },
-            onStateChanged: ({ getState }) => {
-              onStateChangedSpy();
-
-              const newState = getState();
-
-              fakeAsyncStorage.setItem('items', formatToStore(newState));
-            },
-          },
+          });
         });
-      });
 
-      expect(onInitSpy).toHaveBeenCalledTimes(1);
-      expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
-      expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
+        expect(onInitSpy).toHaveBeenCalledTimes(1);
+        expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
+        expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
 
-      expect(store.getState()).toEqual(storedMap);
+        expect(store.getState()).toEqual(storedMap);
 
-      tools.resolve();
-    }, 0);
+        tools.resolve();
+      }, 0);
 
-    return mainPromise;
-  });
+      return mainPromise;
+    },
+  );
 
-  it('should be able to update the store async storage', async () => {
+  $it('should be able to update the store async storage', async ({ renderHook }) => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
@@ -586,7 +596,7 @@ describe('Custom store by using config parameter', () => {
 });
 
 describe('GlobalStore Accessing custom actions from other actions', () => {
-  it('should be able to access custom actions from other actions', () => {
+  $it('should be able to access custom actions from other actions', () => {
     expect.assertions(8);
 
     const logSpy = jest.fn();

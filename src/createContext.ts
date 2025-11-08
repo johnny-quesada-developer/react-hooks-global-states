@@ -21,6 +21,7 @@ import type {
   SelectHook,
   ObservableFragment,
   StateApi,
+  SubscriberParameters,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';

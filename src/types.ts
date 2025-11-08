@@ -434,7 +434,7 @@ export type SubscriberParameters = {
   /**
    * Uses a function to avoid losing the reference when the subscription is created
    */
-  getConfig: () => UseHookOptions<any> | SubscribeCallbackConfig<any> | undefined;
+  options: UseHookOptions<any> | SubscribeCallbackConfig<any> | undefined;
 
   currentState: unknown;
 
