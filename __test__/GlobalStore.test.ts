@@ -242,7 +242,7 @@ describe('GlobalStore with configuration callbacks', () => {
   $it('should execute onSubscribed callback every time a subscriber is added', ({ renderHook, strict }) => {
     // expect.assertions(18);
 
-    let onSubscribedSpy = jest.fn();
+    const onSubscribedSpy = jest.fn();
 
     const store = new GlobalStore(
       { count: 0 },
@@ -397,6 +397,7 @@ describe('Custom store by using config parameter', () => {
 
     const { promise: mainPromise, ...tools } = createDecoupledPromise();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let store: GlobalStore<any, any, any>;
 
     setTimeout(async () => {
@@ -466,6 +467,7 @@ describe('Custom store by using config parameter', () => {
       fakeAsyncStorage.setItem('items', formatToStore(storedMap));
 
       setTimeout(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let store!: GlobalStore<any, any, any>;
 
         await new CancelablePromise<void>((resolve) => {
@@ -482,7 +484,6 @@ describe('Custom store by using config parameter', () => {
                 const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
 
                 setMetadata({
-                  // @ts-ignore
                   isAsyncStorageReady: true,
                 });
 
@@ -529,6 +530,7 @@ describe('Custom store by using config parameter', () => {
     const { promise: onStateChangedPromise, ...toolsOnStateChangedPromise } = createDecoupledPromise();
 
     setTimeout(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type
       let store!: GlobalStore<any, any, {}>;
 
       await new CancelablePromise<void>((resolve) => {

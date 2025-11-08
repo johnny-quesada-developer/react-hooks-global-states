@@ -99,11 +99,11 @@ interface CreateGlobalState {
   <
     State,
     Metadata extends BaseMetadata,
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
       : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
-    StateDispatch = React.Dispatch<React.SetStateAction<State>>,
   >(
     state: State,
     args: {
@@ -192,6 +192,7 @@ export const createGlobalState = ((...[state, args]: ConstructorParameters<typeo
  * type CounterActions = InferActionsType<typeof useCounter>;
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook['actions']>['1'];
 
 export default createGlobalState;

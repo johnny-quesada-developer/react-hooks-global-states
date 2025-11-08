@@ -13,7 +13,8 @@ describe('createGlobalState', () => {
    * should pass down the proper store tools to the actions
    */
   $it('should pass down the proper store tools to the actions', () => {
-    let storeTools!: StoreTools<any, any, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let storeTools!: StoreTools<number, any, any>;
 
     const store = createGlobalState(0, {
       actions: {
@@ -34,7 +35,22 @@ describe('createGlobalState', () => {
     expect(storeTools.setMetadata).toBeInstanceOf(Function);
     expect(storeTools.actions).toBeDefined();
     expect(storeTools.subscribe).toBeInstanceOf(Function);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((storeTools as any).use).not.toBeDefined();
+
+    expect(store.actions).toBe(storeTools.actions);
+    expect(store.createObservable).toBeInstanceOf(Function);
+    expect(store.createSelectorHook).toBeInstanceOf(Function);
+    expect(store.dispose).toBeInstanceOf(Function);
+    expect(store.getMetadata).toBeInstanceOf(Function);
+    expect(store.getState).toBeInstanceOf(Function);
+    expect(store.select).toBeInstanceOf(Function);
+    expect(store.setMetadata).toBeInstanceOf(Function);
+    // should not expose setState directly when using actions
+    expect(store.setState).not.toBeInstanceOf(Function);
+    expect(store.subscribe).toBeInstanceOf(Function);
+    expect(store.use).toBeDefined();
+    expect(store.subscribers).toBeInstanceOf(Set);
   });
 
   /**
@@ -369,7 +385,8 @@ describe('with configuration callbacks', () => {
       expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
       const { result } = renderHook(() => useCount());
-      let [state, setState, metadata] = result.current;
+      let [state] = result.current;
+      const [, setState, metadata] = result.current;
 
       expect(state).toEqual(0);
       expect(setState).toBeInstanceOf(Function);
@@ -690,7 +707,7 @@ describe('custom global hooks', () => {
 
     const { result, rerender } = renderHook(() => useCount());
 
-    let [state, actions] = result.current;
+    const [state, actions] = result.current;
 
     expect(state).toEqual(1);
     expect(logSpy).toHaveBeenCalledTimes(0);
@@ -757,7 +774,7 @@ describe('custom global hooks', () => {
       c: [1, 2, { a: 1 }],
     });
 
-    const selector = jest.fn(({ a, c }: { a: number; c: any[] }) => ({
+    const selector = jest.fn(({ a, c }: { a: number; c: unknown[] }) => ({
       a,
       c,
     }));
@@ -964,8 +981,8 @@ describe('createObservable', () => {
       } as const,
     });
 
-    let { result } = renderHook(() => useCount());
-    let [state, actions] = result.current;
+    const { result } = renderHook(() => useCount());
+    const [state, actions] = result.current;
 
     expect(state).toEqual(1);
     expect(logSpy).toHaveBeenCalledTimes(0);
@@ -1007,7 +1024,7 @@ describe('createSelectorHook', () => {
     const useCountValuePlus3 = useCountValuePlus2.createSelectorHook((state) => state + 2);
 
     const { result: useCountValueResult } = renderHook(() => useCountNumber());
-    let useCountNumberValue = useCountValueResult.current;
+    const useCountNumberValue = useCountValueResult.current;
 
     // hook return the correct value
     expect(useCountNumberValue).toEqual(1);

@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyFunction = (...args: any[]) => any;
 
 /**
@@ -157,6 +158,13 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
    * @description Disposes the global state instance, cleaning up all resources and subscriptions.
    */
   dispose: () => void;
+
+  /**
+   * @deprecated
+   * @description Useful for debugging purposes, exposes the current subscribers of the store
+   * You'll probably not need to use this in your application
+   */
+  subscribers: Set<SubscriberParameters>;
 };
 
 /**
@@ -164,7 +172,7 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
  */
 export type ReadonlyStateApi<State, StateMutator, Metadata extends BaseMetadata> = Pick<
   StateApi<State, StateMutator, Metadata>,
-  'dispose' | 'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable'
+  'dispose' | 'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable' | 'subscribers'
 >;
 
 /**
@@ -173,7 +181,7 @@ export type ReadonlyStateApi<State, StateMutator, Metadata extends BaseMetadata>
 export type ObservableFragment<State, StateMutator, Metadata extends BaseMetadata> = SubscribeToState<State> &
   Pick<
     StateApi<State, StateMutator, Metadata>,
-    'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable' | 'dispose'
+    'getState' | 'subscribe' | 'createSelectorHook' | 'createObservable' | 'dispose' | 'subscribers'
   >;
 
 export interface StateHook<State, StateMutator, Metadata extends BaseMetadata>
@@ -274,14 +282,17 @@ export type StoreTools<
 export interface ActionCollectionConfig<
   State,
   Metadata extends BaseMetadata,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ThisAPI = Record<string, (...parameters: any[]) => unknown>,
 > {
   readonly [key: string]: {
     (
       this: ThisAPI,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...parameters: any[]
     ): (
       this: ThisAPI,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       storeTools: StoreTools<State, Record<string, (...parameters: any[]) => unknown | void>, Metadata>,
     ) => unknown | void;
   };
@@ -338,6 +349,7 @@ export type GlobalStoreCallbacks<State, StateMutator, Metadata extends BaseMetad
 /**
  * @description Configuration options for the use hook
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UseHookOptions<State, TRoot = any> = {
   isEqual?: (current: State, next: State) => boolean;
   isEqualRoot?: (current: TRoot, next: TRoot) => boolean;
@@ -429,11 +441,13 @@ export type SelectorCallback<State, TDerivate> = (state: State) => TDerivate;
  * @description Parameters for the store subscription
  */
 export type SubscriberParameters = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   selector: SelectorCallback<any, any> | undefined;
 
   /**
    * Uses a function to avoid losing the reference when the subscription is created
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: UseHookOptions<any> | SubscribeCallbackConfig<any> | undefined;
 
   currentState: unknown;

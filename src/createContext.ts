@@ -7,6 +7,7 @@ import React, {
   useEffect,
   Context as ReactContext,
   useRef,
+  useDebugValue,
 } from 'react';
 import { createObservable, createSelectorHook as createSelectorHookBase, GlobalStore } from './GlobalStore';
 import type {
@@ -15,13 +16,12 @@ import type {
   GlobalStoreCallbacks,
   UseHookOptions,
   AnyFunction,
-  StoreTools as StoreToolsBase,
+  StoreTools,
   SelectorCallback,
   ReadonlyStateApi,
   SelectHook,
   ObservableFragment,
   StateApi,
-  SubscriberParameters,
 } from './types';
 import { isFunction } from 'json-storage-formatter/isFunction';
 import { isNil } from 'json-storage-formatter/isNil';
@@ -45,16 +45,19 @@ export type ContextActionCollectionResult<
 export interface ContextActionCollectionConfig<
   State,
   Metadata extends BaseMetadata,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ThisAPI = Record<string, (...parameters: any[]) => unknown>,
 > {
   readonly [key: string]: {
     (
       this: ThisAPI,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...parameters: any[]
     ): (
       this: ThisAPI,
       storeTools: ContextStoreTools<
         State,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Record<string, (...parameters: any[]) => unknown | void>,
         Metadata
       >,
@@ -107,7 +110,7 @@ export type ContextStoreToolsExtensions<State, StateMutator, Metadata extends Ba
 /**
  * @description Store tools specialized for context usage
  */
-export type ContextStoreTools<State, StateMutator, Metadata extends BaseMetadata> = StoreToolsBase<
+export type ContextStoreTools<State, StateMutator, Metadata extends BaseMetadata> = StoreTools<
   State,
   StateMutator,
   Metadata
@@ -472,6 +475,7 @@ interface CreateContext {
   <
     State,
     Metadata extends BaseMetadata,
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     ActionsConfig extends ContextActionCollectionConfig<State, Metadata> | null | {},
     StateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
@@ -648,9 +652,7 @@ interface CreateContext {
  */
 export const createContext = ((
   valueArg: unknown | (() => unknown),
-  {
-    ...args
-  }: {
+  contextArgs: {
     name?: string;
     metadata?: BaseMetadata | (() => BaseMetadata);
     callbacks?: GlobalStoreCallbacks<unknown, unknown, BaseMetadata> & { onUnMount?: () => void };
@@ -673,8 +675,8 @@ export const createContext = ((
       })();
 
       const store = new GlobalStore<unknown, BaseMetadata, unknown, unknown>(state, {
-        ...args,
-        metadata: (isFunction(args.metadata) ? args.metadata() : args.metadata) ?? {},
+        ...contextArgs,
+        metadata: (isFunction(contextArgs.metadata) ? contextArgs.metadata() : contextArgs.metadata) ?? {},
       });
 
       const storeToolsExtensions: ContextStoreToolsExtensions<unknown, unknown, BaseMetadata> = {
@@ -709,7 +711,8 @@ export const createContext = ((
   const providerExtensions: ContextProviderExtensions<unknown, unknown, BaseMetadata> = {
     makeProviderWrapper: (options) => {
       const context = {
-        current: undefined as unknown as ContextStoreTools<any, any, any>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        current: undefined as unknown as ContextStoreTools<unknown, any, any>,
       };
 
       const wrapper = ({ children }: PropsWithChildren) => {
@@ -731,6 +734,8 @@ export const createContext = ((
   };
 
   const use = ((...args: Parameters<ContextHook<unknown, unknown, BaseMetadata>>) => {
+    useDebugValue(`context-use: ${contextArgs.name}`);
+
     const hook = useContext(Context);
     if (!hook) throw new Error('use hook must be used within a ContextProvider');
 
@@ -738,6 +743,8 @@ export const createContext = ((
   }) as ContextHook<unknown, unknown, BaseMetadata> & ContextPublicApi<unknown, unknown, BaseMetadata>;
 
   const api = () => {
+    useDebugValue(`context-api: ${contextArgs.name}`);
+
     const hook = useContext(Context);
     if (!hook) throw new Error('api hook must be used within a ContextProvider');
 
@@ -747,6 +754,8 @@ export const createContext = ((
   };
 
   const observable: ContextPublicApi<unknown, unknown, BaseMetadata>['observable'] = (...args) => {
+    useDebugValue(`context-observable: ${contextArgs.name}`);
+
     const context = api();
 
     const props = useRef(args);
@@ -761,18 +770,18 @@ export const createContext = ((
         {
           // we call the equality in this way to execute always the latest version of the functions
           // check if the root state changed
-          isEqualRoot: !Boolean(props.current[1]?.isEqualRoot)
+          isEqualRoot: !props.current[1]?.isEqualRoot
             ? undefined
             : (current, next) => {
-                const isEqualRoot = props.current[1]?.isEqualRoot!;
+                const isEqualRoot = props.current[1]!.isEqualRoot!;
                 return Boolean(isEqualRoot(current, next));
               },
 
           // check if the selection changed
-          isEqual: !Boolean(props.current[1]?.isEqual)
+          isEqual: !props.current[1]?.isEqual
             ? undefined
             : (current, next) => {
-                const isEqual = props.current[1]?.isEqual!;
+                const isEqual = props.current[1]!.isEqual!;
                 return Boolean(isEqual(current, next));
               },
 
@@ -815,6 +824,7 @@ export const createContext = ((
  * ContextApi<number, React.Dispatch<React.SetStateAction<number>>, BaseMetadata>;
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type InferContextApi<Context extends ReactContext<ContextHook<any, any, any> | null>> =
   NonNullable<React.ContextType<Context>> extends ContextHook<infer State, infer StateMutator, infer Metadata>
     ? ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
@@ -823,12 +833,19 @@ export type InferContextApi<Context extends ReactContext<ContextHook<any, any, a
 function createSelectorHook(
   this: Pick<ReadonlyContextPublicApi<unknown, unknown, BaseMetadata>, 'api'>,
   selector: SelectorCallback<unknown, unknown>,
-  hookConfig?: UseHookOptions<unknown, unknown>,
+  hookConfig?: UseHookOptions<unknown, unknown> & {
+    /**
+     * @description Name of the selector for devtools
+     */
+    name?: string;
+  },
 ): ReadonlyContextHook<unknown, unknown, BaseMetadata> {
   type SelectorArgs = Parameters<
     ReturnType<ContextPublicApi<unknown, unknown, BaseMetadata>['createSelectorHook']>
   >;
   const use = ((...selectorArgs: SelectorArgs) => {
+    useDebugValue(`context-selector: ${hookConfig?.name}`);
+
     const context = this.api();
 
     return useMemo(() => {
@@ -837,6 +854,8 @@ function createSelectorHook(
   }) as ReadonlyContextHook<unknown, unknown, BaseMetadata>;
 
   const api = (): ReadonlyStateApi<unknown, unknown, BaseMetadata> => {
+    useDebugValue(`context-selector-api: ${hookConfig?.name}`);
+
     const context = this.api();
 
     return useMemo(() => {

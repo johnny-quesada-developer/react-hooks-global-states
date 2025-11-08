@@ -6,6 +6,7 @@ import { ContextStoreTools } from '../src/createContext';
 
 describe('createContext', () => {
   it('should pass down the proper store tools to the actions', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let storeTools!: ContextStoreTools<any, any, any>;
 
     const store = createContext(0, {
@@ -99,7 +100,8 @@ describe('createContext', () => {
     );
 
     const { result, rerender } = renderHook(() => store.use(), { wrapper });
-    let [state, setState, metadata] = result.current;
+    let [state] = result.current;
+    const [, setState, metadata] = result.current;
 
     expect(state).toEqual({ count: 0 });
     expect(metadata).toEqual({ name: 'TestContext' });
@@ -126,7 +128,19 @@ describe('createContext', () => {
 
     result.current.setState({ count: 5 });
 
-    expect(result.current.getState()).toEqual({ count: 5 });
+    // check api methods
+    expect(result.current.actions).toBeNull();
+    expect(result.current.createObservable).toBeInstanceOf(Function);
+    expect(result.current.createSelectorHook).toBeInstanceOf(Function);
+    expect(result.current.dispose).toBeInstanceOf(Function);
+    expect(result.current.getMetadata).toBeInstanceOf(Function);
+    expect(result.current.getState).toBeInstanceOf(Function);
+    expect(result.current.select).toBeInstanceOf(Function);
+    expect(result.current.setMetadata).toBeInstanceOf(Function);
+    expect(result.current.setState).toBeInstanceOf(Function);
+    expect(result.current.subscribe).toBeInstanceOf(Function);
+    expect(result.current.use).toBeDefined();
+    expect(result.current.subscribers).toBeInstanceOf(Set);
 
     rerender();
   });
@@ -450,7 +464,7 @@ describe('createContext', () => {
       wrapper: store.Provider,
     });
 
-    let [state] = result.current;
+    const [state] = result.current;
 
     expect(state).toEqual(3);
   });

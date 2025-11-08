@@ -1,4 +1,4 @@
-import { useMemo, useRef, useSyncExternalStore } from 'react';
+import { useDebugValue, useMemo, useRef, useSyncExternalStore } from 'react';
 import type {
   ActionCollectionConfig,
   GlobalStoreCallbacks,
@@ -62,6 +62,11 @@ export class GlobalStore<
    */
   public use!: StateHook<State, PublicStateMutator, Metadata>;
 
+  /**
+   * @deprecated
+   * @description Set of subscribers that are listening to state changes
+   * Useful for debugging purposes... You'll probably not need to use this in your application
+   */
   public subscribers = new Set<SubscriberParameters>();
 
   public state: State;
@@ -323,6 +328,8 @@ export class GlobalStore<
       selector?: <Selection>(state: State) => Selection,
       args: UseHookOptions<unknown, State> | unknown[] = [],
     ) => {
+      useDebugValue(`global-state: ${this._name}`);
+
       const options = isArray(args) ? { dependencies: args } : (args ?? {});
 
       const subscriptionRef = useRef<SubscriberParameters>(null!);
@@ -404,6 +411,9 @@ export class GlobalStore<
       setMetadata,
       setState,
       subscribe: this.subscribe.bind(this),
+
+      // useful for debugging purposes
+      subscribers: this.subscribers,
 
       // sugar syntax
       use,
@@ -648,7 +658,7 @@ export function createObservable<RootState, PublicStateMutator, Metadata extends
     Metadata
   >;
 
-  const extensions: ReadonlyStateApi<unknown, PublicStateMutator, any> = {
+  const extensions: ReadonlyStateApi<unknown, PublicStateMutator, BaseMetadata> = {
     getState: childStore.getState.bind(childStore),
     subscribe: childStore.subscribe.bind(childStore),
     createSelectorHook: createSelectorHook.bind(observable) as typeof extensions.createSelectorHook,
@@ -657,6 +667,7 @@ export function createObservable<RootState, PublicStateMutator, Metadata extends
       unsubscribeFromRootState();
       childStore.dispose();
     },
+    subscribers: childStore.subscribers,
   };
 
   Object.assign(observable, extensions);
@@ -722,17 +733,19 @@ export function createSelectorHook<RootState, PublicStateMutator, Metadata exten
     subscribe: derivedStore.subscribe.bind(derivedStore),
 
     createSelectorHook: createSelectorHook.bind(
-      selectorHook as ReadonlyStateApi<any, any, any>,
+      selectorHook as ReadonlyStateApi<unknown, unknown, BaseMetadata>,
     ) as typeof extensions.createSelectorHook,
 
     createObservable: createObservable.bind(
-      selectorHook as ReadonlyStateApi<any, any, any>,
+      selectorHook as ReadonlyStateApi<unknown, unknown, BaseMetadata>,
     ) as typeof extensions.createObservable,
 
     dispose: () => {
       unsubscribeFromRootState();
       derivedStore.dispose();
     },
+
+    subscribers: derivedStore.subscribers,
   };
 
   Object.assign(selectorHook, extensions);

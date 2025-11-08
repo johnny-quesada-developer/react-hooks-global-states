@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
 
@@ -13,7 +14,7 @@ const individualEntries = {
   uniqueId: './src/uniqueId.ts',
 };
 
-const getExternalsForEntries = () => {
+const generateExternalEntryMappings = () => {
   const keys = Object.keys(individualEntries);
   return keys.reduce((acc, key) => {
     acc[`./${key}`] = `./${key}.js`;
@@ -44,7 +45,7 @@ module.exports = {
     'json-storage-formatter/formatFromStore': 'json-storage-formatter/formatFromStore',
     'json-storage-formatter/formatToStore': 'json-storage-formatter/formatToStore',
 
-    ...getExternalsForEntries(),
+    ...generateExternalEntryMappings(),
   },
   output: {
     path: path.resolve(__dirname),
