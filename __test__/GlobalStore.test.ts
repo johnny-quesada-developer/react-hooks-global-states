@@ -98,16 +98,16 @@ describe('GlobalStore Basic', () => {
     renderHook(() => store.use());
 
     const [subscription1, subscription2] = store.subscribers;
-    jest.spyOn(subscription1, 'callback');
-    jest.spyOn(subscription2, 'callback');
+    jest.spyOn(subscription1, 'onStoreChange');
+    jest.spyOn(subscription2, 'onStoreChange');
 
     act(() => {
       store.setState(stateValue2);
     });
 
     expect(store.use.getState()).toBe(stateValue2);
-    expect(subscription1.callback).toHaveBeenCalledTimes(1);
-    expect(subscription2.callback).toHaveBeenCalledTimes(1);
+    expect(subscription1.onStoreChange).toHaveBeenCalledTimes(1);
+    expect(subscription2.onStoreChange).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -151,12 +151,12 @@ describe('GlobalStore with actions', () => {
     renderHook(() => store.use());
 
     const [subscription1, subscription2] = store.subscribers;
-    jest.spyOn(subscription1, 'callback');
-    jest.spyOn(subscription2, 'callback');
+    jest.spyOn(subscription1, 'onStoreChange');
+    jest.spyOn(subscription2, 'onStoreChange');
 
     expect(store.getState()).toBe(countStoreInitialState);
-    expect(subscription1.callback).toHaveBeenCalledTimes(0);
-    expect(subscription2.callback).toHaveBeenCalledTimes(0);
+    expect(subscription1.onStoreChange).toHaveBeenCalledTimes(0);
+    expect(subscription2.onStoreChange).toHaveBeenCalledTimes(0);
   });
 
   $it('should update all subscribers of the store', ({ renderHook }) => {
@@ -166,16 +166,16 @@ describe('GlobalStore with actions', () => {
     renderHook(() => store.use());
 
     const [subscription1, subscription2] = store.subscribers;
-    jest.spyOn(subscription1, 'callback');
-    jest.spyOn(subscription2, 'callback');
+    jest.spyOn(subscription1, 'onStoreChange');
+    jest.spyOn(subscription2, 'onStoreChange');
 
     act(() => {
       store.actions.increase();
     });
 
     expect(store.getState()).toBe(2);
-    expect(subscription1.callback).toHaveBeenCalledTimes(1);
-    expect(subscription2.callback).toHaveBeenCalledTimes(1);
+    expect(subscription1.onStoreChange).toHaveBeenCalledTimes(1);
+    expect(subscription2.onStoreChange).toHaveBeenCalledTimes(1);
   });
 });
 

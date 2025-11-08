@@ -444,19 +444,16 @@ export type SubscriberParameters = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   selector: SelectorCallback<any, any> | undefined;
 
-  /**
-   * Uses a function to avoid losing the reference when the subscription is created
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options: UseHookOptions<any> | SubscribeCallbackConfig<any> | undefined;
-
   currentState: unknown;
 
   /**
    * @description notification callback
    */
-  callback: SubscriptionCallback | (() => void);
-};
+  onStoreChange: SubscriptionCallback | (() => void);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} & UseHookOptions<any> &
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  SubscribeCallbackConfig<any>;
 
 /**
  * @description

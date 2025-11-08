@@ -164,20 +164,23 @@ export class GlobalStore<
   ): {
     didUpdate: boolean;
   } => {
-    const { selector, callback, currentState: currentChildState, options } = subscription;
+    const {
+      selector,
+      onStoreChange: callback,
+      currentState: currentChildState,
+      isEqualRoot = (a, b) => a === b,
+      isEqual = (a, b) => a === b,
+    } = subscription;
 
     // compare the root state, there should not be a re-render if the root state is the same
-    if (
-      !args.forceUpdate &&
-      (options?.isEqualRoot ?? ((a, b) => a === b))(args.currentState, args.newState)
-    ) {
+    if (!args.forceUpdate && isEqualRoot(args.currentState, args.newState)) {
       return { didUpdate: false };
     }
 
     const newChildState = selector ? selector(args.newState) : args.newState;
 
     // compare the state of the selected part of the state, there should not be a re-render if the state is the same
-    if (!args.forceUpdate && (options?.isEqual ?? ((a, b) => a === b))(currentChildState, newChildState)) {
+    if (!args.forceUpdate && isEqual(currentChildState, newChildState)) {
       return { didUpdate: false };
     }
 
@@ -278,9 +281,9 @@ export class GlobalStore<
 
     const subscription: SubscriberParameters = {
       selector,
-      options,
       currentState: initialState,
-      callback: ({ state }: { state: unknown }) => callback(state),
+      onStoreChange: ({ state }: { state: unknown }) => callback(state),
+      ...options,
     };
 
     this.subscribeCallback(subscription);
@@ -343,16 +346,16 @@ export class GlobalStore<
         if (subscriptionRef.current) return subscriptionRef.current;
 
         return {
-          options,
           selector: selectorWrapper,
           currentState: selectorWrapper(this.state),
-          callback: () => {
+          onStoreChange: () => {
             throw new Error('Callback not set');
           },
+          ...options,
         };
       })();
 
-      const currentDependencies = subscriptionRef.current.options?.dependencies;
+      const currentDependencies = subscriptionRef.current.dependencies;
       const newDependencies = options?.dependencies;
 
       // keep the hook props updated
@@ -363,7 +366,7 @@ export class GlobalStore<
 
       const { subscribe, getSnapshot, getServerSnapshot } = useMemo(() => {
         const subscribe = (onStoreChange: () => void) => {
-          subscriptionRef.current.callback = onStoreChange;
+          subscriptionRef.current.onStoreChange = onStoreChange;
 
           return this.subscribeCallback(subscriptionRef.current);
         };
