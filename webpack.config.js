@@ -32,7 +32,6 @@ module.exports = {
     react: 'react',
 
     'json-storage-formatter': 'json-storage-formatter',
-    'json-storage-formatter/clone': 'json-storage-formatter/clone',
     'json-storage-formatter/isNil': 'json-storage-formatter/isNil',
     'json-storage-formatter/isNumber': 'json-storage-formatter/isNumber',
     'json-storage-formatter/isBoolean': 'json-storage-formatter/isBoolean',

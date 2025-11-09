@@ -22,12 +22,12 @@ import type {
   SelectHook,
   SubscribeToState,
 } from './types';
-import { isFunction } from 'json-storage-formatter/isFunction';
-import { isNil } from 'json-storage-formatter/isNil';
-import { isRecord } from './isRecord';
-import { isArray, shallowCompare } from './shallowCompare';
-import { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
-import { uniqueId } from './uniqueId';
+import isFunction from 'json-storage-formatter/isFunction';
+import isNil from 'json-storage-formatter/isNil';
+import isRecord from './isRecord';
+import shallowCompare, { isArray } from './shallowCompare';
+import throwWrongKeyOnActionCollectionConfig from './throwWrongKeyOnActionCollectionConfig';
+import uniqueId from './uniqueId';
 import debugProps from './GlobalStore.debugProps';
 
 /**
@@ -258,7 +258,7 @@ export class GlobalStore<
   };
 
   /**
-   * Subscribe to the state changes
+   * Subscribe an individual callback to state changes
    */
   public subscribe = (<TDerivate>(
     ...[param1, param2, param3]: [
@@ -293,6 +293,9 @@ export class GlobalStore<
     };
   }) as SubscribeToState<State>;
 
+  /**
+   * Adds a subscription object to the subscribers set and returns the unsubscribe function
+   */
   protected subscribeCallback = (subscription: SubscriberParameters) => {
     this.executeOnSubscribed(subscription);
 
@@ -307,8 +310,6 @@ export class GlobalStore<
     subscription: SubscriberParameters,
     values: Partial<SubscriberParameters>,
   ): void => {
-    if (!isRecord(subscription)) return;
-
     Object.assign(subscription, values);
   };
 

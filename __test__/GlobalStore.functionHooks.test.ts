@@ -3,16 +3,16 @@ import { createDecoupledPromise } from 'easy-cancelable-promise';
 import { formatFromStore, formatToStore } from 'json-storage-formatter';
 import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act } from '@testing-library/react';
-import $it from './$it';
+import it from './$it';
 
-import { createGlobalState, GlobalStore, StoreTools } from '..';
-// import { createGlobalState, StoreTools } from '../src';
+// import { createGlobalState, GlobalStore, StoreTools } from '..';
+import { createGlobalState, GlobalStore, type StoreTools } from '../src';
 
 describe('createGlobalState', () => {
   /**
    * should pass down the proper store tools to the actions
    */
-  $it('should pass down the proper store tools to the actions', () => {
+  it('should pass down the proper store tools to the actions', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let storeTools!: StoreTools<number, any, any>;
 
@@ -56,7 +56,7 @@ describe('createGlobalState', () => {
   /**
    * should be able to create a new instance with state
    */
-  $it(`should be able to create a new instance with state`, ({ renderHook, strict }) => {
+  it(`should be able to create a new instance with state`, ({ renderHook, strict }) => {
     const stateValue = 'test';
 
     const useValue = createGlobalState(stateValue, {
@@ -102,7 +102,7 @@ describe('createGlobalState', () => {
   /**
    * should be able to use sugar syntax hook.use and hook.select
    */
-  $it(`should be able to use sugar syntax hook.use`, ({ renderHook }) => {
+  it(`should be able to use sugar syntax hook.use`, ({ renderHook }) => {
     const counter = createGlobalState(0);
 
     const { result } = renderHook(() => counter.use());
@@ -113,7 +113,7 @@ describe('createGlobalState', () => {
     expect(metadata).toEqual({});
   });
 
-  $it(`should be able to use sugar syntax hook.select`, ({ renderHook }) => {
+  it(`should be able to use sugar syntax hook.select`, ({ renderHook }) => {
     const counter = createGlobalState(0);
 
     const { result } = renderHook(() => counter.select((state) => state + 10));
@@ -121,27 +121,26 @@ describe('createGlobalState', () => {
     expect(result.current).toBe(10);
   });
 
-  $it(
-    'should correctly subscribe to state changes with subscribe callback on initialization',
-    ({ renderHook }) => {
-      const subscribeSpy = jest.fn();
+  it('should correctly subscribe to state changes with subscribe callback on initialization', ({
+    renderHook,
+  }) => {
+    const subscribeSpy = jest.fn();
 
-      const counter = createGlobalState(0, {
-        callbacks: {
-          onInit: ({ subscribe }) => {
-            subscribe(subscribeSpy);
-          },
+    const counter = createGlobalState(0, {
+      callbacks: {
+        onInit: ({ subscribe }) => {
+          subscribe(subscribeSpy);
         },
-      });
+      },
+    });
 
-      const { result } = renderHook(() => counter());
+    const { result } = renderHook(() => counter());
 
-      expect(result.current).toEqual([0, expect.any(Function), expect.any(Object)]);
-      expect(subscribeSpy).toHaveBeenCalledTimes(1);
-    },
-  );
+    expect(result.current).toEqual([0, expect.any(Function), expect.any(Object)]);
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+  });
 
-  $it('should unsubscribe on unmount and not re-render after state changes', ({ renderHook, strict }) => {
+  it('should unsubscribe on unmount and not re-render after state changes', ({ renderHook, strict }) => {
     const onChangesSpy = jest.fn();
 
     const store = new GlobalStore(0, {
@@ -206,89 +205,88 @@ describe('createGlobalState', () => {
 });
 
 describe('with actions', () => {
-  $it(
-    `should be able to create a new instance with state and actions, setter should be and object`,
-    ({ renderHook }) => {
-      const useCount = createGlobalState(1, {
-        metadata: {
-          modificationsCounter: 0,
-        },
-        actions: {
-          logModification() {
-            return ({ setMetadata }) => {
-              setMetadata(({ modificationsCounter, ...metadata }) => ({
-                ...metadata,
-                modificationsCounter: modificationsCounter + 1,
-              }));
-            };
-          },
-
-          increase(increase: number = 1) {
-            return ({ setState, getState }) => {
-              setState((state) => state + increase);
-
-              this.logModification();
-
-              return getState();
-            };
-          },
-
-          decrease(decrease: number = 1) {
-            return ({ setState, getState }) => {
-              setState((state) => state - decrease);
-
-              this.logModification();
-
-              return getState();
-            };
-          },
-        },
-      });
-
-      const { result } = renderHook(() => useCount());
-      let [state, actions, metadata] = result.current;
-
-      expect(useCount).toBeInstanceOf(Function);
-      expect(metadata.modificationsCounter).toBe(0);
-
-      expect(actions).toBeInstanceOf(Object);
-      expect(actions.decrease).toBeInstanceOf(Function);
-      expect(actions.increase).toBeInstanceOf(Function);
-
-      expect(state).toBe(1);
-      expect(metadata).toEqual({
+  it(`should be able to create a new instance with state and actions, setter should be and object`, ({
+    renderHook,
+  }) => {
+    const useCount = createGlobalState(1, {
+      metadata: {
         modificationsCounter: 0,
-      });
+      },
+      actions: {
+        logModification() {
+          return ({ setMetadata }) => {
+            setMetadata(({ modificationsCounter, ...metadata }) => ({
+              ...metadata,
+              modificationsCounter: modificationsCounter + 1,
+            }));
+          };
+        },
 
-      act(() => {
-        actions.increase();
-        actions.increase(2);
-      });
+        increase(increase: number = 1) {
+          return ({ setState, getState }) => {
+            setState((state) => state + increase);
 
-      [state, actions, metadata] = result.current;
+            this.logModification();
 
-      expect(state).toBe(4);
-      expect(metadata).toEqual({
-        modificationsCounter: 2,
-      });
+            return getState();
+          };
+        },
 
-      act(() => {
-        actions.decrease();
-        actions.decrease(2);
-      });
+        decrease(decrease: number = 1) {
+          return ({ setState, getState }) => {
+            setState((state) => state - decrease);
 
-      [state, actions, metadata] = result.current;
+            this.logModification();
 
-      expect(state).toBe(1);
-      expect(metadata).toEqual({
-        modificationsCounter: 4,
-      });
-    },
-  );
+            return getState();
+          };
+        },
+      },
+    });
+
+    const { result } = renderHook(() => useCount());
+    let [state, actions, metadata] = result.current;
+
+    expect(useCount).toBeInstanceOf(Function);
+    expect(metadata.modificationsCounter).toBe(0);
+
+    expect(actions).toBeInstanceOf(Object);
+    expect(actions.decrease).toBeInstanceOf(Function);
+    expect(actions.increase).toBeInstanceOf(Function);
+
+    expect(state).toBe(1);
+    expect(metadata).toEqual({
+      modificationsCounter: 0,
+    });
+
+    act(() => {
+      actions.increase();
+      actions.increase(2);
+    });
+
+    [state, actions, metadata] = result.current;
+
+    expect(state).toBe(4);
+    expect(metadata).toEqual({
+      modificationsCounter: 2,
+    });
+
+    act(() => {
+      actions.decrease();
+      actions.decrease(2);
+    });
+
+    [state, actions, metadata] = result.current;
+
+    expect(state).toBe(1);
+    expect(metadata).toEqual({
+      modificationsCounter: 4,
+    });
+  });
 });
 
 describe('with configuration callbacks', () => {
-  $it('should execute onInit callback', ({ renderHook }) => {
+  it('should execute onInit callback', ({ renderHook }) => {
     const onInitSpy = jest.fn(({ setMetadata }) => {
       setMetadata({
         test: true,
@@ -313,7 +311,7 @@ describe('with configuration callbacks', () => {
     });
   });
 
-  $it(`should execute onSubscribed callback every time a subscriber is added`, ({ renderHook, strict }) => {
+  it(`should execute onSubscribed callback every time a subscriber is added`, ({ renderHook, strict }) => {
     const onSubscribedSpy = jest.fn();
 
     const useCount = createGlobalState(
@@ -341,7 +339,7 @@ describe('with configuration callbacks', () => {
     expect(state).toBe(state2);
   });
 
-  $it(`should execute onStateChanged callback every time the state is changed`, ({ renderHook }) => {
+  it(`should execute onStateChanged callback every time the state is changed`, ({ renderHook }) => {
     const onStateChangedSpy = jest.fn();
 
     const useCount = createGlobalState(
@@ -371,80 +369,78 @@ describe('with configuration callbacks', () => {
     expect(onStateChangedSpy).toHaveBeenCalledTimes(2);
   });
 
-  $it(
-    'should execute computePreventStateChange callback before state is changed and continue if it returns false',
-    ({ renderHook }) => {
-      const computePreventStateChangeSpy = jest.fn(() => false); // allow state change
+  it('should execute computePreventStateChange callback before state is changed and continue if it returns false', ({
+    renderHook,
+  }) => {
+    const computePreventStateChangeSpy = jest.fn(() => false); // allow state change
 
-      const useCount = createGlobalState(0, {
-        callbacks: {
-          computePreventStateChange: computePreventStateChangeSpy,
+    const useCount = createGlobalState(0, {
+      callbacks: {
+        computePreventStateChange: computePreventStateChangeSpy,
+      },
+    });
+
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
+
+    const { result } = renderHook(() => useCount());
+    let [state] = result.current;
+    const [, setState, metadata] = result.current;
+
+    expect(state).toEqual(0);
+    expect(setState).toBeInstanceOf(Function);
+    expect(metadata).toEqual({});
+
+    act(() => {
+      setState((state) => state + 1);
+    });
+
+    [state] = result.current;
+
+    expect(state).toEqual(1);
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should execute computePreventStateChange callback before state is changed and prevent state change if it returns true', ({
+    renderHook,
+  }) => {
+    const computePreventStateChangeSpy = jest.fn();
+
+    const useCount = createGlobalState(0, {
+      callbacks: {
+        computePreventStateChange: (parameters) => {
+          computePreventStateChangeSpy();
+
+          const { setState, getMetadata, setMetadata, actions } = parameters;
+
+          expect(getMetadata()).toEqual({});
+          expect(setState).toBeInstanceOf(Function);
+          expect(setMetadata).toBeInstanceOf(Function);
+          expect(actions).toBe(null);
+
+          return true;
         },
-      });
+      },
+    });
 
-      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
 
-      const { result } = renderHook(() => useCount());
-      let [state] = result.current;
-      const [, setState, metadata] = result.current;
+    const { result } = renderHook(() => useCount());
+    let [state, setState, metadata] = result.current;
 
-      expect(state).toEqual(0);
-      expect(setState).toBeInstanceOf(Function);
-      expect(metadata).toEqual({});
+    expect(state).toEqual(0);
+    expect(setState).toBeInstanceOf(Function);
+    expect(metadata).toEqual({});
 
-      act(() => {
-        setState((state) => state + 1);
-      });
+    act(() => {
+      setState((state) => state + 1);
+    });
 
-      [state] = result.current;
+    // Should not update due to computePreventStateChange returning true
+    [state, setState, metadata] = result.current;
 
-      expect(state).toEqual(1);
-      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  $it(
-    'should execute computePreventStateChange callback before state is changed and prevent state change if it returns true',
-    ({ renderHook }) => {
-      const computePreventStateChangeSpy = jest.fn();
-
-      const useCount = createGlobalState(0, {
-        callbacks: {
-          computePreventStateChange: (parameters) => {
-            computePreventStateChangeSpy();
-
-            const { setState, getMetadata, setMetadata, actions } = parameters;
-
-            expect(getMetadata()).toEqual({});
-            expect(setState).toBeInstanceOf(Function);
-            expect(setMetadata).toBeInstanceOf(Function);
-            expect(actions).toBe(null);
-
-            return true;
-          },
-        },
-      });
-
-      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(0);
-
-      const { result } = renderHook(() => useCount());
-      let [state, setState, metadata] = result.current;
-
-      expect(state).toEqual(0);
-      expect(setState).toBeInstanceOf(Function);
-      expect(metadata).toEqual({});
-
-      act(() => {
-        setState((state) => state + 1);
-      });
-
-      // Should not update due to computePreventStateChange returning true
-      [state, setState, metadata] = result.current;
-
-      expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
-      expect(state).toEqual(0);
-    },
-  );
+    expect(computePreventStateChangeSpy).toHaveBeenCalledTimes(1);
+    expect(state).toEqual(0);
+  });
 });
 
 describe('custom global hooks', () => {
@@ -455,157 +451,140 @@ describe('custom global hooks', () => {
     ]);
   };
 
-  $it(
-    'should initialize the store with the initial state where there is no async storage data',
-    async ({ renderHook }) => {
-      const { fakeAsyncStorage } = getFakeAsyncStorage();
+  it('should initialize the store with the initial state where there is no async storage data', async ({
+    renderHook,
+  }) => {
+    const { fakeAsyncStorage } = getFakeAsyncStorage();
 
-      const { promise: mainPromise, ...tools } = createDecoupledPromise();
+    const { promise: mainPromise, ...tools } = createDecoupledPromise();
 
-      const onStateChangedSpy = jest.fn(({ getState }) => {
-        const newState = getState();
+    const onStateChangedSpy = jest.fn(({ getState }) => {
+      const newState = getState();
 
-        fakeAsyncStorage.setItem(
-          'items',
-          formatToStore(newState, {
-            stringify: true,
-          }),
-        );
+      fakeAsyncStorage.setItem('items', formatToStore(newState));
+    });
+
+    const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
+      const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
+
+      setMetadata({
+        isAsyncStorageReady: true,
       });
 
-      const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
-        const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
+      if (stored) return;
 
-        setMetadata({
-          isAsyncStorageReady: true,
-        });
+      setState((state: unknown) => state, {
+        forceUpdate: true,
+      });
 
-        if (stored) return;
+      tools.resolve();
+    });
 
-        setState((state: unknown) => state, {
+    const initialState = new Map<number, string>();
+
+    const useCount = createGlobalState(initialState, {
+      callbacks: {
+        onStateChanged: onStateChangedSpy,
+        onInit: onInitSpy,
+      },
+    });
+
+    const { result, rerender } = renderHook(() => useCount());
+
+    let [state, setState, metadata] = result.current;
+
+    expect.assertions(5);
+
+    expect(state).toEqual(initialState);
+    expect(setState).toBeInstanceOf(Function);
+    expect(metadata).toEqual({});
+
+    await mainPromise;
+
+    rerender();
+
+    [state, setState, metadata] = result.current;
+
+    expect(state).toEqual(initialState);
+    expect(metadata).toEqual({
+      isAsyncStorageReady: true,
+    });
+  });
+
+  it('should initialize the store with the async storage data where there is async storage data', async ({
+    renderHook,
+  }) => {
+    const initialState = getInitialState();
+    const { fakeAsyncStorage } = getFakeAsyncStorage();
+
+    fakeAsyncStorage.setItem('items', formatToStore(initialState));
+
+    const { promise: mainPromise, ...tools } = createDecoupledPromise();
+
+    const onStateChangedSpy = jest.fn(({ getState }) => {
+      const newState = getState();
+
+      fakeAsyncStorage.setItem('items', formatToStore(newState));
+    });
+
+    const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
+      const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
+
+      setMetadata({
+        isAsyncStorageReady: true,
+      });
+
+      if (!stored) return;
+
+      act(() => {
+        setState(formatFromStore(stored), {
           forceUpdate: true,
         });
-
-        tools.resolve();
       });
 
-      const initialState = new Map<number, string>();
+      tools.resolve();
+    });
 
-      const useCount = createGlobalState(initialState, {
-        callbacks: {
-          onStateChanged: onStateChangedSpy,
-          onInit: onInitSpy,
-        },
-      });
+    const useCount = createGlobalState(initialState, {
+      callbacks: {
+        onStateChanged: onStateChangedSpy,
+        onInit: onInitSpy,
+      },
+    });
 
-      const { result, rerender } = renderHook(() => useCount());
+    const { result } = renderHook(() => useCount());
 
-      let [state, setState, metadata] = result.current;
+    let [state, setState, metadata] = result.current;
 
-      expect.assertions(5);
+    expect(state).toEqual(initialState);
+    expect(setState).toBeInstanceOf(Function);
+    expect(metadata).toEqual({});
 
-      expect(state).toEqual(initialState);
-      expect(setState).toBeInstanceOf(Function);
-      expect(metadata).toEqual({});
+    await mainPromise;
 
-      await mainPromise;
+    [state, setState, metadata] = result.current;
 
-      rerender();
+    expect(state).toEqual(
+      new Map([
+        [1, { name: 'john' }],
+        [2, { name: 'doe' }],
+      ]),
+    );
 
-      [state, setState, metadata] = result.current;
+    expect(metadata).toEqual({
+      isAsyncStorageReady: true,
+    });
 
-      expect(state).toEqual(initialState);
-      expect(metadata).toEqual({
-        isAsyncStorageReady: true,
-      });
-    },
-  );
+    expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
 
-  $it(
-    'should initialize the store with the async storage data where there is async storage data',
-    async ({ renderHook }) => {
-      const initialState = getInitialState();
-      const { fakeAsyncStorage } = getFakeAsyncStorage();
+    expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
+    expect(fakeAsyncStorage.setItem).toHaveBeenCalledTimes(2);
 
-      fakeAsyncStorage.setItem('items', formatToStore(initialState));
+    expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
+  });
 
-      const { promise: mainPromise, ...tools } = createDecoupledPromise();
-
-      const onStateChangedSpy = jest.fn(({ getState }) => {
-        const newState = getState();
-
-        fakeAsyncStorage.setItem(
-          'items',
-          formatToStore(newState, {
-            stringify: true,
-          }),
-        );
-      });
-
-      const onInitSpy = jest.fn(async ({ setMetadata, setState }) => {
-        const stored = (await fakeAsyncStorage.getItem('items')) ?? null;
-
-        setMetadata({
-          isAsyncStorageReady: true,
-        });
-
-        if (!stored) return;
-
-        act(() => {
-          setState(
-            formatFromStore(stored, {
-              jsonParse: true,
-            }),
-            {
-              forceUpdate: true,
-            },
-          );
-        });
-
-        tools.resolve();
-      });
-
-      const useCount = createGlobalState(initialState, {
-        callbacks: {
-          onStateChanged: onStateChangedSpy,
-          onInit: onInitSpy,
-        },
-      });
-
-      const { result } = renderHook(() => useCount());
-
-      let [state, setState, metadata] = result.current;
-
-      expect(state).toEqual(initialState);
-      expect(setState).toBeInstanceOf(Function);
-      expect(metadata).toEqual({});
-
-      await mainPromise;
-
-      [state, setState, metadata] = result.current;
-
-      expect(state).toEqual(
-        new Map([
-          [1, { name: 'john' }],
-          [2, { name: 'doe' }],
-        ]),
-      );
-
-      expect(metadata).toEqual({
-        isAsyncStorageReady: true,
-      });
-
-      expect(onStateChangedSpy).toHaveBeenCalledTimes(1);
-      expect(onInitSpy).toHaveBeenCalledTimes(1);
-
-      expect(fakeAsyncStorage.getItem).toHaveBeenCalledTimes(1);
-      expect(fakeAsyncStorage.setItem).toHaveBeenCalledTimes(2);
-
-      expect(fakeAsyncStorage.getItem).toBeCalledWith('items');
-    },
-  );
-
-  $it('should be able to update the store async storage', ({ renderHook }) => {
+  it('should be able to update the store async storage', ({ renderHook }) => {
     const initialState = getInitialState();
     const { fakeAsyncStorage } = getFakeAsyncStorage();
 
@@ -614,12 +593,7 @@ describe('custom global hooks', () => {
     const onStateChangedSpy = jest.fn(({ getState }) => {
       const newState = getState();
 
-      fakeAsyncStorage.setItem(
-        'items',
-        formatToStore(newState, {
-          stringify: true,
-        }),
-      );
+      fakeAsyncStorage.setItem('items', formatToStore(newState));
 
       tools.resolve();
     });
@@ -673,7 +647,7 @@ describe('custom global hooks', () => {
     });
   });
 
-  $it('should be able to access custom actions from other actions', ({ renderHook }) => {
+  it('should be able to access custom actions from other actions', ({ renderHook }) => {
     expect.assertions(9);
 
     const logSpy = jest.fn();
@@ -738,7 +712,7 @@ describe('custom global hooks', () => {
     expect(useCount.getState()).toEqual(2);
   });
 
-  $it('should derivate new state from global', ({ renderHook, strict }) => {
+  it('should derivate new state from global', ({ renderHook, strict }) => {
     const useCount = createGlobalState({
       a: 1,
       b: 2,
@@ -767,7 +741,7 @@ describe('custom global hooks', () => {
     expect(derivate).toEqual(4);
   });
 
-  $it('should avoid derivate to re-render due to shallow equal', ({ renderHook, strict }) => {
+  it('should avoid derivate to re-render due to shallow equal', ({ renderHook, strict }) => {
     const useData = createGlobalState({
       a: 1,
       b: 2,
@@ -834,7 +808,7 @@ describe('custom global hooks', () => {
 });
 
 describe('getter subscriptions', () => {
-  $it('should subscribe to changes from getter', () => {
+  it('should subscribe to changes from getter', () => {
     const useHook = createGlobalState({
       a: 3,
       b: 2,
@@ -902,7 +876,7 @@ describe('getter subscriptions', () => {
 });
 
 describe('createObservable', () => {
-  $it('should create a observable fragment', async () => {
+  it('should create a observable fragment', async () => {
     expect.assertions(7);
 
     const initialState = {
@@ -949,7 +923,7 @@ describe('createObservable', () => {
     });
   });
 
-  $it('should create global state with function builder parameters', ({ renderHook }) => {
+  it('should create global state with function builder parameters', ({ renderHook }) => {
     expect.assertions(9);
 
     const logSpy = jest.fn();
@@ -1014,7 +988,7 @@ describe('createObservable', () => {
 });
 
 describe('createSelectorHook', () => {
-  $it('should create a selector hook from the global store', ({ renderHook }) => {
+  it('should create a selector hook from the global store', ({ renderHook }) => {
     const counter = createGlobalState({
       count: 1,
     });

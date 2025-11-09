@@ -14,7 +14,7 @@ export const getFakeAsyncStorage = () => {
     setItem: jest.fn().mockImplementation(async (key, value): Promise<void> => {
       return new Promise<void>((resolve) => {
         setTimeout(() => {
-          const jsonValue = JSON.stringify(value);
+          const jsonValue = typeof value === 'string' ? value : JSON.stringify(value);
 
           dictionary.set(key, jsonValue);
           resolve();

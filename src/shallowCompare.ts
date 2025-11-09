@@ -1,7 +1,7 @@
-import { isPrimitive } from 'json-storage-formatter/isPrimitive';
-import { isDate } from 'json-storage-formatter/isDate';
-import { isNil } from 'json-storage-formatter/isNil';
-import { isRecord } from './isRecord';
+import isPrimitive from 'json-storage-formatter/isPrimitive';
+import isDate from 'json-storage-formatter/isDate';
+import isNil from 'json-storage-formatter/isNil';
+import isRecord from './isRecord';
 
 /**
  * @description It performs a shallow comparison of the values.

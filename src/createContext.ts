@@ -23,8 +23,8 @@ import type {
   ObservableFragment,
   StateApi,
 } from './types';
-import { isFunction } from 'json-storage-formatter/isFunction';
-import { isNil } from 'json-storage-formatter/isNil';
+import isFunction from 'json-storage-formatter/isFunction';
+import isNil from 'json-storage-formatter/isNil';
 
 /**
  * @description Resulting type of the action collection configuration

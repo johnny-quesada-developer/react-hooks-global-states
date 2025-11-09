@@ -1,5 +1,6 @@
-//import { type StoreTools, GlobalStore } from '..';
+// import { type StoreTools, GlobalStore } from '..';
 import { type StoreTools, GlobalStore } from '../src';
+
 import $it from './$it';
 // import { type StoreTools, GlobalStore } from '../src/GlobalStore';
 
@@ -424,7 +425,7 @@ describe('Custom store by using config parameter', () => {
                 return;
               }
 
-              const items = formatFromStore(JSON.parse(stored)) as Map<number, { name: string }>;
+              const items = formatFromStore(stored) as Map<number, { name: string }>;
 
               setState(items);
               resolve();
@@ -493,7 +494,7 @@ describe('Custom store by using config parameter', () => {
                   return;
                 }
 
-                const items = formatFromStore(JSON.parse(stored)) as Map<number, { name: string }>;
+                const items = formatFromStore(stored) as Map<number, { name: string }>;
 
                 setState(items);
                 resolve();
@@ -553,7 +554,7 @@ describe('Custom store by using config parameter', () => {
                 return;
               }
 
-              const items = formatFromStore(JSON.parse(stored)) as Map<number, { name: string }>;
+              const items = formatFromStore(stored) as Map<number, { name: string }>;
 
               setState(items);
               resolve();

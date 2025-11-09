@@ -74,7 +74,7 @@
     "postversion": "git push && git push --tags",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
-    "clean": "find . -maxdepth 1 -type f \\( -name '*.js' -o -name '*.d.ts' \\) ! -name 'webpack.config.js' ! -name 'eslint.config.mts' -exec rm {} +",
+    "clean": "find . -maxdepth 1 -type f \\( -name '*.js' -o -name '*.d.ts' \\) ! -name 'webpack.config.js' ! -name 'eslint.config.mts' -exec rm {} + && rm -rf coverage",
     "ts-check": "tsc -p tsconfig.json --noEmit"
   },
   "repository": {
@@ -127,7 +127,6 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.0.4",
     "jiti": "^2.6.1",
-    "json-storage-formatter": "^2.0.9",
     "prettier": "^3.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -139,8 +138,11 @@
     "webpack": "^5.76.3",
     "webpack-cli": "^5.0.1"
   },
+  "dependencies": {
+    "json-storage-formatter": "^3.0.2"
+  },
   "peerDependencies": {
-    "json-storage-formatter": "^2.0.9",
+    "json-storage-formatter": "^3.0.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
