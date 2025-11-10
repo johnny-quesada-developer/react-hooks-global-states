@@ -210,7 +210,7 @@ export class GlobalStore<
    * @param {boolean} [options.forceUpdate] - Whether to force the update even if the state is the same
    * @param {string} [options.identifier] - An optional identifier for the state change
    * */
-  protected setSubscribersState = (
+  protected setActualStateWithoutValidations = (
     newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string },
   ): void => {
@@ -306,7 +306,7 @@ export class GlobalStore<
     };
   };
 
-  protected partialUpdateSubscription = (
+  public partialUpdateSubscription = (
     subscription: SubscriberParameters,
     values: Partial<SubscriberParameters>,
   ): void => {
@@ -328,11 +328,13 @@ export class GlobalStore<
    * @returns {[State, StateMutator, Metadata]} - The state, the state setter or the actions map, the metadata
    * */
   public getMainHook = () => {
+    const identifier = `globalHook:${this._name}`;
+
     const use = ((
       selector?: <Selection>(state: State) => Selection,
       args: UseHookOptions<unknown, State> | unknown[] = [],
     ) => {
-      useDebugValue(`global-state: ${this._name}`);
+      useDebugValue(identifier);
 
       const options = isArray(args) ? { dependencies: args } : (args ?? {});
 
@@ -359,11 +361,17 @@ export class GlobalStore<
       const currentDependencies = subscriptionRef.current.dependencies;
       const newDependencies = options?.dependencies;
 
-      // keep the hook props updated
-      Object.assign(subscriptionRef.current, {
+      const extensions: UseHookOptions<unknown> & {
+        selector: (state: State) => unknown;
+        dependencies: unknown[] | undefined;
+      } = {
+        ...options,
         selector: selectorWrapper,
-        options,
-      });
+        dependencies: newDependencies,
+      };
+
+      // keep the hook props updated
+      this.partialUpdateSubscription(subscriptionRef.current, extensions);
 
       const { subscribe, getSnapshot, getServerSnapshot } = useMemo(() => {
         const subscribe = (onStoreChange: () => void) => {
@@ -381,15 +389,16 @@ export class GlobalStore<
         return { subscribe, getSnapshot, getServerSnapshot };
       }, []);
 
-      // keeps the state on sync with the store
-      useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+      // could partially update the state if the dependencies changed
+      // this helps us to prevent unnecessary re-renders the next time the hook is used
+      this.reselectIfDependenciesChanged({
+        subscription: subscriptionRef.current,
+        newDependencies,
+        currentDependencies,
+      });
 
       return [
-        this.computeSelectedState({
-          subscription: subscriptionRef.current,
-          newDependencies,
-          currentDependencies,
-        }),
+        useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot),
         this.getStateOrchestrator(),
         this.metadata,
       ];
@@ -429,7 +438,7 @@ export class GlobalStore<
     return use;
   };
 
-  protected computeSelectedState = ({
+  protected reselectIfDependenciesChanged = ({
     subscription,
     newDependencies,
     currentDependencies,
@@ -437,24 +446,22 @@ export class GlobalStore<
     subscription: SubscriberParameters;
     newDependencies: unknown[] | undefined;
     currentDependencies: unknown[] | undefined;
-  }) => {
-    if (!subscription.selector) return subscription.currentState;
+  }): void => {
+    if (!subscription.selector) return;
 
     // if the dependencies are the same we don't need to compute the state
-    if (currentDependencies === newDependencies) return subscription.currentState;
+    if (currentDependencies === newDependencies) return;
 
     const isLengthEqual = currentDependencies?.length === newDependencies?.length;
     const isSameValues = isLengthEqual && shallowCompare(currentDependencies, newDependencies);
 
     // if values are the same we don't need to compute the state
-    if (isSameValues) return subscription.currentState;
+    if (isSameValues) return;
 
     // update the current state without re-rendering the component
     this.partialUpdateSubscription(subscription, {
       currentState: subscription.selector(this.state),
     });
-
-    return subscription.currentState;
   };
 
   public createSelectorHook = createSelectorHook;
@@ -499,12 +506,12 @@ export class GlobalStore<
     // if the state didn't change, we don't need to do anything
     if (!forceUpdate && this.state === newState) return;
 
-    const { setMetadata, getMetadata, getState, actions, setSubscribersState } = this;
+    const { setMetadata, getMetadata, getState, actions } = this;
 
     const callbackParameter = {
       setMetadata,
       getMetadata,
-      setState: setSubscribersState,
+      setState: this.setActualStateWithoutValidations,
       getState,
       actions,
       previousState,
@@ -523,12 +530,10 @@ export class GlobalStore<
       if (shouldPreventStateChange) return;
     }
 
-    this.setSubscribersState(newState, { forceUpdate, identifier });
+    this.setActualStateWithoutValidations(newState, { forceUpdate, identifier });
 
     const { onStateChanged } = this;
     const onStateChangedFromConfig = this.callbacks?.onStateChanged;
-
-    if (!onStateChanged && !onStateChangedFromConfig) return;
 
     onStateChanged?.(callbackParameter);
     onStateChangedFromConfig?.(callbackParameter);
@@ -542,14 +547,14 @@ export class GlobalStore<
     actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
     storeTools: StoreTools<State, PublicStateMutator, Metadata>;
   } => {
-    const { actionsConfig, getMetadata, getState, setMetadata, setState: setStateWrapper, subscribe } = this;
+    const { actionsConfig, getMetadata, getState, setMetadata, setState, subscribe } = this;
 
     // passes the same object to all the actions
     const storeTools: typeof this.storeTools = {
       setMetadata,
       getMetadata,
       getState,
-      setState: setStateWrapper,
+      setState,
       subscribe,
       actions: null as (typeof this.storeTools)['actions'],
     };

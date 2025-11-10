@@ -25,6 +25,7 @@ import type {
 } from './types';
 import isFunction from 'json-storage-formatter/isFunction';
 import isNil from 'json-storage-formatter/isNil';
+import uniqueId from './uniqueId';
 
 /**
  * @description Resulting type of the action collection configuration
@@ -375,6 +376,11 @@ export type ContextPublicApi<State, StateMutator, Metadata extends BaseMetadata>
       name?: string;
     },
   ) => ObservableFragment<Selection, StateMutator, Metadata>;
+
+  /**
+   * @description display name for debugging purposes
+   */
+  readonly displayName: string;
 };
 
 /**
@@ -382,7 +388,7 @@ export type ContextPublicApi<State, StateMutator, Metadata extends BaseMetadata>
  */
 export type ReadonlyContextPublicApi<State, StateMutator, Metadata extends BaseMetadata> = Pick<
   ContextPublicApi<State, StateMutator, Metadata>,
-  'createSelectorHook'
+  'createSelectorHook' | 'displayName'
 > & {
   /**
    * @description Hook that provides non-reactive access to the context API.
@@ -661,9 +667,13 @@ export const createContext = ((
 ) => {
   const Context = reactCreateContext<StateHook<unknown, unknown, BaseMetadata> | null>(null);
 
+  const contextIdentifier = contextArgs.name ?? uniqueId();
+
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
-  const Provider = ({ children, value: initialState, onCreated }: ProviderProps) => {
+  const useProviderValue = ({ value: initialState }: ProviderProps) => {
+    useDebugValue(`${contextIdentifier}:Provider`);
+
     const store = useMemo(() => {
       const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
 
@@ -703,10 +713,22 @@ export const createContext = ((
       };
     }, [store]);
 
-    onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
-
-    return reactCreateElement(Context.Provider, { value: store.use }, children);
+    return store;
   };
+
+  const Provider: React.FC<ProviderProps> = (args) => {
+    const store = useProviderValue(args);
+
+    args.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
+
+    return reactCreateElement(Context.Provider, { value: store.use }, args.children);
+  };
+
+  // setting display names for easier debugging
+  // wrapper
+  Provider.displayName = `${contextIdentifier}:Provider`;
+  // context
+  Context.displayName = `${contextIdentifier}`;
 
   const providerExtensions: ContextProviderExtensions<unknown, unknown, BaseMetadata> = {
     makeProviderWrapper: (options) => {
@@ -734,7 +756,7 @@ export const createContext = ((
   };
 
   const use = ((...args: Parameters<ContextHook<unknown, unknown, BaseMetadata>>) => {
-    useDebugValue(`context-use: ${contextArgs.name}`);
+    useDebugValue(`${contextIdentifier}:use`);
 
     const hook = useContext(Context);
     if (!hook) throw new Error('use hook must be used within a ContextProvider');
@@ -743,7 +765,7 @@ export const createContext = ((
   }) as ContextHook<unknown, unknown, BaseMetadata> & ContextPublicApi<unknown, unknown, BaseMetadata>;
 
   const api = () => {
-    useDebugValue(`context-api: ${contextArgs.name}`);
+    useDebugValue(`${contextIdentifier}:api`);
 
     const hook = useContext(Context);
     if (!hook) throw new Error('api hook must be used within a ContextProvider');
@@ -754,7 +776,7 @@ export const createContext = ((
   };
 
   const observable: ContextPublicApi<unknown, unknown, BaseMetadata>['observable'] = (...args) => {
-    useDebugValue(`context-observable: ${contextArgs.name}`);
+    useDebugValue(`${contextIdentifier}:observable`);
 
     const context = api();
 
@@ -792,6 +814,7 @@ export const createContext = ((
   };
 
   const useExtensions: ContextPublicApi<unknown, unknown, BaseMetadata> = {
+    displayName: Context.displayName,
     createSelectorHook: createSelectorHook.bind(use) as typeof use.createSelectorHook,
     api,
     select: ((...args: Parameters<typeof use>) => use(...args)[0]) as SelectHook<unknown>,
@@ -831,7 +854,7 @@ export type InferContextApi<Context extends ReactContext<ContextHook<any, any, a
     : never;
 
 function createSelectorHook(
-  this: Pick<ReadonlyContextPublicApi<unknown, unknown, BaseMetadata>, 'api'>,
+  this: Pick<ReadonlyContextPublicApi<unknown, unknown, BaseMetadata>, 'api' | 'displayName'>,
   selector: SelectorCallback<unknown, unknown>,
   hookConfig?: UseHookOptions<unknown, unknown> & {
     /**
@@ -843,10 +866,13 @@ function createSelectorHook(
   type SelectorArgs = Parameters<
     ReturnType<ContextPublicApi<unknown, unknown, BaseMetadata>['createSelectorHook']>
   >;
-  const use = ((...selectorArgs: SelectorArgs) => {
-    useDebugValue(`context-selector: ${hookConfig?.name}`);
+  const selectorIdentifier = hookConfig?.name ?? uniqueId();
 
+  const use = ((...selectorArgs: SelectorArgs) => {
     const context = this.api();
+
+    useDebugValue(`${this.displayName}:selector`);
+    useDebugValue(`${selectorIdentifier}:use`);
 
     return useMemo(() => {
       return context.createSelectorHook(selector, hookConfig);
@@ -854,7 +880,8 @@ function createSelectorHook(
   }) as ReadonlyContextHook<unknown, unknown, BaseMetadata>;
 
   const api = (): ReadonlyStateApi<unknown, unknown, BaseMetadata> => {
-    useDebugValue(`context-selector-api: ${hookConfig?.name}`);
+    useDebugValue(`${this.displayName}:selector`);
+    useDebugValue(`${selectorIdentifier}:api`);
 
     const context = this.api();
 
@@ -872,6 +899,7 @@ function createSelectorHook(
   };
 
   const publicExtensions: ReadonlyContextPublicApi<unknown, unknown, BaseMetadata> = {
+    displayName: this.displayName,
     createSelectorHook: createSelectorHook.bind(use) as typeof use.createSelectorHook,
     api,
   };

@@ -9,6 +9,46 @@ import it from './$it';
 import { createGlobalState, GlobalStore, type StoreTools } from '../src';
 
 describe('createGlobalState', () => {
+  it('should not recompute selection when deps are stable or shallow-equal, but recompute when deps change', ({
+    renderHook,
+    strict,
+  }) => {
+    const store = new GlobalStore({ a: 1 });
+
+    const partialUpdateSpy = jest.spyOn(store, 'partialUpdateSubscription');
+    const renderCountRef: { current: number } = { current: 0 };
+
+    const deps1 = [1];
+
+    const { rerender, unmount } = renderHook(
+      ({ deps }: { deps: unknown[] }) => {
+        renderCountRef.current++;
+        const [a] = store.use((s) => s.a, { dependencies: deps });
+        return a;
+      },
+      { initialProps: { deps: deps1 } },
+    );
+
+    // initial mount
+    expect(partialUpdateSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
+
+    rerender({ deps: deps1 });
+    // same deps ref
+    expect(partialUpdateSpy).toHaveBeenCalledTimes(strict ? 4 : 2);
+
+    rerender({ deps: [1] });
+    // shallow equal deps
+    expect(partialUpdateSpy).toHaveBeenCalledTimes(strict ? 6 : 3);
+
+    rerender({ deps: [2] });
+    // different deps
+    expect(partialUpdateSpy).toHaveBeenCalledTimes(strict ? 9 : 5);
+
+    expect(renderCountRef.current).toBe(strict ? 8 : 4);
+
+    unmount();
+  });
+
   /**
    * should pass down the proper store tools to the actions
    */
