@@ -13,7 +13,7 @@ import { createObservable, createSelectorHook as createSelectorHookBase, GlobalS
 import type {
   StateHook,
   BaseMetadata,
-  GlobalStoreCallbacks,
+  GlobalStoreCallbacks as GlobalStoreCallbacksBase,
   UseHookOptions,
   AnyFunction,
   StoreTools,
@@ -22,10 +22,22 @@ import type {
   SelectHook,
   ObservableFragment,
   StateApi,
+  UnsubscribeCallback,
 } from './types';
 import isFunction from 'json-storage-formatter/isFunction';
 import isNil from 'json-storage-formatter/isNil';
 import uniqueId from './uniqueId';
+
+export type GlobalStoreCallbacks<
+  State,
+  StateMutator,
+  Metadata extends BaseMetadata,
+> = GlobalStoreCallbacksBase<State, StateMutator, Metadata> & {
+  /**
+   * @description Called when the store is created in a context
+   */
+  onMounted?: (store: StoreTools<State, StateMutator, Metadata>) => void | UnsubscribeCallback;
+};
 
 /**
  * @description Resulting type of the action collection configuration
@@ -135,6 +147,7 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
      * @description Optional initial state or initializer function, useful for testing, storybooks, etc.
      */
     value?: State | ((initialValue: State) => State);
+
     /**
      * @description Optional callback invoked after the context is created,
      */
@@ -502,7 +515,7 @@ interface CreateContext {
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata> & { onUnMount?: () => void };
+      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata>;
       actions?: ActionsConfig;
     },
   ): {
@@ -591,7 +604,7 @@ interface CreateContext {
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata> & { onUnMount?: () => void };
+      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata>;
       actions: ActionsConfig;
     },
   ): {
@@ -661,7 +674,7 @@ export const createContext = ((
   contextArgs: {
     name?: string;
     metadata?: BaseMetadata | (() => BaseMetadata);
-    callbacks?: GlobalStoreCallbacks<unknown, unknown, BaseMetadata> & { onUnMount?: () => void };
+    callbacks?: GlobalStoreCallbacks<unknown, unknown, BaseMetadata>;
     actions?: ContextActionCollectionConfig<unknown, BaseMetadata>;
   } = {},
 ) => {
@@ -671,7 +684,8 @@ export const createContext = ((
 
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
-  const useProviderValue = ({ value: initialState }: ProviderProps) => {
+  // this hook is necessary to be able to useDebugValue in the provider
+  const useProviderValue = ({ value: initialState, ...args }: ProviderProps) => {
     useDebugValue(`${contextIdentifier}:Provider`);
 
     const store = useMemo(() => {
@@ -689,6 +703,8 @@ export const createContext = ((
         metadata: (isFunction(contextArgs.metadata) ? contextArgs.metadata() : contextArgs.metadata) ?? {},
       });
 
+      args.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
+
       const storeToolsExtensions: ContextStoreToolsExtensions<unknown, unknown, BaseMetadata> = {
         use,
       };
@@ -699,10 +715,15 @@ export const createContext = ((
       return store;
     }, []);
 
-    // cleanup function to be called when the component unmounts
+    // handle mount and unmount lifecycle
     useEffect(() => {
+      const onUnMounted = contextArgs.callbacks?.onMounted?.(
+        store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
+      );
+
       return () => {
         store.callbacks?.onUnMount?.(store);
+        onUnMounted?.();
 
         // Required by the global hooks developer tools
         (store as unknown as { __onUnMountContext: (...args: unknown[]) => unknown }).__onUnMountContext?.(
@@ -718,8 +739,6 @@ export const createContext = ((
 
   const Provider: React.FC<ProviderProps> = (args) => {
     const store = useProviderValue(args);
-
-    args.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
 
     return reactCreateElement(Context.Provider, { value: store.use }, args.children);
   };

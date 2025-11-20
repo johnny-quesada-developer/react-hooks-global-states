@@ -610,13 +610,6 @@ export class GlobalStore<
   public dispose = () => {
     // clean up all the references while keep the structure helps the garbage collector
     this.removeSubscriptions();
-
-    this._name = '';
-    this.actionsConfig = null;
-    this.callbacks = null;
-    this.metadata = {} as Metadata;
-    this.actions = null as typeof this.actions;
-    this.state = Object.create(null);
   };
 }
 
