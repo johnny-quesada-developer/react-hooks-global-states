@@ -28,16 +28,46 @@ import isFunction from 'json-storage-formatter/isFunction';
 import isNil from 'json-storage-formatter/isNil';
 import uniqueId from './uniqueId';
 
+type GlobalStoreContextCallbacks<State, StateMutator, Metadata extends BaseMetadata> = {
+  /**
+   * @description Optional callback invoked after the context is created,
+   */
+  onCreated?: (
+    /**
+     * @description Full context instance
+     */
+    storeTools: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+
+    /**
+     * @description Underlying store instance
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store: GlobalStore<State, Metadata, unknown, any>,
+  ) => void;
+
+  /**
+   * @description Called when the context provider is mounted
+   */
+  onMounted?: (
+    /**
+     * @description Full context instance
+     */
+    storeTools: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+
+    /**
+     * @description Underlying store instance
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store: GlobalStore<State, Metadata, unknown, any>,
+  ) => void | UnsubscribeCallback;
+};
+
 export type GlobalStoreCallbacks<
   State,
   StateMutator,
   Metadata extends BaseMetadata,
-> = GlobalStoreCallbacksBase<State, StateMutator, Metadata> & {
-  /**
-   * @description Called when the store is created in a context
-   */
-  onMounted?: (store: StoreTools<State, StateMutator, Metadata>) => void | UnsubscribeCallback;
-};
+> = GlobalStoreCallbacksBase<State, StateMutator, Metadata> &
+  GlobalStoreContextCallbacks<State, StateMutator, Metadata>;
 
 /**
  * @description Resulting type of the action collection configuration
@@ -142,22 +172,14 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
    * @param options.onCreated optional callback invoked after the context is created
    * @returns an object containing the wrapper component and a reference to the context value
    */
-  makeProviderWrapper: (options?: {
-    /**
-     * @description Optional initial state or initializer function, useful for testing, storybooks, etc.
-     */
-    value?: State | ((initialValue: State) => State);
-
-    /**
-     * @description Optional callback invoked after the context is created,
-     */
-    onCreated?: (
+  makeProviderWrapper: (
+    options?: {
       /**
-       * @description Full context instance
+       * @description Optional initial state or initializer function, useful for testing, storybooks, etc.
        */
-      context: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
-    ) => void;
-  }) => {
+      value?: State | ((initialValue: State) => State);
+    } & GlobalStoreContextCallbacks<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+  ) => {
     /**
      * Provider for the context
      */
@@ -178,6 +200,12 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
        * @description Current context value
        */
       current: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>;
+
+      /**
+       * @description Underlying store instance
+       */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instance: GlobalStore<State, Metadata, unknown, any>;
     };
   };
 };
@@ -188,22 +216,14 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
  * @param onCreated Optional callback invoked after the context is created, receiving the full context instance.
  */
 export type ContextProvider<State, StateMutator, Metadata extends BaseMetadata> = React.FC<
-  PropsWithChildren<{
-    /**
-     * @description Optional initial state or initializer function, useful for testing, storybooks, etc.
-     */
-    value?: State | ((initialValue: State) => State);
-
-    /**
-     * @description Optional callback invoked after the context is created,
-     */
-    onCreated?: (
+  PropsWithChildren<
+    {
       /**
-       * @description Full context instance
+       * @description Optional initial state or initializer function, useful for testing, storybooks, etc.
        */
-      context: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
-    ) => void;
-  }>
+      value?: State | ((initialValue: State) => State);
+    } & GlobalStoreContextCallbacks<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>
+  >
 > &
   ContextProviderExtensions<State, StateMutator, Metadata>;
 
@@ -685,7 +705,7 @@ export const createContext = ((
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
   // this hook is necessary to be able to useDebugValue in the provider
-  const useProviderValue = ({ value: initialState, ...args }: ProviderProps) => {
+  const useProviderValue = ({ value: initialState, ...providerProps }: ProviderProps) => {
     useDebugValue(`${contextIdentifier}:Provider`);
 
     const store = useMemo(() => {
@@ -703,8 +723,6 @@ export const createContext = ((
         metadata: (isFunction(contextArgs.metadata) ? contextArgs.metadata() : contextArgs.metadata) ?? {},
       });
 
-      args.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>);
-
       const storeToolsExtensions: ContextStoreToolsExtensions<unknown, unknown, BaseMetadata> = {
         use,
       };
@@ -712,25 +730,38 @@ export const createContext = ((
       // exposes the main hook as part of the store tools
       Object.assign(store.storeTools, storeToolsExtensions);
 
+      contextArgs.callbacks?.onCreated?.(
+        store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
+        store,
+      );
+
+      providerProps.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>, store);
+
       return store;
     }, []);
 
     // handle mount and unmount lifecycle
     useEffect(() => {
-      const onUnMounted = contextArgs.callbacks?.onMounted?.(
-        store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
-      );
+      const unsubscribes = [
+        contextArgs.callbacks?.onMounted?.(
+          store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
+          store,
+        ),
+
+        providerProps.onMounted?.(
+          store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
+          store,
+        ),
+      ].filter(Boolean);
 
       return () => {
         store.callbacks?.onUnMount?.(store);
-        onUnMounted?.();
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
 
         // Required by the global hooks developer tools
         (store as unknown as { __onUnMountContext: (...args: unknown[]) => unknown }).__onUnMountContext?.(
           store,
         );
-
-        store.dispose();
       };
     }, [store]);
 
@@ -750,20 +781,23 @@ export const createContext = ((
   Context.displayName = `${contextIdentifier}`;
 
   const providerExtensions: ContextProviderExtensions<unknown, unknown, BaseMetadata> = {
-    makeProviderWrapper: (options) => {
+    makeProviderWrapper: (parentOptions) => {
       const context = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        current: undefined as unknown as ContextStoreTools<unknown, any, any>,
-      };
+        current: undefined,
+        instance: undefined,
+      } as unknown as ReturnType<typeof providerExtensions.makeProviderWrapper>['context'];
 
-      const wrapper = ({ children }: PropsWithChildren) => {
+      const wrapper = ({ children, ...options }: PropsWithChildren) => {
         return reactCreateElement(
           Provider,
           {
-            value: options?.value,
-            onCreated: (ctx) => {
+            ...parentOptions,
+            ...options,
+            onCreated: (ctx, store) => {
               context.current = ctx;
-              options?.onCreated?.(ctx);
+              context.instance = store;
+
+              parentOptions?.onCreated?.(ctx, store);
             },
           },
           children,

@@ -189,204 +189,189 @@ describe('createContext', () => {
     expect(result.current).toEqual(0);
   });
 
-  it(
-    'should correctly export observable hook from the context',
-    ({ renderHook }) => {
-      const store = createContext({
-        count: 0,
-      });
+  it('should correctly export observable hook from the context', async ({ renderHook }) => {
+    const store = createContext({
+      count: 0,
+    });
 
-      const { context, wrapper } = store.Provider.makeProviderWrapper();
+    const { context, wrapper } = store.Provider.makeProviderWrapper();
 
-      const { result } = renderHook(() => store.use.observable((state) => state.count), { wrapper });
+    const { result } = renderHook(() => store.use.observable((state) => state.count), { wrapper });
 
-      const observable = result.current;
-      const spy = jest.fn();
+    const spy = jest.fn();
 
-      observable.subscribe(spy);
+    result.current.subscribe(spy);
 
-      act(() => {
-        context.current.setState({ count: 10 });
-      });
+    act(() => {
+      context.current.setState({ count: 10 });
+    });
 
-      expect(spy).toHaveBeenCalledWith(10);
-      expect(observable.getState()).toBe(10);
-    },
-    { strict: false },
-  );
+    expect(spy).toHaveBeenCalledWith(10);
+    expect(result.current.getState()).toBe(10);
+  });
 
-  it(
-    'should createSelectorHook from the context hook',
-    ({ renderHook }) => {
-      const count = createContext(0);
+  it('should createSelectorHook from the context hook', ({ renderHook }) => {
+    const count = createContext(0);
 
-      const { context, wrapper } = count.Provider.makeProviderWrapper();
-      const useCountX10 = count.use.createSelectorHook((count) => count * 10);
-      const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCountX10 = count.use.createSelectorHook((count) => count * 10);
+    const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
 
-      const { result } = renderHook(
-        () => ({
-          countX10: useCountX10(),
-          countX20: useCountX20(),
-        }),
-        { wrapper },
-      );
+    const { result } = renderHook(
+      () => ({
+        countX10: useCountX10(),
+        countX20: useCountX20(),
+      }),
+      { wrapper },
+    );
 
-      expect(context.current.getState()).toBe(0);
-      expect(result.current.countX10).toBe(0);
-      expect(result.current.countX20).toBe(0);
+    expect(context.current.getState()).toBe(0);
+    expect(result.current.countX10).toBe(0);
+    expect(result.current.countX20).toBe(0);
 
-      act(() => {
-        context.current.setState(1);
-      });
+    act(() => {
+      context.current.setState(1);
+    });
 
-      expect(context.current.getState()).toBe(1);
-      expect(result.current.countX10).toBe(10);
-      expect(result.current.countX20).toBe(20);
+    expect(context.current.getState()).toBe(1);
+    expect(result.current.countX10).toBe(10);
+    expect(result.current.countX20).toBe(20);
 
-      act(() => {
-        context.current.setState(2);
-      });
+    act(() => {
+      context.current.setState(2);
+    });
 
-      expect(context.current.getState()).toBe(2);
-      expect(result.current.countX10).toBe(20);
-      expect(result.current.countX20).toBe(40);
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.countX10).toBe(20);
+    expect(result.current.countX20).toBe(40);
 
-      expect(context.current.actions).toBeNull();
-      expect(context.current.getMetadata()).toEqual({});
-      expect(context.current.getState).toBeInstanceOf(Function);
-      expect(context.current.subscribe).toBeInstanceOf(Function);
+    expect(context.current.actions).toBeNull();
+    expect(context.current.getMetadata()).toEqual({});
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
 
-      act(() => {
-        context.current.setMetadata({ test: 'metadata' });
-        context.current.setState(3);
-      });
+    act(() => {
+      context.current.setMetadata({ test: 'metadata' });
+      context.current.setState(3);
+    });
 
-      expect(context.current.getMetadata()).toEqual({ test: 'metadata' });
-      expect(context.current.getState).toBeInstanceOf(Function);
-      expect(context.current.subscribe).toBeInstanceOf(Function);
-      expect(context.current.actions).toBeNull();
-      expect(context.current.getState).toBeInstanceOf(Function);
-      expect(context.current.subscribe).toBeInstanceOf(Function);
+    expect(context.current.getMetadata()).toEqual({ test: 'metadata' });
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
+    expect(context.current.actions).toBeNull();
+    expect(context.current.getState).toBeInstanceOf(Function);
+    expect(context.current.subscribe).toBeInstanceOf(Function);
 
-      expect(context.current.getState()).toBe(3);
-      expect(result.current.countX10).toBe(30);
-      expect(result.current.countX20).toBe(60);
-    },
-    { strict: false },
-  );
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.countX10).toBe(30);
+    expect(result.current.countX20).toBe(60);
+  });
 
-  it(
-    'should be able to create a hook from an observable fragment and an observable from a hook',
-    async ({ renderHook }) => {
-      const count = createContext(0);
+  it('should be able to create a hook from an observable fragment and an observable from a hook', async ({
+    renderHook,
+  }) => {
+    const count = createContext(0);
 
-      const { context, wrapper } = count.Provider.makeProviderWrapper();
-      const useCountX10 = count.use.createSelectorHook((count) => count * 10);
-      const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCountX10 = count.use.createSelectorHook((count) => count * 10);
+    const useCountX20 = useCountX10.createSelectorHook((countX10) => countX10 * 2);
 
-      const { result } = renderHook(
-        () => ({
-          countX10: useCountX10(),
-          countX20: useCountX20(),
-        }),
-        { wrapper },
-      );
+    const { result } = renderHook(
+      () => ({
+        countX10: useCountX10(),
+        countX20: useCountX20(),
+      }),
+      { wrapper },
+    );
 
-      const contextApi = context.current;
+    const contextApi = context.current;
 
-      act(() => {
-        contextApi.setState(2);
-      });
+    act(() => {
+      contextApi.setState(2);
+    });
 
-      expect(context.current.getState()).toBe(2);
-      expect(result.current.countX10).toBe(20);
-      expect(result.current.countX20).toBe(40);
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.countX10).toBe(20);
+    expect(result.current.countX20).toBe(40);
 
-      act(() => {
-        context.current.setState(3);
-      });
+    act(() => {
+      context.current.setState(3);
+    });
 
-      expect(context.current.getState()).toBe(3);
-      expect(result.current.countX10).toBe(30);
-      expect(result.current.countX20).toBe(60);
-    },
-    { strict: false },
-  );
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.countX10).toBe(30);
+    expect(result.current.countX20).toBe(60);
+  });
 
-  it(
-    'should correctly create a selector hooks endlessly',
-    ({ renderHook }) => {
-      const count = createContext(0);
+  it('should correctly create a selector hooks endlessly', ({ renderHook }) => {
+    const count = createContext(0);
 
-      const { context, wrapper } = count.Provider.makeProviderWrapper();
-      const useCount1 = count.use.createSelectorHook((count) => count + 1);
-      const useCount2 = useCount1.createSelectorHook((count) => count + 2);
+    const { context, wrapper } = count.Provider.makeProviderWrapper();
+    const useCount1 = count.use.createSelectorHook((count) => count + 1);
+    const useCount2 = useCount1.createSelectorHook((count) => count + 2);
 
-      const useCount3 = useCount1.createSelectorHook((count) => count + 1);
-      const useCount4 = useCount2.createSelectorHook((count) => count + 1);
+    const useCount3 = useCount1.createSelectorHook((count) => count + 1);
+    const useCount4 = useCount2.createSelectorHook((count) => count + 1);
 
-      const { result } = renderHook(
-        () => ({
-          count3: useCount3.api(),
-          count4: useCount4.api(),
-        }),
-        { wrapper },
-      );
+    const { result } = renderHook(
+      () => ({
+        count3: useCount3.api(),
+        count4: useCount4.api(),
+      }),
+      { wrapper },
+    );
 
-      const contextApi = context.current;
-      const useCount5 = result.current.count3.createObservable((count) => count + 1);
-      const useCount6 = result.current.count4.createObservable((count) => count + 1);
+    const contextApi = context.current;
+    const useCount5 = result.current.count3.createObservable((count) => count + 1);
+    const useCount6 = result.current.count4.createObservable((count) => count + 1);
 
-      expect(useCount5.getState()).toBe(3);
-      expect(useCount6.getState()).toBe(5);
+    expect(useCount5.getState()).toBe(3);
+    expect(useCount6.getState()).toBe(5);
 
-      act(() => {
-        contextApi.setState(2);
-      });
+    act(() => {
+      contextApi.setState(2);
+    });
 
-      expect(context.current.getState()).toBe(2);
-      expect(result.current.count3.getState()).toBe(4);
-      expect(result.current.count4.getState()).toBe(6);
-      expect(useCount5.getState()).toBe(5);
-      expect(useCount6.getState()).toBe(7);
+    expect(context.current.getState()).toBe(2);
+    expect(result.current.count3.getState()).toBe(4);
+    expect(result.current.count4.getState()).toBe(6);
+    expect(useCount5.getState()).toBe(5);
+    expect(useCount6.getState()).toBe(7);
 
-      act(() => {
-        context.current.setState(3);
-      });
+    act(() => {
+      context.current.setState(3);
+    });
 
-      expect(context.current.getState()).toBe(3);
-      expect(result.current.count3.getState()).toBe(5);
-      expect(result.current.count4.getState()).toBe(7);
-      expect(useCount5.getState()).toBe(6);
-      expect(useCount6.getState()).toBe(8);
+    expect(context.current.getState()).toBe(3);
+    expect(result.current.count3.getState()).toBe(5);
+    expect(result.current.count4.getState()).toBe(7);
+    expect(useCount5.getState()).toBe(6);
+    expect(useCount6.getState()).toBe(8);
 
-      const useCount7 = useCount5.createSelectorHook((count) => count + 1);
-      const useCount8 = useCount6.createSelectorHook((count) => count + 1);
+    const useCount7 = useCount5.createSelectorHook((count) => count + 1);
+    const useCount8 = useCount6.createSelectorHook((count) => count + 1);
 
-      const { result: result2 } = renderHook(
-        () => ({
-          a: useCount7(),
-          b: useCount8(),
-        }),
-        { wrapper },
-      );
+    const { result: result2 } = renderHook(
+      () => ({
+        a: useCount7(),
+        b: useCount8(),
+      }),
+      { wrapper },
+    );
 
-      expect(result2.current.a).toBe(7);
-      expect(result2.current.b).toBe(9);
+    expect(result2.current.a).toBe(7);
+    expect(result2.current.b).toBe(9);
 
-      act(() => {
-        context.current.setState(4);
-      });
+    act(() => {
+      context.current.setState(4);
+    });
 
-      expect(context.current.getState()).toBe(4);
-      expect(result.current.count3.getState()).toBe(5);
-      expect(result.current.count4.getState()).toBe(7);
-      expect(useCount5.getState()).toBe(6);
-      expect(useCount6.getState()).toBe(8);
-    },
-    { strict: false },
-  );
+    expect(context.current.getState()).toBe(4);
+    expect(result.current.count3.getState()).toBe(5);
+    expect(result.current.count4.getState()).toBe(7);
+    expect(useCount5.getState()).toBe(6);
+    expect(useCount6.getState()).toBe(8);
+  });
 
   it('should allow onCreated callback in the provider', () => {
     expect.assertions(3);
@@ -486,77 +471,108 @@ describe('createContext', () => {
     expect(state).toEqual(3);
   });
 
-  it(
-    'should correctly execute the lifecycle callbacks',
-    async ({ renderHook, strict }) => {
-      const initSpy = jest.fn();
-      const onMountedSpy = jest.fn();
-      const stateChangedSpy = jest.fn();
-      const unmountSpy = jest.fn();
+  it('should correctly execute the lifecycle callbacks', async ({ renderHook, strict }) => {
+    const initSpy = jest.fn();
+    const onMountedSpy = jest.fn();
+    const stateChangedSpy = jest.fn();
+    const unmountSpy = jest.fn();
 
-      const store = createContext(
-        { countA: 1, countB: 2 },
-        {
-          callbacks: {
-            onInit(arg) {
-              initSpy(arg);
-            },
-            onStateChanged(arg) {
-              stateChangedSpy(arg);
-            },
-            onMounted(arg) {
-              onMountedSpy(arg);
+    const store = createContext(
+      { countA: 1, countB: 2 },
+      {
+        callbacks: {
+          onInit(arg) {
+            initSpy(arg);
+          },
+          onStateChanged(arg) {
+            stateChangedSpy(arg);
+          },
+          onMounted(arg) {
+            onMountedSpy(arg);
 
-              return () => {
-                unmountSpy();
-              };
-            },
+            return () => {
+              unmountSpy();
+            };
           },
         },
-      );
+      },
+    );
 
-      const { wrapper, context } = store.Provider.makeProviderWrapper();
+    const { wrapper, context } = store.Provider.makeProviderWrapper();
 
-      const { unmount } = renderHook(() => store.use(({ countA, countB }) => countA + countB), {
-        wrapper,
-      });
+    const { unmount } = renderHook(() => store.use(({ countA, countB }) => countA + countB), {
+      wrapper,
+    });
 
-      await act(async () => {});
+    await act(async () => {});
 
-      expect(initSpy).toHaveBeenCalledWith(context.current);
-      expect(onMountedSpy).toHaveBeenCalledWith(context.current);
-      expect(stateChangedSpy).not.toHaveBeenCalled();
+    expect(initSpy).toHaveBeenCalledWith(context.current);
+    expect(onMountedSpy).toHaveBeenCalledWith(context.current);
+    expect(stateChangedSpy).not.toHaveBeenCalled();
 
-      act(() => {
-        context.current.setState({ countA: 5, countB: 10 });
-      });
+    act(() => {
+      context.current.setState({ countA: 5, countB: 10 });
+    });
 
-      expect(initSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
-      expect(onMountedSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
-      expect(stateChangedSpy).toHaveBeenCalledTimes(1);
+    expect(initSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
+    expect(onMountedSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
+    expect(stateChangedSpy).toHaveBeenCalledTimes(1);
 
-      const changes = {
-        ...context.current,
-        state: { countA: 5, countB: 10 },
-        previousState: { countA: 1, countB: 2 },
-        identifier: undefined,
-        getState: expect.any(Function),
-        setState: expect.any(Function),
-        getMetadata: expect.any(Function),
-        setMetadata: expect.any(Function),
-      } as Partial<typeof context.current>;
+    const changes = {
+      ...context.current,
+      state: { countA: 5, countB: 10 },
+      previousState: { countA: 1, countB: 2 },
+      identifier: undefined,
+      getState: expect.any(Function),
+      setState: expect.any(Function),
+      getMetadata: expect.any(Function),
+      setMetadata: expect.any(Function),
+    } as Partial<typeof context.current>;
 
-      delete changes.subscribe;
-      delete changes.use;
+    delete changes.subscribe;
+    delete changes.use;
 
-      expect(stateChangedSpy).toHaveBeenCalledWith(expect.objectContaining(changes));
+    expect(stateChangedSpy).toHaveBeenCalledWith(expect.objectContaining(changes));
 
-      unmount();
+    unmount();
 
-      expect(unmountSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
-    },
-    {
-      strict: true,
-    },
-  );
+    expect(unmountSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
+  });
+
+  it("should correctly handle subscriptions and don't hold unmounted subscribers", ({ renderHook }) => {
+    const store = createContext(0);
+
+    const { context, wrapper } = store.Provider.makeProviderWrapper();
+
+    const { unmount } = renderHook(() => store.use(), {
+      wrapper,
+    });
+
+    expect(context.instance.subscribers.size).toBe(1);
+
+    unmount();
+
+    expect(context.instance.subscribers.size).toBe(0);
+  });
+
+  it("should correctly handle subscriptions and don't hold unmounted subscribers when the provider is unmounted", ({
+    render,
+  }) => {
+    const store = createContext(0);
+
+    const { context, wrapper: Provider } = store.Provider.makeProviderWrapper();
+
+    const ChildComponent = () => {
+      store.use();
+      return null;
+    };
+
+    const { unmount } = render(<Provider>{<ChildComponent />}</Provider>);
+
+    expect(context.instance.subscribers.size).toBe(1);
+
+    unmount();
+
+    expect(context.instance.subscribers.size).toBe(0);
+  });
 });
