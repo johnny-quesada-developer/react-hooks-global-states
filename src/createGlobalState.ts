@@ -4,6 +4,7 @@ import type {
   StateHook,
   BaseMetadata,
   GlobalStoreCallbacks,
+  StoreTools,
 } from './types';
 
 import { GlobalStore } from './GlobalStore';
@@ -193,6 +194,20 @@ export const createGlobalState = ((...[state, args]: ConstructorParameters<typeo
  * ```
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook['actions']>['1'];
+export type InferActionsType<Hook extends StateHook<any, any, any>> = ReturnType<Hook>['1'];
+
+/**
+ * Infers the StoreTools type from a StateHook, useful to split actions code
+ *
+ * @example
+ * ```ts
+ * type CounterStoreTools = InferStateApi<typeof useCounter>;
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type InferStateApi<Hook extends StateHook<any, any, any>> =
+  Hook extends StateHook<infer State, infer PublicStateMutator, infer Metadata>
+    ? StoreTools<State, PublicStateMutator, Metadata>
+    : never;
 
 export default createGlobalState;

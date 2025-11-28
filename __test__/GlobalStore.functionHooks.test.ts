@@ -7,6 +7,7 @@ import it from './$it';
 
 // import { createGlobalState, GlobalStore, StoreTools } from '..';
 import { createGlobalState, GlobalStore, type StoreTools } from '../src';
+import { InferActionsType, InferStateApi } from '../src/createGlobalState';
 
 describe('createGlobalState', () => {
   it('should not recompute selection when deps are stable or shallow-equal, but recompute when deps change', ({
@@ -66,7 +67,10 @@ describe('createGlobalState', () => {
       },
     });
 
-    store.actions.testAction();
+    // test infer actions type
+    const actions = store.actions as InferActionsType<typeof store>;
+
+    actions.testAction();
 
     expect(storeTools).toBeDefined();
     expect(storeTools.getState).toBeInstanceOf(Function);
@@ -98,15 +102,24 @@ describe('createGlobalState', () => {
    */
   it(`should be able to create a new instance with state`, ({ renderHook, strict }) => {
     const stateValue = 'test';
+    const metadataInitial = { test: true };
 
     const useValue = createGlobalState(stateValue, {
-      metadata: {
-        test: true,
-      },
+      metadata: metadataInitial,
       callbacks: {
         onInit: () => {},
       },
     });
+
+    // test infer state api type
+    const storeTools = useValue as InferStateApi<typeof useValue>;
+
+    expect(storeTools.actions).toBeNull();
+    expect(storeTools.getState()).toBe(stateValue);
+    expect(storeTools.getMetadata()).toBe(metadataInitial);
+    expect(storeTools.setState).toBeInstanceOf(Function);
+    expect(storeTools.setMetadata).toBeInstanceOf(Function);
+    expect(storeTools.subscribe).toBeInstanceOf(Function);
 
     const spy = jest.spyOn(React, 'useSyncExternalStore');
 

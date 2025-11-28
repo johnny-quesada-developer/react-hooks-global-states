@@ -24,7 +24,7 @@ export { GlobalStore } from './GlobalStore';
 export { GlobalStoreAbstract } from './GlobalStoreAbstract';
 
 // functions
-export { createGlobalState, type InferActionsType } from './createGlobalState';
+export { createGlobalState, type InferActionsType, type InferStateApi } from './createGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
