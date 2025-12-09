@@ -1113,4 +1113,27 @@ describe('createSelectorHook', () => {
 
     expect(counter.getMetadata()).toEqual({ custom: 'metadata' });
   });
+
+  it('should types work correctly with localstorage and onInit', () => {
+    type CountApi = InferStateApi<typeof count$>;
+
+    const count$ = createGlobalState(0, {
+      name: 'count',
+      callbacks: {
+        onInit: (tools) => {
+          const storeTools = tools as CountApi;
+          storeTools.actions.increase();
+        },
+      },
+      actions: {
+        increase: () => {
+          return ({ getState, setState }) => {
+            setState(getState() + 1);
+          };
+        },
+      },
+    });
+
+    expect(count$.actions.increase).toBeInstanceOf(Function);
+  });
 });

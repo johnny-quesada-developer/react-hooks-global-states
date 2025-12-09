@@ -234,7 +234,7 @@ export type StoreTools<
   Metadata extends BaseMetadata = BaseMetadata,
 > = {
   /**
-   * The actions available for the global state
+   * The actions available for the global state if provided
    */
   actions: StateMutator extends AnyFunction ? null : StateMutator;
 

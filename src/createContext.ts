@@ -27,6 +27,7 @@ import type {
 import isFunction from 'json-storage-formatter/isFunction';
 import isNil from 'json-storage-formatter/isNil';
 import uniqueId from './uniqueId';
+import { AnyActions } from 'createGlobalState';
 
 type GlobalStoreContextCallbacks<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
@@ -535,7 +536,7 @@ interface CreateContext {
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, AnyActions, Metadata>;
       actions?: ActionsConfig;
     },
   ): {
@@ -607,7 +608,6 @@ interface CreateContext {
     State,
     Metadata extends BaseMetadata,
     ActionsConfig extends ContextActionCollectionConfig<State, Metadata>,
-    StateMutator = React.Dispatch<React.SetStateAction<State>>,
   >(
     /**
      * @description Initial state value or initializer function.
@@ -624,7 +624,7 @@ interface CreateContext {
     args: {
       name?: string;
       metadata?: Metadata | (() => Metadata);
-      callbacks?: GlobalStoreCallbacks<State, StateMutator, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, AnyActions, Metadata>;
       actions: ActionsConfig;
     },
   ): {

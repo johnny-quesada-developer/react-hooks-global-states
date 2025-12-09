@@ -9,6 +9,32 @@ import type {
 
 import { GlobalStore } from './GlobalStore';
 
+/**
+ * Typescript is unable to infer the actions type correctly for the lifecycle callbacks
+ * so we use a generic AnyActions type here to bypass that limitation.
+ *
+ * The parameter could still be typed before using it with
+ * ```ts
+ * type StoreTools = InferStateApi<typeof <hook>>;
+ *
+ * onInit: (tools) => {
+ *   const storeTools = tools as StoreTools;
+ *   // ...
+ * }
+ *
+ * or when dealing with context:
+ *
+ * type ContextApi = InferContextApi<typeof <context>>;
+ *
+ * onInit: (tools) => {
+ *   const storeTools = tools as ContextApi;
+ *   // ...
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyActions = Record<string, (...args: any[]) => any>;
+
 interface CreateGlobalState {
   /**
    * Creates a global state hook.
@@ -110,7 +136,7 @@ interface CreateGlobalState {
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, AnyActions, Metadata>;
       actions?: ActionsConfig;
     },
   ): StateHook<State, PublicStateMutator, Metadata>;
@@ -174,7 +200,7 @@ interface CreateGlobalState {
     args: {
       name?: string;
       metadata?: Metadata;
-      callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
+      callbacks?: GlobalStoreCallbacks<State, AnyActions, Metadata>;
       actions: ActionsConfig;
     },
   ): StateHook<State, PublicStateMutator, Metadata>;

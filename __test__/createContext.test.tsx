@@ -1,5 +1,5 @@
 import React from 'react';
-import { createContext } from '..';
+import { createContext, InferContextApi } from '..';
 // import { createContext } from '../src';
 import { act, render } from '@testing-library/react';
 import { ContextStoreTools } from '../src/createContext';
@@ -495,17 +495,26 @@ describe('createContext', () => {
             };
           },
         },
+        actions: {
+          incrementA() {
+            return ({ setState, getState }) => {
+              const { countA } = getState();
+              setState((state) => ({ ...state, countA: countA + 1 }));
+            };
+          },
+        },
       },
     );
 
     const { wrapper, context } = store.Provider.makeProviderWrapper();
 
-    const { unmount } = renderHook(() => store.use(({ countA, countB }) => countA + countB), {
+    const { unmount, result } = renderHook(() => store.use(({ countA, countB }) => countA + countB), {
       wrapper,
     });
 
     await act(async () => {});
 
+    expect(result.current[1].incrementA).toBeInstanceOf(Function);
     expect(initSpy).toHaveBeenCalledWith(context.current);
     expect(onMountedSpy).toHaveBeenCalledWith(context.current);
     expect(stateChangedSpy).not.toHaveBeenCalled();
@@ -574,5 +583,32 @@ describe('createContext', () => {
     unmount();
 
     expect(context.instance.subscribers.size).toBe(0);
+  });
+
+  it('should types work correctly with localstorage and onInit', ({ renderHook }) => {
+    type CountContextApi = InferContextApi<typeof count$.Context>;
+
+    const count$ = createContext(0, {
+      name: 'count',
+      callbacks: {
+        onInit: (tools) => {
+          const storeTools = tools as CountContextApi;
+          storeTools.actions.increase();
+        },
+      },
+      actions: {
+        increase: () => {
+          return ({ getState, setState }) => {
+            setState(getState() + 1);
+          };
+        },
+      },
+    });
+
+    const { result } = renderHook(() => count$.use.actions(), {
+      wrapper: count$.Provider,
+    });
+
+    expect(result.current.increase).toBeInstanceOf(Function);
   });
 });
