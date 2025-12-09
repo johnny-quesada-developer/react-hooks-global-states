@@ -23,7 +23,12 @@ export type {
 export { GlobalStore } from './GlobalStore';
 
 // functions
-export { createGlobalState, type InferActionsType, type InferStateApi } from './createGlobalState';
+export {
+  createGlobalState,
+  type InferActionsType,
+  type InferStateApi,
+  AnyActions,
+} from './createGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
