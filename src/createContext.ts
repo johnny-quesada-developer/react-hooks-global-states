@@ -700,7 +700,7 @@ export const createContext = ((
 ) => {
   const Context = reactCreateContext<StateHook<unknown, unknown, BaseMetadata> | null>(null);
 
-  const contextIdentifier = contextArgs.name ?? uniqueId();
+  const contextIdentifier = contextArgs.name ?? uniqueId('ctx:');
 
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
@@ -919,7 +919,7 @@ function createSelectorHook(
   type SelectorArgs = Parameters<
     ReturnType<ContextPublicApi<unknown, unknown, BaseMetadata>['createSelectorHook']>
   >;
-  const selectorIdentifier = hookConfig?.name ?? uniqueId();
+  const selectorIdentifier = hookConfig?.name ?? uniqueId('sh:');
 
   const use = ((...selectorArgs: SelectorArgs) => {
     const context = this.api();

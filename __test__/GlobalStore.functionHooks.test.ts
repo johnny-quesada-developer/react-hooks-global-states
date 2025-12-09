@@ -5,8 +5,8 @@ import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act } from '@testing-library/react';
 import it from './$it';
 
-// import { createGlobalState, GlobalStore, StoreTools } from '..';
-import { createGlobalState, GlobalStore, type StoreTools } from '../src';
+import { createGlobalState, GlobalStore, StoreTools } from '..';
+// import { createGlobalState, GlobalStore, type StoreTools } from '../src';
 import { InferActionsType, InferStateApi } from '../src/createGlobalState';
 
 describe('createGlobalState', () => {
@@ -180,6 +180,13 @@ describe('createGlobalState', () => {
     const subscribeSpy = jest.fn();
 
     const counter = createGlobalState(0, {
+      actions: {
+        increment() {
+          return ({ setState, getState }) => {
+            setState(getState() + 1);
+          };
+        },
+      },
       callbacks: {
         onInit: ({ subscribe }) => {
           subscribe(subscribeSpy);
@@ -187,10 +194,25 @@ describe('createGlobalState', () => {
       },
     });
 
+    const useCounterPlusOne = counter.createSelectorHook((state) => state + 1);
+    const useCounterPlusTwo = useCounterPlusOne.createSelectorHook((state) => state + 1);
+
     const { result } = renderHook(() => counter());
 
-    expect(result.current).toEqual([0, expect.any(Function), expect.any(Object)]);
+    expect(result.current).toEqual([
+      0,
+      expect.objectContaining({
+        increment: expect.any(Function),
+      }),
+      expect.any(Object),
+    ]);
+
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
+    expect(counter.actions.increment).toBeInstanceOf(Function);
+    expect(useCounterPlusOne).toBeInstanceOf(Function);
+    expect(useCounterPlusOne.getState()).toBe(1);
+    expect(useCounterPlusTwo).toBeInstanceOf(Function);
+    expect(useCounterPlusTwo.getState()).toBe(2);
   });
 
   it('should unsubscribe on unmount and not re-render after state changes', ({ renderHook, strict }) => {
