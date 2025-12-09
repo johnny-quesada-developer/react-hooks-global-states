@@ -256,7 +256,21 @@ export type StoreTools<
   /**
    * @description Function to set the state value
    */
-  setState: React.Dispatch<React.SetStateAction<State>>;
+  setState: (
+    setter: React.SetStateAction<State>,
+
+    args?: {
+      /**
+       * @description Force update even if the state value did not change, this is for advanced use cases only
+       */
+      forceUpdate?: boolean;
+
+      /**
+       * @description Optional identifier visible on the devtools
+       */
+      identifier?: string;
+    },
+  ) => void;
 
   /**
    * @description Subscribe to the state changes

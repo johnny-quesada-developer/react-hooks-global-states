@@ -5,7 +5,6 @@ const TerserPlugin = require('terser-webpack-plugin');
 const individualEntries = {
   createContext: './src/createContext.ts',
   GlobalStore: './src/GlobalStore.ts',
-  GlobalStoreAbstract: './src/GlobalStoreAbstract.ts',
   createGlobalState: './src/createGlobalState.ts',
   types: './src/types.ts',
   isRecord: './src/isRecord.ts',

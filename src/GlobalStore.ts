@@ -23,7 +23,6 @@ import type {
   SubscribeToState,
 } from './types';
 import isFunction from 'json-storage-formatter/isFunction';
-import isNil from 'json-storage-formatter/isNil';
 import isRecord from './isRecord';
 import shallowCompare, { isArray } from './shallowCompare';
 import throwWrongKeyOnActionCollectionConfig from './throwWrongKeyOnActionCollectionConfig';
@@ -111,20 +110,15 @@ export class GlobalStore<
     (this as GlobalStore<State, Metadata, ActionsConfig>).initialize();
   }
 
-  protected onInit?: (args: StoreTools<State, PublicStateMutator, Metadata>) => void;
+  /**
+   * This method is meant to be overridden by the extended classes
+   */
+  protected onInit?: () => void;
 
-  protected onStateChanged?: (
-    args: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
-  ) => void;
-
-  protected onSubscribed?: (
-    args: StoreTools<State, PublicStateMutator, Metadata>,
-    subscription: SubscriberParameters,
-  ) => void;
-
-  protected computePreventStateChange?: (
-    parameters: StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>,
-  ) => boolean;
+  /**
+   * This method is meant to be overridden by the extended classes
+   */
+  protected onStateChanged?: (args: StateChanges<State>) => void;
 
   /**
    * @description
@@ -133,20 +127,26 @@ export class GlobalStore<
   protected initialize = async () => {
     // actions should be created first than the main hook and the configuration callback param
     // because both depend on the actions map being created
-    const { actions, storeTools } = this.getStoreActionsMap();
+    const storeAndActions =
+      this.__devtools_initialize_getStoreActionsMapWrapped?.() ?? this.getStoreActionsMap();
+
+    const { actions, storeTools } = storeAndActions;
 
     this.actions = actions;
     this.storeTools = storeTools;
 
     this.use = this.getMainHook();
 
-    const { onInit } = this;
+    // this method could be overridden by extended classes
+    this.onInit?.();
+
     const { onInit: onInitFromConfig } = this.callbacks ?? {};
+    if (!onInitFromConfig) return;
 
-    if (!onInit && !onInitFromConfig) return;
+    const onInitFromConfigStoreTools =
+      this.__devtools_getLifeCycleStoreToolsWrapper?.('config/onInit/') ?? storeTools;
 
-    onInit?.(storeTools);
-    if (!isNil(onInitFromConfig)) onInitFromConfig?.(storeTools);
+    onInitFromConfig?.(onInitFromConfigStoreTools);
   };
 
   /**
@@ -210,7 +210,7 @@ export class GlobalStore<
    * @param {boolean} [options.forceUpdate] - Whether to force the update even if the state is the same
    * @param {string} [options.identifier] - An optional identifier for the state change
    * */
-  protected setActualStateWithoutValidations = (
+  public setActualStateWithoutValidations = (
     newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string },
   ): void => {
@@ -297,7 +297,7 @@ export class GlobalStore<
    * Adds a subscription object to the subscribers set and returns the unsubscribe function
    */
   protected subscribeCallback = (subscription: SubscriberParameters) => {
-    this.executeOnSubscribed(subscription);
+    this.callbacks?.onSubscribed?.(this.storeTools, subscription);
 
     this.subscribers.add(subscription);
 
@@ -311,16 +311,6 @@ export class GlobalStore<
     values: Partial<SubscriberParameters>,
   ): void => {
     Object.assign(subscription, values);
-  };
-
-  protected executeOnSubscribed = (subscription: SubscriberParameters) => {
-    const { onSubscribed } = this;
-    const onSubscribedFromConfig = this.callbacks?.onSubscribed;
-
-    if (onSubscribed || onSubscribedFromConfig) {
-      onSubscribed?.(this.storeTools, subscription);
-      onSubscribedFromConfig?.(this.storeTools, subscription);
-    }
   };
 
   /**
@@ -506,27 +496,22 @@ export class GlobalStore<
     // if the state didn't change, we don't need to do anything
     if (!forceUpdate && this.state === newState) return;
 
-    const { setMetadata, getMetadata, getState, actions } = this;
+    const setState = this.setActualStateWithoutValidations as React.Dispatch<React.SetStateAction<State>>;
 
-    const callbackParameter = {
-      setMetadata,
-      getMetadata,
-      setState: this.setActualStateWithoutValidations,
-      getState,
-      actions,
+    const stateChanges: StateChanges<State> = {
       previousState,
       state: newState,
       identifier,
-    } as StoreTools<State, PublicStateMutator, Metadata> & StateChanges<State>;
+    };
 
-    const { computePreventStateChange } = this;
-    const computePreventStateChangeFromConfig = this.callbacks?.computePreventStateChange;
+    const storeTools = {
+      ...this.storeTools,
+      ...stateChanges,
+      setState,
+    };
 
-    if (computePreventStateChange || computePreventStateChangeFromConfig) {
-      const shouldPreventStateChange =
-        computePreventStateChange?.(callbackParameter) ||
-        computePreventStateChangeFromConfig?.(callbackParameter);
-
+    if (this.callbacks?.computePreventStateChange) {
+      const shouldPreventStateChange = this.callbacks?.computePreventStateChange?.(storeTools);
       if (shouldPreventStateChange) return;
     }
 
@@ -535,13 +520,12 @@ export class GlobalStore<
     const { onStateChanged } = this;
     const onStateChangedFromConfig = this.callbacks?.onStateChanged;
 
-    onStateChanged?.(callbackParameter);
-    onStateChangedFromConfig?.(callbackParameter);
+    onStateChanged?.(storeTools);
+    onStateChangedFromConfig?.(storeTools);
   };
 
   /**
-   * This creates a map of actions that can be used to modify or interact with the state
-   * @returns {ActionCollectionResult<State, Metadata, StateMutator>} - The actions map result of the configuration object passed to the constructor
+   * This creates storeTools and actions map if applicable
    * */
   public getStoreActionsMap = (): {
     actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
@@ -611,6 +595,19 @@ export class GlobalStore<
     // clean up all the references while keep the structure helps the garbage collector
     this.removeSubscriptions();
   };
+
+  //#region DevTools extensions
+
+  declare __devtools_getLifeCycleStoreToolsWrapper?: (
+    logsPrefix: string,
+  ) => StoreTools<State, PublicStateMutator, Metadata>;
+
+  declare __devtools_initialize_getStoreActionsMapWrapped?: () => {
+    actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
+    storeTools: StoreTools<State, PublicStateMutator, Metadata>;
+  };
+
+  //#endregion DevTools extensions
 }
 
 export function createObservable<RootState, PublicStateMutator, Metadata extends BaseMetadata, Selected>(

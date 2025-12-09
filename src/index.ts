@@ -21,14 +21,13 @@ export type {
 
 // classes
 export { GlobalStore } from './GlobalStore';
-export { GlobalStoreAbstract } from './GlobalStoreAbstract';
 
 // functions
 export { createGlobalState, type InferActionsType, type InferStateApi } from './createGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
-export { uniqueId } from './uniqueId';
+export { uniqueId, type BrandedId } from './uniqueId';
 export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 export { isRecord } from './isRecord';
 
