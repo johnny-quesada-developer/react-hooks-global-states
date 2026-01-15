@@ -35,7 +35,7 @@ import { GlobalStore } from './GlobalStore';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyActions = Record<string, (...args: any[]) => any>;
 
-interface CreateGlobalState {
+export interface CreateGlobalState {
   /**
    * Creates a global state hook.
    * @param state initial state value

@@ -7,7 +7,7 @@ export type BrandedId<T extends string | undefined> = `${T extends string ? T : 
   [__brand]: T;
 };
 
-interface UniqueId {
+export interface UniqueId {
   /**
    * Generates a unique identifier string, optionally prefixed.
    *

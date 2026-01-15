@@ -1,22 +1,27 @@
 export type {
+  AnyFunction,
+  ReadonlyHook,
+  SelectHook,
   StateApi,
+  ReadonlyStateApi,
   ObservableFragment,
+  StateHook,
   MetadataSetter,
   StateChanges,
   StoreTools,
+  ActionCollectionConfig,
   ActionCollectionResult,
   GlobalStoreCallbacks,
   UseHookOptions,
   UnsubscribeCallback,
   SubscribeCallbackConfig,
   SubscribeCallback,
+  SubscribeToState,
   BaseMetadata,
   MetadataGetter,
   SelectorCallback,
   SubscriberParameters,
   SubscriptionCallback,
-  StateHook,
-  ActionCollectionConfig,
 } from './types';
 
 // classes
@@ -25,16 +30,32 @@ export { GlobalStore } from './GlobalStore';
 // functions
 export {
   createGlobalState,
+  type CreateGlobalState,
   type InferActionsType,
   type InferStateApi,
-  AnyActions,
+  type AnyActions,
 } from './createGlobalState';
 
 // utils
 export { shallowCompare } from './shallowCompare';
-export { uniqueId, type BrandedId } from './uniqueId';
+export { uniqueId, type BrandedId, type UniqueId } from './uniqueId';
 export { throwWrongKeyOnActionCollectionConfig } from './throwWrongKeyOnActionCollectionConfig';
 export { isRecord } from './isRecord';
 
 // context
-export { type ContextProvider, type ContextHook, type InferContextApi, createContext } from './createContext';
+export {
+  createContext,
+  type CreateContext,
+  type ContextHook,
+  type ReadonlyContextHook,
+  type ContextProvider,
+  type ContextProviderExtensions,
+  type ContextStoreTools,
+  type ContextStoreToolsExtensions,
+  type ContextPublicApi,
+  type ReadonlyContextPublicApi,
+  type ContextActionCollectionConfig,
+  type ContextActionCollectionResult,
+  type GlobalStoreContextCallbacks,
+  type InferContextApi,
+} from './createContext';

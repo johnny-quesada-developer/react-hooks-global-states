@@ -29,7 +29,7 @@ import isNil from 'json-storage-formatter/isNil';
 import uniqueId from './uniqueId';
 import { AnyActions } from 'createGlobalState';
 
-type GlobalStoreContextCallbacks<State, StateMutator, Metadata extends BaseMetadata> = {
+export type GlobalStoreContextCallbacks<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
    * @description Optional callback invoked after the context is created,
    */
@@ -231,7 +231,7 @@ export type ContextProvider<State, StateMutator, Metadata extends BaseMetadata> 
 /**
  * @description Represents a hook that returns a readonly state.
  */
-interface ReadonlyContextHook<State, StateMutator, Metadata extends BaseMetadata>
+export interface ReadonlyContextHook<State, StateMutator, Metadata extends BaseMetadata>
   extends ReadonlyContextPublicApi<State, StateMutator, Metadata> {
   /**
    * @description Returns the full state.
@@ -433,7 +433,7 @@ export type ReadonlyContextPublicApi<State, StateMutator, Metadata extends BaseM
   api: () => ReadonlyStateApi<State, StateMutator, Metadata>;
 };
 
-interface CreateContext {
+export interface CreateContext {
   /**
    * @description Creates a highly granular React context with its associated provider and state hook.
    * @param value Initial state value or initializer function.
