@@ -2,7 +2,7 @@
 
 ![Image John Avatar](https://raw.githubusercontent.com/johnny-quesada-developer/global-hooks-example/main/public/avatar2.jpeg)
 
-Effortless **global state management** for `React` & `React Native` & `Preact`! 🚀 Define a **global state in just one line of code** and enjoy **lightweight, flexible, and scalable** state management. Try it now on **[CodePen](https://codepen.io/johnnynabetes/pen/WNmeGwb?editors=0010)** and see it in action! ✨
+Effortless **global state management** for `React`, `React Native`, and `Preact`! 🚀 Define **global state in just one line of code** and enjoy **lightweight, flexible, and scalable** state management. Try it now on **[CodePen](https://codepen.io/johnnynabetes/pen/WNmeGwb?editors=0010)** and see it in action! ✨
 
 ---
 
@@ -18,7 +18,7 @@ Effortless **global state management** for `React` & `React Native` & `Preact`! 
 
 ## 🚀 React Hooks Global States - DevTools Extension
 
-React Hooks Global States includes a dedicated, `devTools extension` to streamline your development workflow! Easily visualize, inspect, debug, and modify your application's global state in real-time right within your browser.
+React Hooks Global States includes a dedicated `DevTools extension` to streamline your development workflow! Easily visualize, inspect, debug, and modify your application's global state in real-time within your browser.
 
 ### 🔗 [Install the DevTools Extension for Chrome](https://chromewebstore.google.com/detail/bafojplmkpejhglhjpibpdhoblickpee/preview?hl=en&authuser=0)
 
@@ -99,7 +99,7 @@ const [contacts] = useContacts((state) => state.entities.filter((item) => item.n
 });
 ```
 
-Unlike Redux, where only **root state changes trigger re-selection**, this approach ensures that **derived values recompute when dependencies change** while maintaining performance.
+Unlike Redux, where only **root state changes trigger re-selection**, this approach ensures **derived values recompute when dependencies change** while maintaining performance.
 
 ---
 
@@ -132,7 +132,7 @@ const [filteredContacts] = useContactsArray(
 
 #### ✅ Selector hooks share the same state mutator
 
-The **state api is stable across renders** meaning actions and setState functions stay consistent.
+The **state API is stable across renders**, meaning actions and setState functions stay consistent.
 
 ```tsx
 const [, setState1] = useContactsArray();
@@ -178,8 +178,7 @@ const [filter, { setFilter }] = useContacts();
 
 ## 🌍 Accessing Global State Outside Components
 
-You can access and manipulate global without hooks, useful for non-component code like services or utilities.
-Or for non reactive components.
+You can access and manipulate global state without hooks, useful for non-component code like services or utilities, or for non-reactive components.
 
 ```tsx
 console.log(useContacts.getState()); // Retrieves the current state
@@ -193,7 +192,7 @@ const unsubscribe = useContacts.subscribe((state) => {
 });
 ```
 
-#### ✅ Subscriptions are great when one state depends on another.
+#### ✅ Use subscriptions when one state depends on another
 
 ```tsx
 const useSelectedContact = createGlobalState(null, {
@@ -239,7 +238,7 @@ export const Component = () => {
 };
 
 export const Component2 = () => {
-  const [count, setCount] = counter.use.api(); // non reactive access to the context api
+  const [count, setCount] = counter.use.api(); // non-reactive access to the context API
 
   return <Button onClick={() => setCount((c) => c + 1)}>{count}</Button>;
 };
@@ -337,7 +336,7 @@ Use **`onInit`** for setup, **`onStateChanged`** to listen to updates, and **`co
 
 ## Metadata
 
-There is a possibility to add non reactive information in the global state:
+You can add non-reactive information to the global state:
 
 ```tsx
 const useCount = createGlobalState(0, { metadata: { renders: 0 } });
