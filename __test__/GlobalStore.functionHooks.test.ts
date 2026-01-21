@@ -90,8 +90,8 @@ describe('createGlobalState', () => {
     expect(store.getState).toBeInstanceOf(Function);
     expect(store.select).toBeInstanceOf(Function);
     expect(store.setMetadata).toBeInstanceOf(Function);
-    // should not expose setState directly when using actions
-    expect(store.setState).not.toBeInstanceOf(Function);
+    // setState should now always be exposed, even when using actions (for testing purposes)
+    expect(store.setState).toBeInstanceOf(Function);
     expect(store.subscribe).toBeInstanceOf(Function);
     expect(store.use).toBeDefined();
     expect(store.subscribers).toBeInstanceOf(Set);
@@ -150,6 +150,90 @@ describe('createGlobalState', () => {
     // with strict mode, React renders twice in dev mode
     expect(spy).toHaveBeenCalledTimes(strict ? 10 : 5);
     spy.mockClear();
+  });
+
+  /**
+   * should reset the store, clear subscriptions, and re-run onInit
+   */
+  it('should reset the store, clear subscriptions, and re-run onInit', async ({ renderHook }) => {
+    const onInitSpy = jest.fn();
+    const onInitCleanupSpy = jest.fn();
+
+    const initialState = { count: 0 };
+    const metadata = { test: true };
+
+    const store$ = createGlobalState(initialState, {
+      metadata,
+      callbacks: {
+        onInit: ({ getState }) => {
+          onInitSpy(getState());
+
+          return onInitCleanupSpy;
+        },
+      },
+      actions: {
+        increment() {
+          return ({ setState, getState }: StoreTools<{ count: number }>) => {
+            setState({ count: getState().count + 1 });
+          };
+        },
+      },
+    });
+
+    // onInit should have been called once during initialization
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+    expect(onInitSpy).toHaveBeenCalledWith(initialState);
+    expect(onInitCleanupSpy).toHaveBeenCalledTimes(0);
+
+    const { result } = renderHook(() => store$.use());
+    let [state, actions, meta] = result.current;
+
+    // Initial state should be set
+    expect(state).toEqual(initialState);
+    expect(meta).toEqual(metadata);
+    expect(store$.subscribers.size).toBe(1);
+
+    // Modify state using actions
+    act(() => {
+      actions.increment();
+    });
+
+    [state, actions, meta] = result.current;
+
+    expect(state).toEqual({ count: 1 });
+
+    // Reset the store
+    await act(async () => {
+      await store$.reset(initialState, metadata);
+    });
+
+    [state, actions, meta] = result.current;
+
+    // onInit should have been called again with the new reset state
+    expect(onInitSpy).toHaveBeenCalledTimes(2);
+    expect(onInitSpy).toHaveBeenLastCalledWith(initialState);
+
+    // State should be reset
+    expect(state).toEqual(initialState);
+    expect(store$.getState()).toEqual(initialState);
+
+    // Actions should still work after reset
+    act(() => {
+      actions.increment();
+    });
+
+    [state, actions, meta] = result.current;
+
+    expect(state).toEqual({ count: 1 });
+    expect(store$.getState()).toEqual({ count: 1 });
+
+    act(() => {
+      store$.setState({ count: 5 });
+    });
+
+    [state, actions, meta] = result.current;
+
+    expect(state).toEqual({ count: 5 });
   });
 
   /**

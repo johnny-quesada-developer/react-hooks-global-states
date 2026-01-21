@@ -117,7 +117,7 @@ describe('GlobalStore with actions', () => {
     const store = createCountStoreWithActions();
 
     expect(store.actions).toBeDefined();
-    expect(store.use.setState).toBeNull();
+    expect(store.use.setState).toBeInstanceOf(Function);
     expect(store).toBeInstanceOf(GlobalStore);
     expect(store.state).toBe(countStoreInitialState);
     expect(store.actionsConfig).toBeDefined();

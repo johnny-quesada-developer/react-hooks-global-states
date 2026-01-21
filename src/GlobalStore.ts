@@ -21,6 +21,7 @@ import type {
   ReadonlyStateApi,
   SelectHook,
   SubscribeToState,
+  CleanupFunction,
 } from './types';
 import isFunction from 'json-storage-formatter/isFunction';
 import isRecord from './isRecord';
@@ -40,6 +41,8 @@ export class GlobalStore<
     ? React.Dispatch<React.SetStateAction<State>>
     : ActionCollectionResult<State, Metadata, NonNullable<ActionsConfig>>,
 > {
+  protected cleanupFunctions: CleanupFunction[] = [];
+
   protected _name: string;
 
   public actionsConfig: ActionsConfig | null = null;
@@ -113,7 +116,7 @@ export class GlobalStore<
   /**
    * This method is meant to be overridden by the extended classes
    */
-  protected onInit?: () => void;
+  protected onInit?: () => void | CleanupFunction;
 
   /**
    * This method is meant to be overridden by the extended classes
@@ -397,10 +400,6 @@ export class GlobalStore<
     // inherit extensions, they should remain the same as the root store
     const { setMetadata, getMetadata, actions } = this;
 
-    const setState = (
-      this.actions ? null : this.setState.bind(this)
-    ) as PublicStateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
-
     const apiAsReadOnly = this as ReadonlyStateApi<unknown, unknown, BaseMetadata>;
 
     // Extended properties and methods of the hook
@@ -411,8 +410,9 @@ export class GlobalStore<
       dispose: this.dispose.bind(this),
       getMetadata,
       getState: this.getState.bind(this),
+      reset: this.reset.bind(this),
       setMetadata,
-      setState,
+      setState: this.setState.bind(this),
       subscribe: this.subscribe.bind(this),
 
       // useful for debugging purposes
@@ -591,9 +591,47 @@ export class GlobalStore<
     this.subscribers.clear();
   };
 
+  protected executeCleanupTasks = () => {
+    this.cleanupFunctions.forEach((cleanup) => {
+      cleanup?.();
+    });
+
+    this.cleanupFunctions.length = 0;
+  };
+
   public dispose = () => {
     // clean up all the references while keep the structure helps the garbage collector
     this.removeSubscriptions();
+
+    // execute cleanup functions
+    this.executeCleanupTasks();
+  };
+
+  /**
+   * @description Resets the store to a new initial state and re-runs initialization.
+   *
+   * This method is reserved for advanced use cases and testing scenarios, use with caution.
+   */
+  public reset = (state: State, metadata: Metadata): void => {
+    // execute cleanup functions
+    this.executeCleanupTasks();
+
+    // reset state and metadata
+    this.setActualStateWithoutValidations(state, { forceUpdate: true });
+    this.metadata = metadata;
+
+    // this method could be overridden by extended classes
+    const extensionCleanup = this.onInit?.() ?? null;
+    if (isFunction(extensionCleanup)) this.cleanupFunctions.push(extensionCleanup);
+
+    const { onInit: onInitFromConfig } = this.callbacks ?? {};
+    if (!onInitFromConfig) return;
+
+    const onInitFromConfigStoreTools =
+      this.__devtools_getLifeCycleStoreToolsWrapper?.('config/onInit/') ?? this.storeTools;
+
+    const configCleanup = onInitFromConfig?.(onInitFromConfigStoreTools) ?? null;
+    if (isFunction(configCleanup)) this.cleanupFunctions.push(configCleanup);
   };
 
   //#region DevTools extensions

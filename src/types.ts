@@ -63,17 +63,16 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
 
   /**
    * @description Contains the generated action functions if custom actions are defined.
-   * When actions exist, direct state mutation via `setState` is disabled and setState will be `null`.
    * If no actions are provided, this property is `null`.
    */
   actions: StateMutator extends AnyFunction ? null : StateMutator;
 
   /**
-   * @description Provides direct access to the state updater when no custom actions are defined.
-   * When actions exist, direct state mutation via `setState` is disabled and this property will be `null`.
-   * If no actions are provided, this property exposes the `setState` function.
+   * @description Provides direct access to the state updater.
+   * Always available for testing purposes, even when actions are defined.
+   * In production, prefer using actions when they are defined.
    */
-  setState: StateMutator extends AnyFunction ? React.Dispatch<React.SetStateAction<State>> : null;
+  setState: React.Dispatch<React.SetStateAction<State>>;
 
   /**
    * @description Get the current state value
@@ -158,6 +157,14 @@ export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
    * @description Disposes the global state instance, cleaning up all resources and subscriptions.
    */
   dispose: () => void;
+
+  /**
+   * @description Resets the store to a new initial state and re-runs initialization (including onInit callbacks).
+   * Existing subscribers are maintained and notified of the new state.
+   * Useful for testing scenarios where you need to reinitialize the store.
+   * @param newState - The new initial state to reset to
+   */
+  reset: (newState: State, metadata: Metadata) => void;
 
   /**
    * @deprecated
@@ -325,6 +332,8 @@ export type ActionCollectionResult<
   };
 };
 
+export type CleanupFunction = () => void;
+
 /**
  * Callbacks for the global store lifecycle events
  */
@@ -332,7 +341,7 @@ export type GlobalStoreCallbacks<State, StateMutator, Metadata extends BaseMetad
   /**
    * @description Called when the store is initialized
    */
-  onInit?: (args: StoreTools<State, StateMutator, Metadata>) => void;
+  onInit?: (args: StoreTools<State, StateMutator, Metadata>) => void | Promise<void> | CleanupFunction;
 
   /**
    * @description Called when the state has changed
