@@ -36,7 +36,7 @@ export {
   type AnyActions,
 } from './createGlobalState';
 
-export { createActionGroup, type ActionGroup } from './createActionGroup';
+// export { createActionGroup, type ActionGroup } from './createActionGroup';
 
 // utils
 export { shallowCompare } from './shallowCompare';
