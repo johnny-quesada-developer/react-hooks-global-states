@@ -32,5 +32,5 @@
     }
   },
   "include": ["src/**/*", "types/**/*"],
-  "exclude": ["node_modules", "lib"]
+  "exclude": ["node_modules", "lib", "__test__"]
 }

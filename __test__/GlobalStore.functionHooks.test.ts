@@ -5,9 +5,8 @@ import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act } from '@testing-library/react';
 import it from './$it';
 
-import { createGlobalState, GlobalStore, StoreTools } from '..';
-// import { createGlobalState, GlobalStore, type StoreTools } from '../src';
-import { InferActionsType, InferStateApi } from '../src/createGlobalState';
+import { createGlobalState, GlobalStore, StoreTools, InferAPI } from '..';
+// import { createGlobalState, GlobalStore, type StoreTools, InferAPI } from '../src';
 
 describe('createGlobalState', () => {
   it('should not recompute selection when deps are stable or shallow-equal, but recompute when deps change', ({
@@ -68,7 +67,7 @@ describe('createGlobalState', () => {
     });
 
     // test infer actions type
-    const actions = store.actions as InferActionsType<typeof store>;
+    const actions = store.actions as InferAPI<typeof store>['actions'];
 
     actions.testAction();
 
@@ -112,7 +111,7 @@ describe('createGlobalState', () => {
     });
 
     // test infer state api type
-    const storeTools = useValue as InferStateApi<typeof useValue>;
+    const storeTools = useValue as InferAPI<typeof useValue>;
 
     expect(storeTools.actions).toBeNull();
     expect(storeTools.getState()).toBe(stateValue);
@@ -1199,7 +1198,7 @@ describe('createSelectorHook', () => {
   });
 
   it('should types work correctly with localstorage and onInit', () => {
-    type CountApi = InferStateApi<typeof count$>;
+    type CountApi = InferAPI<typeof count$>;
 
     const count$ = createGlobalState(0, {
       name: 'count',

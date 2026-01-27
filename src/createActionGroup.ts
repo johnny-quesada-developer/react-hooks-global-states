@@ -1,29 +1,25 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import createGlobalState from 'createGlobalState';
-import type { ActionCollectionResult, BaseMetadata, StateHook, StoreTools } from './types';
+import type { ActionCollectionResult, InferAPI, StoreTools } from './types';
 
-export type InferStateApi<Hook extends StateHook<any, any, any>> =
-  Hook extends StateHook<infer State, infer PublicStateMutator, infer Metadata>
-    ? StoreTools<State, PublicStateMutator, Metadata>
-    : never;
+// Re-export for backward compatibility
+export type { InferStateApi } from './types';
 
-type ActionsFor<
-  ParentStateApi extends StoreTools<any, any, any>,
-  State = ReturnType<ParentStateApi['getState']>,
-  Metadata extends BaseMetadata = ReturnType<ParentStateApi['getMetadata']>,
-  ActionsResult = {
-    readonly [key: string]: {
-      (...parameters: any[]): (storeTools: StoreTools<State, ParentStateApi['actions'], Metadata>) => any;
-    };
-  },
-> = ActionsResult & ThisType<ActionsResult>;
+export type ActionCollectionConfig<ParentStateApi extends StoreTools<any, any, any>> = {
+  readonly [key: string]: {
+    (
+      ...parameters: any[]
+    ): (
+      storeTools: StoreTools<
+        ReturnType<ParentStateApi['getState']>,
+        ParentStateApi['actions'],
+        ReturnType<ParentStateApi['getMetadata']>
+      >,
+    ) => any;
+  };
+};
 
-type Builder<
-  ParentStateApi extends StoreTools<any, any, any>,
-  State = ReturnType<ParentStateApi['getState']>,
-  Metadata extends BaseMetadata = ReturnType<ParentStateApi['getMetadata']>,
-> = {
+export type ActionsBuilder<ParentStateApi extends StoreTools<any, any, any>> = {
   with<
     ActionsConfig extends {
       readonly [key: string]: {
@@ -32,26 +28,38 @@ type Builder<
           ...parameters: any[]
         ): (
           this: ParentStateApi['actions'],
-          storeTools: StoreTools<State, ParentStateApi['actions'], Metadata>,
+          storeTools: StoreTools<
+            ReturnType<ParentStateApi['getState']>,
+            ParentStateApi['actions'],
+            ReturnType<ParentStateApi['getMetadata']>
+          >,
         ) => any;
       };
     },
   >(
     actionsConfig: ActionsConfig,
-  ): (api: StoreTools<any, any, any>) => ActionCollectionResult<State, Metadata, ActionsConfig>;
+  ): (
+    api: StoreTools<any, any, any>,
+  ) => ActionCollectionResult<
+    ReturnType<ParentStateApi['getState']>,
+    ReturnType<ParentStateApi['getMetadata']>,
+    ActionsConfig
+  >;
 };
 
 /**
  * Create a template for an action group
  */
-export function actionsFor<ParentStateApi extends StoreTools<any, any, any>>(): Builder<ParentStateApi>;
+export function actionsFor<
+  ParentStateApi extends StoreTools<any, any, any>,
+>(): ActionsBuilder<ParentStateApi>;
 
 /**
  * Creates and action group from a config and binds it the provided store
  */
 export function actionsFor<
   ParentStateApi extends StoreTools<any, any, any>,
-  ActionsConfig extends ActionsFor<ParentStateApi>,
+  ActionsConfig extends ActionCollectionConfig<ParentStateApi>,
 >(
   store: ParentStateApi,
   actions: ActionsConfig,
@@ -63,12 +71,12 @@ export function actionsFor<
 
 export function actionsFor<
   ParentStateApi extends StoreTools<any, any, any>,
-  ActionsConfig extends ActionsFor<ParentStateApi>,
+  ActionsConfig extends ActionCollectionConfig<ParentStateApi>,
 >(
   actions?: ActionsConfig,
   store?: ParentStateApi,
 ):
-  | Builder<ParentStateApi>
+  | ActionsBuilder<ParentStateApi>
   | ActionCollectionResult<
       ReturnType<ParentStateApi['getState']>,
       ReturnType<ParentStateApi['getMetadata']>,
@@ -141,13 +149,13 @@ export function actionsFor<
 
 export default actionsFor;
 
-type CounterApi = InferStateApi<typeof counter$>;
+type CounterApi = InferAPI<typeof counter$>;
 
 const counter$ = createGlobalState(0, {
   actions: {
-    log() {
+    log(message: string) {
       return (storeTools) => {
-        console.log('Current count is:', storeTools.getState());
+        console.log('Current count is:', message, storeTools.getState());
       };
     },
   },
@@ -157,7 +165,7 @@ const actions = actionsFor(counter$, {
   increment(amount: number) {
     return (storeTools) => {
       this.decrease(amount);
-      console.log(storeTools.actions.log); // null
+      console.log(storeTools.actions.log(1)); // null
     };
   },
   decrease(amount: number) {

@@ -1,8 +1,7 @@
 import React from 'react';
-import { createContext, InferContextApi } from '..';
+import { type ContextStoreTools, createContext, InferAPI } from '..';
 // import { createContext } from '../src';
 import { act, render } from '@testing-library/react';
-import { ContextStoreTools } from '../src/createContext';
 import it from './$it';
 
 describe('createContext', () => {
@@ -586,20 +585,20 @@ describe('createContext', () => {
   });
 
   it('should types work correctly with localstorage and onInit', ({ renderHook }) => {
-    type CountContextApi = InferContextApi<typeof count$.Context>;
+    type CountContextApi = InferAPI<typeof count$.Context>;
 
     const count$ = createContext(0, {
       name: 'count',
       callbacks: {
         onInit: (tools) => {
           const storeTools = tools as CountContextApi;
-          storeTools.actions.increase();
+          storeTools.actions.increase(1);
         },
       },
       actions: {
-        increase: () => {
+        increase: (n: number) => {
           return ({ getState, setState }) => {
-            setState(getState() + 1);
+            setState(getState() + n);
           };
         },
       },
