@@ -1,68 +1,4 @@
-export declare const __brand: unique symbol;
-
-/**
- * Branded unique identifier
- */
-export type BrandedId<T extends string | undefined> = `${T extends string ? T : ''}${string}` & {
-  [__brand]: T;
-};
-
-export interface UniqueId {
-  /**
-   * Generates a unique identifier string, optionally prefixed.
-   *
-   * @example
-   * uniqueId();           // "k9j3n5x8q2"
-   * type Id1 = `${string}` & { [__brand]: undefined };
-   *
-   * uniqueId('user:');    // "user:k9j3n5x8q2"
-   * type Id2 = `user:${string}` & { [__brand]: 'user:' };
-   */
-  <T extends string | undefined>(prefix?: T): BrandedId<T>;
-
-  /**
-   * Creates a reusable unique ID generator for a specific prefix.
-   *
-   * @example
-   * const makeOrderId = uniqueId.for('order:');
-   * const id = makeOrderId(); // "order:k9j3n5x8q2"
-   * type OrderId = `order:${string}` & { [__brand]: 'order:' };
-   */
-  for<T extends string>(
-    prefix: T,
-  ): {
-    (): `${T}${string}` & { [__brand]: T };
-
-    /**
-     * Checks if the given value matches the branded ID for this prefix.
-     */
-    is(value: unknown): value is `${T}${string}` & { [__brand]: T };
-
-    /**
-     * Asserts that the value matches this branded ID, throws otherwise.
-     */
-    assert(value: unknown): asserts value is `${T}${string}` & { [__brand]: T };
-
-    /**
-     * Returns a strictly branded generator using a custom symbol brand.
-     */
-    strict<Brand extends symbol>(): {
-      (): `${T}${string}` & { [__brand]: Brand };
-      is(value: unknown): value is `${T}${string}` & { [__brand]: Brand };
-      assert(value: unknown): asserts value is `${T}${string}` & { [__brand]: Brand };
-    };
-  };
-
-  /**
-   * Creates a reusable unique ID generator without a prefix.
-   */
-  of<T extends string>(): () => string & { [__brand]: T };
-
-  /**
-   * Creates a strictly branded unique ID generator without a prefix.
-   */
-  strict<Brand extends symbol>(): () => string & { [__brand]: Brand };
-}
+import type { UniqueId, BrandedId, __uniqueIdBrand } from './types';
 
 /**
  * Generates a unique identifier string, optionally prefixed.
@@ -76,6 +12,9 @@ export const uniqueId: UniqueId = (() => {
   };
 
   const getBrandedId = <T extends string | undefined>(prefix: T, base: number) => {
+    if (globalThis.crypto?.randomUUID)
+      return ((prefix ?? '') + globalThis.crypto.randomUUID()) as BrandedId<T>;
+
     return ((prefix ?? '') + Date.now().toString(36) + base.toString(36)) as BrandedId<T>;
   };
 
@@ -96,7 +35,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.for = <T extends string>(prefix: T) => {
     type BrandedId = `${T}${string}` & {
-      [__brand]: T;
+      [__uniqueIdBrand]: T;
     };
 
     const generateBrandedId = (): BrandedId => {
@@ -126,7 +65,7 @@ export const uniqueId: UniqueId = (() => {
      */
     generateBrandedId.strict = <Brand extends symbol>() => {
       type BrandedId = `${T}${string}` & {
-        [__brand]: Brand;
+        [__uniqueIdBrand]: Brand;
       };
 
       const strictBrandGenerator = generateBrandedId as unknown as {
@@ -147,7 +86,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.of = <T extends string>() => {
     type BrandedId = string & {
-      [__brand]: T;
+      [__uniqueIdBrand]: T;
     };
 
     const generateBrandedId = $uniqueId.for('') as unknown as {
@@ -163,7 +102,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.strict = <Brand extends symbol>() => {
     type BrandedId = string & {
-      [__brand]: Brand;
+      [__uniqueIdBrand]: Brand;
     };
 
     const strictBrandGenerator = $uniqueId as unknown as {
@@ -177,3 +116,6 @@ export const uniqueId: UniqueId = (() => {
 })();
 
 export default uniqueId;
+
+// re-export types for backward compatibility
+export type { UniqueId, BrandedId, __uniqueIdBrand };

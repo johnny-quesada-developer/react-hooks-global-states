@@ -20,7 +20,6 @@ import type {
   ReadonlyHook,
   ReadonlyStateApi,
   SelectHook,
-  SubscribeToState,
   CleanupFunction,
 } from './types';
 import isFunction from 'json-storage-formatter/isFunction';
@@ -29,6 +28,11 @@ import shallowCompare, { isArray } from './shallowCompare';
 import throwWrongKeyOnActionCollectionConfig from './throwWrongKeyOnActionCollectionConfig';
 import uniqueId from './uniqueId';
 import debugProps from './GlobalStore.debugProps';
+
+/**
+ * A unique symbol used as a default value placeholder.
+ */
+export declare const DEFAULT: unique symbol;
 
 /**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
@@ -73,12 +77,18 @@ export class GlobalStore<
 
   public state: State;
 
-  constructor(state: State);
+  // if the initial state is provided as a function, we store the function reference here
+  protected stateCallback?: () => State;
+
+  // if the initial metadata is provided as a function, we store the function reference here
+  protected metadataCallback?: () => Metadata;
+
+  constructor(state: State | (() => State));
 
   constructor(
-    state: State,
+    state: State | (() => State),
     args: {
-      metadata?: Metadata;
+      metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions?: ActionsConfig;
       name?: string;
@@ -86,9 +96,9 @@ export class GlobalStore<
   );
 
   constructor(
-    state: State,
+    state: State | (() => State),
     args: {
-      metadata?: Metadata;
+      metadata?: Metadata | (() => Metadata);
       callbacks?: GlobalStoreCallbacks<State, PublicStateMutator, Metadata>;
       actions?: ActionsConfig;
       name?: string;
@@ -96,9 +106,14 @@ export class GlobalStore<
   ) {
     const { metadata, callbacks, actions, name: storeName } = args;
 
-    this.state = state;
+    if (isFunction(state)) this.stateCallback = state;
+    if (isFunction(metadata)) this.metadataCallback = metadata;
+
     this._name = storeName ?? uniqueId('gs:');
-    this.metadata = metadata ?? ({} as Metadata);
+
+    this.state = this.stateCallback ? this.stateCallback() : (state as State);
+    this.metadata = this.metadataCallback ? this.metadataCallback() : ((metadata ?? {}) as Metadata);
+
     this.callbacks = callbacks ?? null;
     this.actionsConfig = actions ?? null;
 
@@ -127,7 +142,7 @@ export class GlobalStore<
    * @description
    * Initializes the global store, setting up the main hook and actions map if applicable,
    */
-  protected initialize = async () => {
+  protected async initialize() {
     // actions should be created first than the main hook and the configuration callback param
     // because both depend on the actions map being created
     const storeAndActions =
@@ -141,7 +156,8 @@ export class GlobalStore<
     this.use = this.getMainHook();
 
     // this method could be overridden by extended classes
-    this.onInit?.();
+    const extensionCleanup = this.onInit?.() ?? null;
+    if (isFunction(extensionCleanup)) this.cleanupFunctions.push(extensionCleanup);
 
     const { onInit: onInitFromConfig } = this.callbacks ?? {};
     if (!onInitFromConfig) return;
@@ -149,14 +165,15 @@ export class GlobalStore<
     const onInitFromConfigStoreTools =
       this.__devtools_getLifeCycleStoreToolsWrapper?.('config/onInit/') ?? storeTools;
 
-    onInitFromConfig?.(onInitFromConfigStoreTools);
-  };
+    const configCleanup = onInitFromConfig?.(onInitFromConfigStoreTools) ?? null;
+    if (isFunction(configCleanup)) this.cleanupFunctions.push(configCleanup);
+  }
 
   /**
    * set the state for a single subscriber
    * validate if the state should be updated by comparing the previous state and the new state
    */
-  protected executeSetStateForSubscriber = (
+  protected executeSetStateForSubscriber(
     subscription: SubscriberParameters,
     args: {
       forceUpdate: boolean | undefined;
@@ -166,7 +183,7 @@ export class GlobalStore<
     },
   ): {
     didUpdate: boolean;
-  } => {
+  } {
     const {
       selector,
       onStoreChange: callback,
@@ -204,7 +221,7 @@ export class GlobalStore<
     );
 
     return { didUpdate: true };
-  };
+  }
 
   /**
    * set the state and update all the subscribers
@@ -213,10 +230,10 @@ export class GlobalStore<
    * @param {boolean} [options.forceUpdate] - Whether to force the update even if the state is the same
    * @param {string} [options.identifier] - An optional identifier for the state change
    * */
-  public setActualStateWithoutValidations = (
+  public setActualStateWithoutValidations(
     newState: State,
     { forceUpdate, identifier }: { forceUpdate?: boolean; identifier?: string },
-  ): void => {
+  ): void {
     const currentState = this.state;
 
     const shouldUpdate = forceUpdate || currentState !== newState;
@@ -236,40 +253,42 @@ export class GlobalStore<
     for (const subscription of subscribers) {
       this.executeSetStateForSubscriber(subscription, args);
     }
-  };
+  }
 
   /**
    * Set the value of the metadata property, this is no reactive and will not trigger a re-render
    * @param {MetadataSetter<Metadata>} setter - The setter function or the value to set
    * */
-  public setMetadata: MetadataSetter<Metadata> = (setter) => {
+  public setMetadata(setter: Parameters<MetadataSetter<Metadata>>[0]) {
     const metadata = isFunction(setter) ? setter(this.metadata) : setter;
 
     this.metadata = metadata;
-  };
+  }
 
   /**
    * Returns the metadata [non-reactive additional information associated with the global state]
    */
-  public getMetadata = () => this.metadata;
+  public getMetadata() {
+    return this.metadata;
+  }
 
   /**
    * Get the current value of the state
    */
-  public getState = () => {
+  public getState() {
     return this.state;
-  };
+  }
 
   /**
    * Subscribe an individual callback to state changes
    */
-  public subscribe = (<TDerivate>(
+  public subscribe<TDerivate>(
     ...[param1, param2, param3]: [
       SubscribeCallback<State> | SelectorCallback<State, TDerivate>,
       (SubscribeCallbackConfig<State> | SubscribeCallback<TDerivate>)?,
       SubscribeCallbackConfig<State | TDerivate>?,
     ]
-  ): UnsubscribeCallback => {
+  ): UnsubscribeCallback {
     const hasExplicitSelector = isFunction(param2);
 
     const selector = hasExplicitSelector ? (param1 as SelectorCallback<unknown, unknown>) : undefined;
@@ -294,12 +313,12 @@ export class GlobalStore<
     return () => {
       this.subscribers.delete(subscription);
     };
-  }) as SubscribeToState<State>;
+  }
 
   /**
    * Adds a subscription object to the subscribers set and returns the unsubscribe function
    */
-  protected subscribeCallback = (subscription: SubscriberParameters) => {
+  protected subscribeCallback(subscription: SubscriberParameters) {
     this.callbacks?.onSubscribed?.(this.storeTools, subscription);
 
     this.subscribers.add(subscription);
@@ -307,20 +326,20 @@ export class GlobalStore<
     return () => {
       this.subscribers.delete(subscription);
     };
-  };
+  }
 
-  public partialUpdateSubscription = (
+  public partialUpdateSubscription(
     subscription: SubscriberParameters,
     values: Partial<SubscriberParameters>,
-  ): void => {
+  ): void {
     Object.assign(subscription, values);
-  };
+  }
 
   /**
    * Returns a custom hook that allows to handle a global state
    * @returns {[State, StateMutator, Metadata]} - The state, the state setter or the actions map, the metadata
    * */
-  public getMainHook = () => {
+  public getMainHook() {
     const identifier = `globalHook:${this._name}`;
 
     const use = ((
@@ -398,20 +417,18 @@ export class GlobalStore<
     }) as unknown as StateHook<State, PublicStateMutator, Metadata>;
 
     // inherit extensions, they should remain the same as the root store
-    const { setMetadata, getMetadata, actions } = this;
-
     const apiAsReadOnly = this as ReadonlyStateApi<unknown, unknown, BaseMetadata>;
 
     // Extended properties and methods of the hook
     const useExtensions: StateApi<State, PublicStateMutator, Metadata> = {
-      actions,
+      actions: this.actions,
       createObservable: this.createObservable.bind(apiAsReadOnly) as typeof use.createObservable,
       createSelectorHook: this.createSelectorHook.bind(apiAsReadOnly) as typeof use.createSelectorHook,
       dispose: this.dispose.bind(this),
-      getMetadata,
+      getMetadata: this.getMetadata.bind(this),
       getState: this.getState.bind(this),
       reset: this.reset.bind(this),
-      setMetadata,
+      setMetadata: this.setMetadata.bind(this),
       setState: this.setState.bind(this),
       subscribe: this.subscribe.bind(this),
 
@@ -426,9 +443,9 @@ export class GlobalStore<
     Object.assign(use, useExtensions);
 
     return use;
-  };
+  }
 
-  protected reselectIfDependenciesChanged = ({
+  protected reselectIfDependenciesChanged({
     subscription,
     newDependencies,
     currentDependencies,
@@ -436,7 +453,7 @@ export class GlobalStore<
     subscription: SubscriberParameters;
     newDependencies: unknown[] | undefined;
     currentDependencies: unknown[] | undefined;
-  }): void => {
+  }): void {
     if (!subscription.selector) return;
 
     // if the dependencies are the same we don't need to compute the state
@@ -452,7 +469,7 @@ export class GlobalStore<
     this.partialUpdateSubscription(subscription, {
       currentState: subscription.selector(this.state),
     });
-  };
+  }
 
   public createSelectorHook = createSelectorHook;
 
@@ -462,15 +479,15 @@ export class GlobalStore<
    * Returns the state setter or the actions map
    * @returns {StateMutator} - The state setter or the actions map
    * */
-  protected getStateOrchestrator = (): PublicStateMutator => {
+  protected getStateOrchestrator(): PublicStateMutator {
     return (() => {
       if (this.actions) {
         return this.actions;
       }
 
-      return this.setState;
+      return this.setState.bind(this);
     })() as PublicStateMutator;
-  };
+  }
 
   /**
    * This is the only setState function that should be exposed outside the class
@@ -479,7 +496,7 @@ export class GlobalStore<
    * - onStateChanged (if defined) - this function is executed after the state change
    * - computePreventStateChange (if defined) - this function is executed before the state change and it should return a boolean value that will be used to determine if the state change should be prevented or not
    */
-  public setState = (
+  public setState(
     setter: Parameters<React.Dispatch<React.SetStateAction<State>>>[0],
     {
       forceUpdate,
@@ -488,7 +505,7 @@ export class GlobalStore<
       forceUpdate?: boolean;
       identifier?: string;
     } = {},
-  ) => {
+  ) {
     const previousState = this.state;
 
     const newState = isFunction(setter) ? (setter as (state: State) => State)(previousState) : setter;
@@ -517,39 +534,35 @@ export class GlobalStore<
 
     this.setActualStateWithoutValidations(newState, { forceUpdate, identifier });
 
-    const { onStateChanged } = this;
-    const onStateChangedFromConfig = this.callbacks?.onStateChanged;
-
-    onStateChanged?.(storeTools);
-    onStateChangedFromConfig?.(storeTools);
-  };
+    this.onStateChanged?.(storeTools);
+    this.callbacks?.onStateChanged?.(storeTools);
+  }
 
   /**
    * This creates storeTools and actions map if applicable
    * */
-  public getStoreActionsMap = (): {
+  public getStoreActionsMap(): {
     actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
     storeTools: StoreTools<State, PublicStateMutator, Metadata>;
-  } => {
-    const { actionsConfig, getMetadata, getState, setMetadata, setState, subscribe } = this;
-
+  } {
     // passes the same object to all the actions
     const storeTools: typeof this.storeTools = {
-      setMetadata,
-      getMetadata,
-      getState,
-      setState,
-      subscribe,
+      setMetadata: this.setMetadata.bind(this),
+      getMetadata: this.getMetadata.bind(this),
+      getState: this.getState.bind(this),
+      setState: this.setState.bind(this),
+      subscribe: this.subscribe.bind(this),
       actions: null as (typeof this.storeTools)['actions'],
     };
 
-    if (!isRecord(actionsConfig)) {
+    if (!isRecord(this.actionsConfig)) {
       return {
         actions: null as typeof this.actions,
         storeTools,
       };
     }
 
+    const actionsConfig = this.actionsConfig;
     const actions = {} as NonNullable<typeof storeTools.actions>;
 
     storeTools.actions = actions;
@@ -585,36 +598,52 @@ export class GlobalStore<
       actions,
       storeTools,
     };
-  };
+  }
 
-  protected removeSubscriptions = () => {
+  protected removeSubscriptions() {
     this.subscribers.clear();
-  };
+  }
 
-  protected executeCleanupTasks = () => {
+  protected executeCleanupTasks() {
     this.cleanupFunctions.forEach((cleanup) => {
       cleanup?.();
     });
 
     this.cleanupFunctions.length = 0;
-  };
+  }
 
-  public dispose = () => {
+  public dispose() {
     // clean up all the references while keep the structure helps the garbage collector
     this.removeSubscriptions();
-
-    // execute cleanup functions
     this.executeCleanupTasks();
-  };
+  }
+
+  public reset(): void;
+
+  public reset(state: State, metadata: Metadata): void;
 
   /**
    * @description Resets the store to a new initial state and re-runs initialization.
    *
    * This method is reserved for advanced use cases and testing scenarios, use with caution.
    */
-  public reset = (state: State, metadata: Metadata): void => {
+  public reset(_state?: State | typeof DEFAULT, _metadata?: Metadata | typeof DEFAULT): void {
     // execute cleanup functions
     this.executeCleanupTasks();
+
+    const state = ((): State => {
+      if (_state === DEFAULT) return this.state;
+      if (this.stateCallback) return this.stateCallback();
+
+      return _state as State;
+    })();
+
+    const metadata = ((): Metadata => {
+      if (_metadata === DEFAULT) return this.metadata;
+      if (this.metadataCallback) return this.metadataCallback();
+
+      return _metadata as Metadata;
+    })();
 
     // reset state and metadata
     this.setActualStateWithoutValidations(state, { forceUpdate: true });
@@ -632,7 +661,7 @@ export class GlobalStore<
 
     const configCleanup = onInitFromConfig?.(onInitFromConfigStoreTools) ?? null;
     if (isFunction(configCleanup)) this.cleanupFunctions.push(configCleanup);
-  };
+  }
 
   //#region DevTools extensions
 

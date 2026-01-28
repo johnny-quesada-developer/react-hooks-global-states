@@ -531,7 +531,7 @@ describe('Custom store by using config parameter', () => {
     const { promise: onStateChangedPromise, ...toolsOnStateChangedPromise } = createDecoupledPromise();
 
     setTimeout(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let store!: GlobalStore<any, any, {}>;
 
       await new CancelablePromise<void>((resolve) => {

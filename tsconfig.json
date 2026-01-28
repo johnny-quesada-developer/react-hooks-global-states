@@ -26,11 +26,8 @@
     "allowJs": true,
     "declarationDir": "./",
     "typeRoots": ["node_modules/@types", "./types"],
-    "baseUrl": ".",
-    "paths": {
-      "*": ["src/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src/**/*", "types/**/*"],
-  "exclude": ["node_modules", "lib"]
+  "exclude": ["node_modules", "lib", "__test__"]
 }

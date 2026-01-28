@@ -4,3 +4,4 @@ __tests__/
 *.log
 *.ts
 eslint.config.mts
+DEVTOOLS.md
