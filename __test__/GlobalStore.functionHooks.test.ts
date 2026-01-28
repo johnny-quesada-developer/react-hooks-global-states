@@ -5,9 +5,8 @@ import { getFakeAsyncStorage } from './getFakeAsyncStorage';
 import { act } from '@testing-library/react';
 import it from './$it';
 
-import { createGlobalState, GlobalStore, StoreTools } from '..';
-// import { createGlobalState, GlobalStore, type StoreTools } from '../src';
-import { InferActionsType, InferStateApi } from '../src/createGlobalState';
+import { createGlobalState, GlobalStore, StoreTools, InferAPI } from '..';
+// import { createGlobalState, GlobalStore, type StoreTools, InferAPI } from '../src';
 
 describe('createGlobalState', () => {
   it('should not recompute selection when deps are stable or shallow-equal, but recompute when deps change', ({
@@ -68,7 +67,7 @@ describe('createGlobalState', () => {
     });
 
     // test infer actions type
-    const actions = store.actions as InferActionsType<typeof store>;
+    const actions = store.actions as InferAPI<typeof store>['actions'];
 
     actions.testAction();
 
@@ -112,7 +111,7 @@ describe('createGlobalState', () => {
     });
 
     // test infer state api type
-    const storeTools = useValue as InferStateApi<typeof useValue>;
+    const storeTools = useValue as InferAPI<typeof useValue>;
 
     expect(storeTools.actions).toBeNull();
     expect(storeTools.getState()).toBe(stateValue);
@@ -234,6 +233,247 @@ describe('createGlobalState', () => {
     [state, actions, meta] = result.current;
 
     expect(state).toEqual({ count: 5 });
+  });
+
+  it('should reset with different metadata', async ({ renderHook }) => {
+    const initialState = { value: 1 };
+    const initialMetadata = { version: 1 };
+    const newMetadata = { version: 2, updated: true };
+
+    const store$ = createGlobalState(initialState, {
+      metadata: initialMetadata,
+    });
+
+    const { result } = renderHook(() => store$.use());
+    let [state, , meta] = result.current;
+
+    expect(state).toEqual(initialState);
+    expect(meta).toEqual(initialMetadata);
+
+    // Reset with new metadata
+    await act(async () => {
+      await store$.reset({ value: 10 }, newMetadata);
+    });
+
+    [state, , meta] = result.current;
+
+    expect(state).toEqual({ value: 10 });
+    expect(meta).toEqual(newMetadata);
+    expect(store$.getMetadata()).toEqual(newMetadata);
+  });
+
+  it('should reset multiple times in succession', async () => {
+    const onInitSpy = jest.fn();
+
+    const store$ = createGlobalState(0, {
+      callbacks: {
+        onInit: () => {
+          onInitSpy();
+        },
+      },
+    });
+
+    expect(onInitSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await store$.reset(10, {});
+    });
+
+    expect(onInitSpy).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await store$.reset(20, {});
+    });
+
+    expect(onInitSpy).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      await store$.reset(30, {});
+    });
+
+    expect(onInitSpy).toHaveBeenCalledTimes(4);
+    expect(store$.getState()).toBe(30);
+  });
+
+  it('should reset with subscribers still attached', async ({ renderHook }) => {
+    const store$ = createGlobalState({ count: 0 });
+
+    const { result } = renderHook(() => store$.use());
+
+    expect(store$.subscribers.size).toBe(1);
+
+    act(() => {
+      store$.setState({ count: 5 });
+    });
+
+    expect(result.current[0]).toEqual({ count: 5 });
+
+    // Reset while subscriber is still attached
+    await act(async () => {
+      await store$.reset({ count: 100 }, {});
+    });
+
+    expect(result.current[0]).toEqual({ count: 100 });
+    expect(store$.subscribers.size).toBe(1);
+
+    // Verify state updates still work after reset
+    act(() => {
+      store$.setState({ count: 200 });
+    });
+
+    expect(result.current[0]).toEqual({ count: 200 });
+  });
+
+  it('should reset and call cleanup functions', async () => {
+    const cleanupSpy = jest.fn();
+    let onInitCallCount = 0;
+
+    const store$ = createGlobalState(0, {
+      callbacks: {
+        onInit: () => {
+          onInitCallCount++;
+          return cleanupSpy;
+        },
+      },
+      actions: {
+        increment() {
+          return ({ setState, getState }: StoreTools<number>) => {
+            setState(getState() + 1);
+          };
+        },
+      },
+    });
+
+    expect(onInitCallCount).toBe(1);
+    expect(cleanupSpy).toHaveBeenCalledTimes(0);
+
+    store$.actions.increment();
+    expect(store$.getState()).toBe(1);
+
+    await act(async () => {
+      await store$.reset(10, {});
+    });
+
+    expect(onInitCallCount).toBe(2);
+    expect(cleanupSpy).toHaveBeenCalledTimes(1); // Cleanup called on reset
+    expect(store$.getState()).toBe(10);
+
+    // Actions should still work after reset
+    store$.actions.increment();
+    expect(store$.getState()).toBe(11);
+  });
+
+  it('should dispose and prevent state changes from triggering subscriptions', ({ renderHook }) => {
+    const subscribeSpy = jest.fn();
+    const store$ = createGlobalState(0);
+
+    renderHook(() => store$.use());
+
+    // Add another subscription
+    store$.subscribe(subscribeSpy);
+
+    expect(store$.subscribers.size).toBe(2);
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+
+    // Dispose the store
+    store$.dispose();
+
+    expect(store$.subscribers.size).toBe(0);
+
+    // State changes should not trigger subscriptions after dispose
+    act(() => {
+      store$.setState(10);
+    });
+
+    expect(subscribeSpy).toHaveBeenCalledTimes(1); // Still 1, not called again
+    expect(store$.getState()).toBe(10); // State is updated but subscribers not notified
+  });
+
+  it('should handle calling dispose multiple times', () => {
+    const store$ = createGlobalState(0);
+
+    expect(store$.subscribers.size).toBe(0);
+
+    store$.dispose();
+    expect(store$.subscribers.size).toBe(0);
+
+    // Calling dispose again should not cause errors
+    expect(() => store$.dispose()).not.toThrow();
+  });
+
+  it('should dispose with nested selector hooks', ({ renderHook }) => {
+    const store$ = createGlobalState({ a: 1, b: 2 });
+
+    const selectorHook1 = store$.createSelectorHook((state) => state.a);
+    const selectorHook2 = selectorHook1.createSelectorHook((a) => a * 2);
+
+    const { result: result1 } = renderHook(() => selectorHook1());
+    const { result: result2 } = renderHook(() => selectorHook2());
+
+    expect(result1.current).toBe(1);
+    expect(result2.current).toBe(2);
+
+    // Dispose selector hooks
+    selectorHook2.dispose();
+    selectorHook1.dispose();
+
+    // Main store should still work
+    act(() => {
+      store$.setState({ a: 10, b: 20 });
+    });
+
+    expect(store$.getState()).toEqual({ a: 10, b: 20 });
+  });
+
+  it('should dispose with active observables', () => {
+    const store$ = createGlobalState({ count: 0 });
+    const subscribeSpy = jest.fn();
+
+    const observable = store$.createObservable((state) => state.count);
+    const unsubscribe = observable(subscribeSpy);
+
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+    expect(subscribeSpy).toHaveBeenCalledWith(0);
+
+    act(() => {
+      store$.setState({ count: 5 });
+    });
+
+    expect(subscribeSpy).toHaveBeenCalledTimes(2);
+    expect(subscribeSpy).toHaveBeenCalledWith(5);
+
+    // Dispose the observable
+    observable.dispose();
+
+    // Updates should no longer trigger the observable
+    act(() => {
+      store$.setState({ count: 10 });
+    });
+
+    expect(subscribeSpy).toHaveBeenCalledTimes(2); // Still 2, not called again
+
+    unsubscribe();
+  });
+
+  it('should call cleanup functions when disposing', ({ renderHook }) => {
+    const cleanupSpy = jest.fn();
+    const store$ = createGlobalState(0, {
+      callbacks: {
+        onInit: () => cleanupSpy,
+      },
+    });
+
+    const { unmount } = renderHook(() => store$.use());
+
+    expect(store$.subscribers.size).toBe(1);
+    expect(cleanupSpy).toHaveBeenCalledTimes(0);
+
+    // Dispose removes subscribers and calls cleanup functions
+    store$.dispose();
+    expect(store$.subscribers.size).toBe(0);
+    expect(cleanupSpy).toHaveBeenCalledTimes(1);
+
+    unmount();
   });
 
   /**
@@ -1199,7 +1439,7 @@ describe('createSelectorHook', () => {
   });
 
   it('should types work correctly with localstorage and onInit', () => {
-    type CountApi = InferStateApi<typeof count$>;
+    type CountApi = InferAPI<typeof count$>;
 
     const count$ = createGlobalState(0, {
       name: 'count',

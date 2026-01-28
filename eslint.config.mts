@@ -40,4 +40,9 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
+  {
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
 ]);

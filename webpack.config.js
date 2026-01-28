@@ -11,6 +11,7 @@ const individualEntries = {
   shallowCompare: './src/shallowCompare.ts',
   throwWrongKeyOnActionCollectionConfig: './src/throwWrongKeyOnActionCollectionConfig.ts',
   uniqueId: './src/uniqueId.ts',
+  actions: './src/actions.ts',
 };
 
 const generateExternalEntryMappings = () => {
