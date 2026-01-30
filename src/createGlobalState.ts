@@ -8,3 +8,4 @@ export const createGlobalState = ((...[state, args]: ConstructorParameters<typeo
   new GlobalStore(state, args).use) as CreateGlobalState;
 
 export default createGlobalState;
+export type { InferActionsType, InferStateApi, AnyActions } from './types';
