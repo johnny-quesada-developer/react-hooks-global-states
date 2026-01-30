@@ -1144,13 +1144,17 @@ const authWithLogging = withLogging(useAuth.api());
 // ❌ Avoid - repeating the same actions in multiple stores
 const useCounter = createGlobalState(0, {
   actions: {
-    logState() { /* duplicate code */ },
+    logState() {
+      /* duplicate code */
+    },
   },
 });
 
 const useAuth = createGlobalState(null, {
   actions: {
-    logState() { /* duplicate code */ },
+    logState() {
+      /* duplicate code */
+    },
   },
 });
 ```

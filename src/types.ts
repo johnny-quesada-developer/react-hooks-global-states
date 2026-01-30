@@ -979,7 +979,6 @@ export interface CreateContext {
   <
     State,
     Metadata extends BaseMetadata,
-     
     ActionsConfig extends ContextActionCollectionConfig<State, Metadata> | null | {},
     StateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
@@ -1299,7 +1298,6 @@ export interface CreateGlobalState {
   <
     State,
     Metadata extends BaseMetadata,
-     
     ActionsConfig extends ActionCollectionConfig<State, Metadata> | null | {},
     PublicStateMutator = keyof ActionsConfig extends never | undefined
       ? React.Dispatch<React.SetStateAction<State>>
