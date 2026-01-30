@@ -29,7 +29,12 @@ module.exports = {
     ...individualEntries,
   },
   externals: {
-    react: 'react',
+    react: {
+      commonjs: 'react',
+      commonjs2: 'react',
+      amd: 'react',
+      root: 'React',
+    },
 
     'json-storage-formatter': 'json-storage-formatter',
     'json-storage-formatter/isNil': 'json-storage-formatter/isNil',
