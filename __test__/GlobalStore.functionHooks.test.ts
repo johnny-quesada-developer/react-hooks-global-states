@@ -1460,4 +1460,25 @@ describe('createSelectorHook', () => {
 
     expect(count$.actions.increase).toBeInstanceOf(Function);
   });
+
+  it('should reset metadata and state correctly', () => {
+    const useState = createGlobalState(() => 0, {
+      metadata: () => ({ counter: 0 }),
+    });
+
+    useState.setState(10);
+    useState.getMetadata().counter = 5;
+
+    expect(useState.getMetadata().counter).toBe(5);
+    expect(useState.getState()).toBe(10);
+
+    // set metadata
+    useState.setMetadata({ counter: 3 });
+    expect(useState.getMetadata().counter).toBe(3);
+
+    useState.reset();
+
+    expect(useState.getState()).toBe(0);
+    expect(useState.getMetadata().counter).toBe(0);
+  });
 });

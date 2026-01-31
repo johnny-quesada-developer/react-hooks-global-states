@@ -30,11 +30,6 @@ import uniqueId from './uniqueId';
 import debugProps from './GlobalStore.debugProps';
 
 /**
- * A unique symbol used as a default value placeholder.
- */
-export declare const DEFAULT: unique symbol;
-
-/**
  * The GlobalStore class is the main class of the library and it is used to create a GlobalStore instances
  * */
 export class GlobalStore<
@@ -627,27 +622,29 @@ export class GlobalStore<
    *
    * This method is reserved for advanced use cases and testing scenarios, use with caution.
    */
-  public reset(_state?: State | typeof DEFAULT, _metadata?: Metadata | typeof DEFAULT): void {
+  public reset(...args: [State?, Metadata?]): void {
     // execute cleanup functions
     this.executeCleanupTasks();
 
+    const hasArgs = args.length > 0;
+
     const state = ((): State => {
-      if (_state === DEFAULT) return this.state;
+      if (hasArgs) return args[0] as State;
       if (this.stateCallback) return this.stateCallback();
 
-      return _state as State;
+      return this.state;
     })();
 
     const metadata = ((): Metadata => {
-      if (_metadata === DEFAULT) return this.metadata;
+      if (hasArgs) return args[1] as Metadata;
       if (this.metadataCallback) return this.metadataCallback();
 
-      return _metadata as Metadata;
+      return this.metadata;
     })();
 
     // reset state and metadata
     this.setActualStateWithoutValidations(state, { forceUpdate: true });
-    this.metadata = metadata;
+    this.setMetadata(metadata);
 
     // this method could be overridden by extended classes
     const extensionCleanup = this.onInit?.() ?? null;
