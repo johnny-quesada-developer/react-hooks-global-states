@@ -1399,13 +1399,11 @@ export type InferStateApi<Hook extends StateHook<Any, Any, Any>> =
     ? StoreTools<State, PublicStateMutator, Metadata>
     : never;
 
-export declare const __uniqueIdBrand: unique symbol;
-
 /**
  * Branded unique identifier
  */
 export type BrandedId<T extends string | undefined> = `${T extends string ? T : ''}${string}` & {
-  [__uniqueIdBrand]: T;
+  __brand: T;
 };
 
 export interface UniqueId {
@@ -1414,10 +1412,10 @@ export interface UniqueId {
    *
    * @example
    * uniqueId();           // "k9j3n5x8q2"
-   * type Id1 = `${string}` & { [__uniqueIdBrand]: undefined };
+   * type Id1 = `${string}` & { __brand: undefined };
    *
    * uniqueId('user:');    // "user:k9j3n5x8q2"
-   * type Id2 = `user:${string}` & { [__uniqueIdBrand]: 'user:' };
+   * type Id2 = `user:${string}` & { __brand: 'user:' };
    */
   <T extends string | undefined>(prefix?: T): BrandedId<T>;
 
@@ -1427,42 +1425,42 @@ export interface UniqueId {
    * @example
    * const makeOrderId = uniqueId.for('order:');
    * const id = makeOrderId(); // "order:k9j3n5x8q2"
-   * type OrderId = `order:${string}` & { [__brand]: 'order:' };
+   * type OrderId = `order:${string}` & { __brand: 'order:' };
    */
   for<T extends string>(
     prefix: T,
   ): {
-    (): `${T}${string}` & { [__uniqueIdBrand]: T };
+    (): `${T}${string}` & { __brand: T };
 
     /**
      * Checks if the given value matches the branded ID for this prefix.
      */
-    is(value: unknown): value is `${T}${string}` & { [__uniqueIdBrand]: T };
+    is(value: unknown): value is `${T}${string}` & { __brand: T };
 
     /**
      * Asserts that the value matches this branded ID, throws otherwise.
      */
-    assert(value: unknown): asserts value is `${T}${string}` & { [__uniqueIdBrand]: T };
+    assert(value: unknown): asserts value is `${T}${string}` & { __brand: T };
 
     /**
      * Returns a strictly branded generator using a custom symbol brand.
      */
     strict<Brand extends symbol>(): {
-      (): `${T}${string}` & { [__uniqueIdBrand]: Brand };
-      is(value: unknown): value is `${T}${string}` & { [__uniqueIdBrand]: Brand };
-      assert(value: unknown): asserts value is `${T}${string}` & { [__uniqueIdBrand]: Brand };
+      (): `${T}${string}` & { __brand: Brand };
+      is(value: unknown): value is `${T}${string}` & { __brand: Brand };
+      assert(value: unknown): asserts value is `${T}${string}` & { __brand: Brand };
     };
   };
 
   /**
    * Creates a reusable unique ID generator without a prefix.
    */
-  of<T extends string>(): () => string & { [__uniqueIdBrand]: T };
+  of<T extends string>(): () => string & { __brand: T };
 
   /**
    * Creates a strictly branded unique ID generator without a prefix.
    */
-  strict<Brand extends symbol>(): () => string & { [__uniqueIdBrand]: Brand };
+  strict<Brand extends symbol>(): () => string & { __brand: Brand };
 }
 
 /**

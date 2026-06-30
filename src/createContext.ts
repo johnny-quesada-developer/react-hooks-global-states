@@ -7,6 +7,8 @@ import React, {
   useEffect,
   useRef,
   useDebugValue,
+  useLayoutEffect,
+  useState,
 } from 'react';
 
 import { createObservable, createSelectorHook as createSelectorHookBase, GlobalStore } from './GlobalStore';
@@ -33,7 +35,6 @@ import type {
 } from './types';
 
 import isFunction from 'json-storage-formatter/isFunction';
-import isNil from 'json-storage-formatter/isNil';
 import uniqueId from './uniqueId';
 
 /**
@@ -59,21 +60,25 @@ export const createContext = ((
 
   type ProviderProps = Parameters<ContextProvider<unknown, unknown, BaseMetadata>>[0];
 
+  // Gets the initial state
+  const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
+
+  const hasValueProp = (props: ProviderProps): props is { value: unknown } => {
+    return Object.prototype.hasOwnProperty.call(props, 'value');
+  };
+
   // this hook is necessary to be able to useDebugValue in the provider
-  const useProviderValue = ({ value: initialState, ...providerProps }: ProviderProps) => {
+  const useProviderValue = (props: ProviderProps) => {
     useDebugValue(`${contextIdentifier}:Provider`);
 
-    const store = useMemo(() => {
-      const getInheritedState = () => (isFunction(valueArg) ? valueArg() : valueArg);
-
-      const state: unknown = (() => {
-        if (!isNil(initialState))
-          return isFunction(initialState) ? initialState(getInheritedState()) : initialState;
-
+    const [store] = useState(() => {
+      const initialValue = (() => {
+        if (hasValueProp(props))
+          return isFunction(props.value) ? props.value(getInheritedState()) : props.value;
         return getInheritedState();
       })();
 
-      const store = new GlobalStore<unknown, BaseMetadata, unknown, unknown>(state, {
+      const store = new GlobalStore<unknown, BaseMetadata, unknown, unknown>(initialValue, {
         ...contextArgs,
         metadata: (isFunction(contextArgs.metadata) ? contextArgs.metadata() : contextArgs.metadata) ?? {},
       });
@@ -90,10 +95,18 @@ export const createContext = ((
         store,
       );
 
-      providerProps.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>, store);
+      props.onCreated?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>, store);
 
       return store;
-    }, []);
+    });
+
+    // allows the provider consumer to own the state by passing a value prop
+    useLayoutEffect(() => {
+      const shouldUpdateState = hasValueProp(props) && !isFunction(props.value);
+      if (!shouldUpdateState) return;
+
+      store.setState(props.value);
+    }, [store, props.value]);
 
     // handle mount and unmount lifecycle
     useEffect(() => {
@@ -103,10 +116,7 @@ export const createContext = ((
           store,
         ),
 
-        providerProps.onMounted?.(
-          store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>,
-          store,
-        ),
+        props.onMounted?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>, store),
       ].filter(Boolean);
 
       return () => {

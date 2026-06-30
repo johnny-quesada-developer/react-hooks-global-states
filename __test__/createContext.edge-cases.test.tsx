@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { createContext, InferAPI } from '..';
+import { createContext } from '..';
 import { act, render } from '@testing-library/react';
 import it from './$it';
 
@@ -188,7 +188,7 @@ describe('createContext - Value Initialization', () => {
     const store = createContext(10);
 
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
-      <store.Provider value={undefined}>{children}</store.Provider>
+      <store.Provider>{children}</store.Provider>
     );
 
     const { result } = renderHook(() => store.use(), { wrapper: Wrapper });
@@ -646,31 +646,113 @@ describe('createContext - Complex Scenarios', () => {
     expect(onStateChangedSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('should handle provider with inherited state function and actions', ({ renderHook }) => {
-    type CounterAPI = InferAPI<typeof store>;
+  it('should preserve provider state after re-render when no value prop is provided', ({ renderHook }) => {
+    const store = createContext(0);
 
-    const store = createContext(() => ({ count: 10 }), {
-      actions: {
-        increment() {
-          return ({ setState, getState }) => {
-            setState({ count: getState().count + 1 });
-          };
-        },
-      },
+    const { result, rerender } = renderHook(store.use, {
+      wrapper: ({ children }) => <store.Provider>{children}</store.Provider>,
     });
 
-    const Wrapper = ({ children }: { children: React.ReactNode }) => (
-      <store.Provider value={(inherited) => ({ count: inherited.count * 2 })}>{children}</store.Provider>
-    );
-
-    const { result } = renderHook(() => store.use(), { wrapper: Wrapper });
-
-    expect(result.current[0]).toEqual({ count: 20 });
+    let [count, setState] = result.current;
+    expect(count).toBe(0);
 
     act(() => {
-      (result.current[1] as CounterAPI['actions']).increment();
+      setState(5);
     });
 
-    expect(result.current[0]).toEqual({ count: 21 });
+    [count, setState] = result.current;
+    expect(count).toBe(5);
+
+    rerender();
+
+    [count, setState] = result.current;
+    expect(count).toBe(5);
+  });
+
+  it('should use value callback only as lazy initializer on first render and not on subsequent re-renders', ({
+    renderHook,
+    strict,
+  }) => {
+    const valueCallback = jest.fn(() => 42);
+    const store = createContext(0);
+
+    const { result, rerender } = renderHook(store.use, {
+      wrapper: ({ children }) => <store.Provider value={valueCallback}>{children}</store.Provider>,
+    });
+
+    let [count, setState] = result.current;
+    expect(count).toBe(42);
+    expect(valueCallback).toHaveBeenCalledTimes(strict ? 2 : 1);
+
+    rerender();
+
+    [count, setState] = result.current;
+    expect(count).toBe(42);
+    expect(valueCallback).toHaveBeenCalledTimes(strict ? 2 : 1);
+
+    act(() => {
+      setState(100);
+    });
+
+    [count, setState] = result.current;
+    expect(count).toBe(100);
+
+    rerender();
+
+    [count] = result.current;
+    expect(count).toBe(100);
+    expect(valueCallback).toHaveBeenCalledTimes(strict ? 2 : 1);
+  });
+
+  it('should update provider state when non-function value prop changes', ({ renderHook, strict }) => {
+    let value = 10;
+    let providerRenderCount = 0;
+
+    const onCreatedSpy = jest.fn();
+    const store = createContext(0);
+
+    const { result, rerender } = renderHook(
+      () => {
+        const countRef = React.useRef(0);
+        countRef.current = countRef.current + 1;
+        return [store.use.select((s) => s), countRef.current] as const;
+      },
+      {
+        wrapper: ({ children }) => {
+          providerRenderCount++;
+          return (
+            <store.Provider value={value} onCreated={onCreatedSpy}>
+              {children}
+            </store.Provider>
+          );
+        },
+      },
+    );
+
+    let [countState, hookRenderCount] = result.current;
+
+    expect(countState).toBe(10);
+    expect(hookRenderCount).toBe(1);
+
+    // strict mode will render the provider twice on mount, so we expect 2 renders
+    expect(providerRenderCount).toBe(strict ? 2 : 1);
+    expect(onCreatedSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
+
+    value = 20;
+
+    rerender();
+
+    [countState, hookRenderCount] = result.current;
+
+    expect(countState).toBe(20);
+
+    // we need to add 1 render more for regular rerender, 2 more for strict mode
+    expect(hookRenderCount).toBe(strict ? 5 : 3);
+
+    // the provider component will render 1 more for regular rerender, 2 more for strict mode
+    expect(providerRenderCount).toBe(strict ? 4 : 2);
+
+    // onCreated should not be called again since the provider instance is the same
+    expect(onCreatedSpy).toHaveBeenCalledTimes(strict ? 2 : 1);
   });
 });

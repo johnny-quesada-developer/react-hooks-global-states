@@ -1,4 +1,4 @@
-import type { UniqueId, BrandedId, __uniqueIdBrand } from './types';
+import type { UniqueId, BrandedId } from './types';
 
 /**
  * Generates a unique identifier string, optionally prefixed.
@@ -35,7 +35,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.for = <T extends string>(prefix: T) => {
     type BrandedId = `${T}${string}` & {
-      [__uniqueIdBrand]: T;
+      __brand: T;
     };
 
     const generateBrandedId = (): BrandedId => {
@@ -65,7 +65,7 @@ export const uniqueId: UniqueId = (() => {
      */
     generateBrandedId.strict = <Brand extends symbol>() => {
       type BrandedId = `${T}${string}` & {
-        [__uniqueIdBrand]: Brand;
+        __brand: Brand;
       };
 
       const strictBrandGenerator = generateBrandedId as unknown as {
@@ -86,7 +86,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.of = <T extends string>() => {
     type BrandedId = string & {
-      [__uniqueIdBrand]: T;
+      __brand: T;
     };
 
     const generateBrandedId = $uniqueId.for('') as unknown as {
@@ -102,7 +102,7 @@ export const uniqueId: UniqueId = (() => {
    */
   $uniqueId.strict = <Brand extends symbol>() => {
     type BrandedId = string & {
-      [__uniqueIdBrand]: Brand;
+      __brand: Brand;
     };
 
     const strictBrandGenerator = $uniqueId as unknown as {
@@ -118,4 +118,4 @@ export const uniqueId: UniqueId = (() => {
 export default uniqueId;
 
 // re-export types for backward compatibility
-export type { UniqueId, BrandedId, __uniqueIdBrand };
+export type { UniqueId, BrandedId };
