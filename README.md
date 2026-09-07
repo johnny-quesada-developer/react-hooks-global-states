@@ -905,6 +905,9 @@ const DataContext = createContext([], {
         console.log('Provider unmounting!');
       };
     },
+    onRender: (store) => {
+      console.log('Provider rendered!');
+    },
   },
 });
 
@@ -917,6 +920,7 @@ function App() {
         console.log('Mounted!');
         return () => console.log('Cleanup!');
       }}
+      onRender={(store) => console.log('Executes on every provider render!')}
     >
       <Content />
     </DataContext.Provider>

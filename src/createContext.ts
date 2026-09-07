@@ -130,6 +130,8 @@ export const createContext = ((
       };
     }, [store]);
 
+    props.onRender?.(store.storeTools as ContextStoreTools<unknown, unknown, BaseMetadata>, store);
+
     return store;
   };
 

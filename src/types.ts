@@ -528,6 +528,26 @@ export type GlobalStoreContextCallbacks<State, StateMutator, Metadata extends Ba
      */
     store: GlobalStore<State, Metadata, unknown, Any>,
   ) => void | UnsubscribeCallback;
+
+  /**
+   * @description Called synchronously during every Provider render.
+   *
+   * Must be idempotent and must not produce external side effects
+   * or retain references to the provided store.
+   *
+   * React may invoke renders that are later discarded.
+   */
+  onRender?: (
+    /**
+     * @description Full context instance
+     */
+    storeTools: ContextStoreTools<State, StateMutator extends AnyFunction ? null : StateMutator, Metadata>,
+
+    /**
+     * @description Underlying store instance
+     */
+    store: GlobalStore<State, Metadata, unknown, Any>,
+  ) => void;
 };
 
 export type ContextStoreCallbacks<State, StateMutator, Metadata extends BaseMetadata> = GlobalStoreCallbacks<
