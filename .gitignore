@@ -106,8 +106,6 @@ dist
 .tern-port
 
 lib
-*.js
-*.d.ts
 /coverage
 .DS_Store
 .vscode/settings.json

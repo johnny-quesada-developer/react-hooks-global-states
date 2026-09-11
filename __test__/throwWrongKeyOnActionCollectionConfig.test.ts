@@ -1,4 +1,4 @@
-import { throwWrongKeyOnActionCollectionConfig } from '..';
+import { throwWrongKeyOnActionCollectionConfig } from '../src';
 // import { throwWrongKeyOnActionCollectionConfig } from '../src';
 
 describe('throwWrongKeyOnActionCollectionConfig', () => {

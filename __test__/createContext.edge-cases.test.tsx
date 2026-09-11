@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { createContext } from '..';
+import { createContext } from '../src';
 import { act, render } from '@testing-library/react';
 import it from './$it';
 

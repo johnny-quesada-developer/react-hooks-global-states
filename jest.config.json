@@ -4,6 +4,8 @@
   "coverageDirectory": "./coverage",
   "coverageReporters": ["text", "html"],
   "setupFilesAfterEnv": ["./jestSetup.ts"],
+  "modulePathIgnorePatterns": ["<rootDir>/dist/"],
+  "testPathIgnorePatterns": ["/node_modules/", "<rootDir>/dist/"],
   "transform": {
     "^.+\\.tsx?$": "ts-jest"
   }

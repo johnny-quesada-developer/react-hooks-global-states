@@ -1,4 +1,4 @@
-import { isRecord } from '..';
+import { isRecord } from '../src';
 // import { isRecord } from '../src';
 
 describe('isRecord', () => {

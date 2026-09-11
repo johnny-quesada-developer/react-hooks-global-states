@@ -1,4 +1,4 @@
-import { shallowCompare } from '..';
+import { shallowCompare } from '../src';
 // import { shallowCompare } from '../src';
 
 describe('shallowCompare', () => {
