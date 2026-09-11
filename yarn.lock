@@ -3821,10 +3821,10 @@ json-stable-stringify-without-jsonify@^1.0.1:
   resolved "https://registry.yarnpkg.com/json-stable-stringify-without-jsonify/-/json-stable-stringify-without-jsonify-1.0.1.tgz#9db7b59496ad3f3cfef30a75142d2d930ad72651"
   integrity sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==
 
-json-storage-formatter@4.0.0-beta:
-  version "4.0.0-beta"
-  resolved "https://registry.yarnpkg.com/json-storage-formatter/-/json-storage-formatter-4.0.0-beta.tgz#187fc35a4d21c3d9ce49cd4909d439b47a5a088e"
-  integrity sha512-/AvCBtj6QUaJ2wSGo/9Tle8zzTsSct3vS0LkJP65VsHGFuPiao6Ccghj9N83hTug2Y7840RRUJitdX3QsIZDWQ==
+json-storage-formatter@4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/json-storage-formatter/-/json-storage-formatter-4.0.0.tgz#f864648305ef902bf6169fd33f33f3806d46d214"
+  integrity sha512-fkjEOVpDGby9Yo2TPAYbxX4jy/5mPfoNqttFRDstPGSAPfeSZwh+1o67ny8ffntfTvXN6jfrLgffGsLRRNInSg==
 
 json5@^1.0.2:
   version "1.0.2"
