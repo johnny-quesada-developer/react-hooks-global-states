@@ -1,0 +1,16 @@
+package.json
+  h_6029769cf9ac60 3,141
+yarn.lock
+  h_6029769cf9ac60 3824
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8292729c4c44a66d2cbfcd2631d416d6e5448832",
+  "prompts": {},
+  "humans": {
+    "h_6029769cf9ac60": {
+      "author": "Johnny Esteban Quesada <johnny.quesadachaves@vonage.com>"
+    }
+  }
+}
