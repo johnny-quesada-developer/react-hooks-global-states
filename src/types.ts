@@ -55,6 +55,14 @@ export interface SelectHook<State> {
  */
 export type StateApi<State, StateMutator, Metadata extends BaseMetadata> = {
   /**
+   * @description The metadata associated with the global state.
+   * Metadata is additional non reactive information associated with the global state, reading it will not trigger re-renders.
+   * To change the metadata use `setMetadata`.
+   */
+  readonly metadata: Metadata;
+
+  /**
+   * @deprecated Use the `metadata` property instead, e.g. `const { metadata } = api;`. Metadata is stable, so it is exposed directly.
    * Returns the metadata
    * Metadata is additional non reactive information associated with the global state
    */
@@ -261,6 +269,13 @@ export type StoreTools<
   actions: StateMutator extends AnyFunction ? null : StateMutator;
 
   /**
+   * @description Metadata associated with the global state.
+   * Metadata is non-reactive; reading it will not trigger re-renders. To change it use `setMetadata`.
+   */
+  readonly metadata: Metadata;
+
+  /**
+   * @deprecated Use the `metadata` property instead, e.g. `const { metadata } = storeTools;`. Metadata is stable, so it is exposed directly.
    * @description Metadata associated with the global state
    */
   getMetadata: () => Metadata;
@@ -1432,12 +1447,18 @@ export interface UniqueId {
    *
    * @example
    * uniqueId();           // "k9j3n5x8q2"
-   * type Id1 = `${string}` & { __brand: undefined };
+   * type Id1 = `${string}` & { __brand: '' };
+   */
+  (): BrandedId<''>;
+
+  /**
+   * Generates a unique identifier string, optionally prefixed.
    *
+   * @example
    * uniqueId('user:');    // "user:k9j3n5x8q2"
    * type Id2 = `user:${string}` & { __brand: 'user:' };
    */
-  <T extends string | undefined>(prefix?: T): BrandedId<T>;
+  <T extends string>(prefix: T): BrandedId<T>;
 
   /**
    * Creates a reusable unique ID generator for a specific prefix.

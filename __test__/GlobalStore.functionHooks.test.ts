@@ -75,6 +75,8 @@ describe('createGlobalState', () => {
     expect(storeTools.getState).toBeInstanceOf(Function);
     expect(storeTools.setState).toBeInstanceOf(Function);
     expect(storeTools.getMetadata).toBeInstanceOf(Function);
+    expect(storeTools.metadata).not.toBeInstanceOf(Function);
+    expect(storeTools.metadata).toBe(storeTools.getMetadata());
     expect(storeTools.setMetadata).toBeInstanceOf(Function);
     expect(storeTools.actions).toBeDefined();
     expect(storeTools.subscribe).toBeInstanceOf(Function);
@@ -86,6 +88,8 @@ describe('createGlobalState', () => {
     expect(store.createSelectorHook).toBeInstanceOf(Function);
     expect(store.dispose).toBeInstanceOf(Function);
     expect(store.getMetadata).toBeInstanceOf(Function);
+    expect(store.metadata).not.toBeInstanceOf(Function);
+    expect(store.metadata).toBe(store.getMetadata());
     expect(store.getState).toBeInstanceOf(Function);
     expect(store.select).toBeInstanceOf(Function);
     expect(store.setMetadata).toBeInstanceOf(Function);
@@ -116,6 +120,7 @@ describe('createGlobalState', () => {
     expect(storeTools.actions).toBeNull();
     expect(storeTools.getState()).toBe(stateValue);
     expect(storeTools.getMetadata()).toBe(metadataInitial);
+    expect(storeTools.metadata).toBe(metadataInitial);
     expect(storeTools.setState).toBeInstanceOf(Function);
     expect(storeTools.setMetadata).toBeInstanceOf(Function);
     expect(storeTools.subscribe).toBeInstanceOf(Function);
@@ -260,6 +265,7 @@ describe('createGlobalState', () => {
     expect(state).toEqual({ value: 10 });
     expect(meta).toEqual(newMetadata);
     expect(store$.getMetadata()).toEqual(newMetadata);
+    expect(store$.metadata).toEqual(newMetadata);
   });
 
   it('should reset multiple times in succession', async () => {

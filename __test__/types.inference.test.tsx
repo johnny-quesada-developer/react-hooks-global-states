@@ -127,7 +127,13 @@ describe('Type Inference Tests', () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
 
+      // the `metadata` prop should infer the same type as the deprecated getMetadata()
+      const metadataProp = useCounter.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
+
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
 
     it('should infer custom metadata object correctly', () => {
@@ -140,7 +146,12 @@ describe('Type Inference Tests', () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
 
+      const metadataProp = useCounter.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
+
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
 
     it('should infer metadata from callback', () => {
@@ -153,7 +164,12 @@ describe('Type Inference Tests', () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
 
+      const metadataProp = useCounter.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
+
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
 
     it('should infer complex metadata structure', () => {
@@ -177,7 +193,12 @@ describe('Type Inference Tests', () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
 
+      const metadataProp = useStore.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
+
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
   });
 
@@ -307,6 +328,7 @@ describe('Type Inference Tests', () => {
       const state = useUserStore.getState();
       const actions = useUserStore.actions;
       const metadata = useUserStore.getMetadata();
+      const metadataProp = useUserStore.metadata;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _stateCheck: State = state;
@@ -314,10 +336,13 @@ describe('Type Inference Tests', () => {
       const _actionsCheck: Actions = actions;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
 
       expect<AssertType<State, typeof state>>(true).toBe(true);
       expect<AssertType<Actions, typeof actions>>(true).toBe(true);
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
 
     it('should infer types with callback state, callback metadata, and actions', () => {
@@ -339,6 +364,7 @@ describe('Type Inference Tests', () => {
       const state = useStore.getState();
       const actions = useStore.actions;
       const metadata = useStore.getMetadata();
+      const metadataProp = useStore.metadata;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _stateCheck: State = state;
@@ -346,10 +372,13 @@ describe('Type Inference Tests', () => {
       const _actionsCheck: Actions = actions;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = metadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = metadataProp;
 
       expect<AssertType<State, typeof state>>(true).toBe(true);
       expect<AssertType<Actions, typeof actions>>(true).toBe(true);
       expect<AssertType<Metadata, typeof metadata>>(true).toBe(true);
+      expect<AssertType<Metadata, typeof metadataProp>>(true).toBe(true);
     });
   });
 
@@ -462,10 +491,14 @@ describe('Type Inference Tests', () => {
       const counter = createContext(0);
       type API = InferContextApi<typeof counter.Context>;
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
 
     it('should infer custom metadata object correctly', () => {
@@ -476,10 +509,14 @@ describe('Type Inference Tests', () => {
       });
       type API = InferContextApi<typeof counter.Context>;
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
 
     it('should infer metadata from callback', () => {
@@ -490,10 +527,14 @@ describe('Type Inference Tests', () => {
       });
       type API = InferContextApi<typeof counter.Context>;
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
 
     it('should infer complex metadata structure', () => {
@@ -515,10 +556,14 @@ describe('Type Inference Tests', () => {
       );
       type API = InferContextApi<typeof store.Context>;
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
   });
 
@@ -658,6 +703,7 @@ describe('Type Inference Tests', () => {
       type InferredState = ReturnType<API['getState']>;
       type InferredActions = API['actions'];
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _stateCheck: State = {} as InferredState;
@@ -665,10 +711,13 @@ describe('Type Inference Tests', () => {
       const _actionsCheck: Actions = {} as InferredActions;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<State, InferredState>>(true).toBe(true);
       expect<AssertType<Actions, InferredActions>>(true).toBe(true);
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
 
     it('should infer types with callback state, callback metadata, and actions', () => {
@@ -692,6 +741,7 @@ describe('Type Inference Tests', () => {
       type InferredState = ReturnType<API['getState']>;
       type InferredActions = API['actions'];
       type InferredMetadata = ReturnType<API['getMetadata']>;
+      type InferredMetadataProp = API['metadata'];
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _stateCheck: State = {} as InferredState;
@@ -699,10 +749,13 @@ describe('Type Inference Tests', () => {
       const _actionsCheck: Actions = {} as InferredActions;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _metadataCheck: Metadata = {} as InferredMetadata;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _metadataPropCheck: Metadata = {} as InferredMetadataProp;
 
       expect<AssertType<State, InferredState>>(true).toBe(true);
       expect<AssertType<Actions, InferredActions>>(true).toBe(true);
       expect<AssertType<Metadata, InferredMetadata>>(true).toBe(true);
+      expect<AssertType<Metadata, InferredMetadataProp>>(true).toBe(true);
     });
   });
 

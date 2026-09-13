@@ -60,6 +60,9 @@ export function actions<Api extends StoreTools<any, any, any>, Actions extends D
     } = {
       // prevents overriding api context
       setMetadata: (...args) => api$.setMetadata(...args),
+      get metadata() {
+        return api$.getMetadata();
+      },
       getMetadata: () => api$.getMetadata(),
       getState: () => api$.getState(),
       setState: (...args) => api$.setState(...args),

@@ -78,9 +78,14 @@ export const createContext = ((
         return getInheritedState();
       })();
 
+      const __devtools_metadata = {
+        __devtools_isContextStore: true,
+      };
+
       const store = new GlobalStore<unknown, BaseMetadata, unknown, unknown>(initialValue, {
         ...contextArgs,
         metadata: (isFunction(contextArgs.metadata) ? contextArgs.metadata() : contextArgs.metadata) ?? {},
+        ...__devtools_metadata,
       });
 
       const storeToolsExtensions: ContextStoreToolsExtensions<unknown, unknown, BaseMetadata> = {

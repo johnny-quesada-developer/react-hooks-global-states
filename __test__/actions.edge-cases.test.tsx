@@ -239,9 +239,11 @@ describe('actions - Metadata Operations', () => {
 
     actions$.increment();
     expect(counter.getMetadata()).toEqual({ count: 1, lastAction: 'increment' });
+    expect(counter.metadata).toEqual({ count: 1, lastAction: 'increment' });
 
     actions$.decrement();
     expect(counter.getMetadata()).toEqual({ count: 2, lastAction: 'decrement' });
+    expect(counter.metadata).toEqual({ count: 2, lastAction: 'decrement' });
   });
 
   it('should handle getMetadata returning complex types', () => {
@@ -280,6 +282,7 @@ describe('actions - Metadata Operations', () => {
     expect(metadata.stats.total).toBe(3);
     expect(metadata.stats.increments).toBe(2);
     expect(metadata.stats.decrements).toBe(1);
+    expect(store.metadata).toBe(metadata);
   });
 
   it('should handle actions modifying metadata multiple times', () => {
@@ -299,6 +302,7 @@ describe('actions - Metadata Operations', () => {
 
     actions$.multiUpdate();
     expect(store.getMetadata().value).toBe(3);
+    expect(store.metadata.value).toBe(3);
   });
 });
 

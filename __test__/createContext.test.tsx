@@ -30,6 +30,8 @@ describe('createContext', () => {
     expect(storeTools.getState).toBeInstanceOf(Function);
     expect(storeTools.setState).toBeInstanceOf(Function);
     expect(storeTools.getMetadata).toBeInstanceOf(Function);
+    expect(storeTools.metadata).not.toBeInstanceOf(Function);
+    expect(storeTools.metadata).toBe(storeTools.getMetadata());
     expect(storeTools.setMetadata).toBeInstanceOf(Function);
     expect(storeTools.subscribe).toBeInstanceOf(Function);
     expect(storeTools.actions).toBeDefined();
@@ -133,6 +135,8 @@ describe('createContext', () => {
     expect(result.current.createSelectorHook).toBeInstanceOf(Function);
     expect(result.current.dispose).toBeInstanceOf(Function);
     expect(result.current.getMetadata).toBeInstanceOf(Function);
+    expect(result.current.metadata).not.toBeInstanceOf(Function);
+    expect(result.current.metadata).toBe(result.current.getMetadata());
     expect(result.current.getState).toBeInstanceOf(Function);
     expect(result.current.select).toBeInstanceOf(Function);
     expect(result.current.setMetadata).toBeInstanceOf(Function);
@@ -245,6 +249,7 @@ describe('createContext', () => {
 
     expect(context.current.actions).toBeNull();
     expect(context.current.getMetadata()).toEqual({});
+    expect(context.current.metadata).toEqual({});
     expect(context.current.getState).toBeInstanceOf(Function);
     expect(context.current.subscribe).toBeInstanceOf(Function);
 
@@ -254,6 +259,8 @@ describe('createContext', () => {
     });
 
     expect(context.current.getMetadata()).toEqual({ test: 'metadata' });
+    // `metadata` is a live getter, so it reflects the value set above
+    expect(context.current.metadata).toEqual({ test: 'metadata' });
     expect(context.current.getState).toBeInstanceOf(Function);
     expect(context.current.subscribe).toBeInstanceOf(Function);
     expect(context.current.actions).toBeNull();
@@ -533,6 +540,7 @@ describe('createContext', () => {
       getState: expect.any(Function),
       setState: expect.any(Function),
       getMetadata: expect.any(Function),
+      metadata: expect.anything(),
       setMetadata: expect.any(Function),
     } as Partial<typeof context.current>;
 

@@ -192,9 +192,11 @@ describe('actions', () => {
 
     actions$.increment(5);
     expect(counter.getMetadata().lastAction).toBe('increment');
+    expect(counter.metadata.lastAction).toBe('increment');
 
     actions$.decrement(2);
     expect(counter.getMetadata().lastAction).toBe('decrement');
+    expect(counter.metadata.lastAction).toBe('decrement');
   });
 
   it('should allow async actions', async () => {
@@ -650,12 +652,16 @@ describe('actions', () => {
           },
         },
         callbacks: {
-          onInit: ({ actions, getMetadata, setState }) => {
+          onInit: (storeTools) => {
+            const { actions, getMetadata, setState } = storeTools;
             setState(100);
             const meta = getMetadata();
+            // `metadata` getter should match `getMetadata()` at every read
+            expect(storeTools.metadata).toEqual(meta);
             metadataLog.push(`before: ${JSON.stringify(meta)}`);
             actions.markInitialized();
             const metaAfter = getMetadata();
+            expect(storeTools.metadata).toEqual(metaAfter);
             metadataLog.push(`after: ${JSON.stringify(metaAfter)}`);
           },
         },
@@ -663,6 +669,7 @@ describe('actions', () => {
 
       expect(store.getState()).toBe(100);
       expect(store.getMetadata()).toEqual({ initialized: true, version: 1 });
+      expect(store.metadata).toEqual({ initialized: true, version: 1 });
       expect(metadataLog).toEqual([
         'before: {"initialized":false,"version":0}',
         'after: {"initialized":true,"version":1}',

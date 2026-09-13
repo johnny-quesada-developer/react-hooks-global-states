@@ -413,14 +413,18 @@ export class GlobalStore<
 
     // inherit extensions, they should remain the same as the root store
     const apiAsReadOnly = this as ReadonlyStateApi<unknown, unknown, BaseMetadata>;
+    const getMetadata = this.getMetadata.bind(this);
 
-    // Extended properties and methods of the hook
     const useExtensions: StateApi<State, PublicStateMutator, Metadata> = {
       actions: this.actions,
       createObservable: this.createObservable.bind(apiAsReadOnly) as typeof use.createObservable,
       createSelectorHook: this.createSelectorHook.bind(apiAsReadOnly) as typeof use.createSelectorHook,
       dispose: this.dispose.bind(this),
-      getMetadata: this.getMetadata.bind(this),
+
+      // this is an special placeholder prop that should be defined with defineProperty below
+      metadata: undefined as unknown as Metadata,
+      getMetadata,
+
       getState: this.getState.bind(this),
       reset: this.reset.bind(this),
       setMetadata: this.setMetadata.bind(this),
@@ -436,6 +440,14 @@ export class GlobalStore<
     };
 
     Object.assign(use, useExtensions);
+
+    // `metadata` is a live, read-only getter (not copied via Object.assign, which would snapshot it).
+    // Reads always reflect the current value; use `setMetadata` to change it.
+    Object.defineProperty(use, 'metadata', {
+      configurable: true,
+      enumerable: true,
+      get: getMetadata,
+    });
 
     return use;
   }
@@ -522,6 +534,14 @@ export class GlobalStore<
       setState,
     };
 
+    // spreading `this.storeTools` snapshots the `metadata` getter into a static value,
+    // so restore it as a live getter for callbacks that read metadata during a state change.
+    Object.defineProperty(storeTools, 'metadata', {
+      configurable: true,
+      enumerable: true,
+      get: storeTools.getMetadata,
+    });
+
     if (this.callbacks?.computePreventStateChange) {
       const shouldPreventStateChange = this.callbacks?.computePreventStateChange?.(storeTools);
       if (shouldPreventStateChange) return;
@@ -540,10 +560,15 @@ export class GlobalStore<
     actions: PublicStateMutator extends AnyFunction ? null : PublicStateMutator;
     storeTools: StoreTools<State, PublicStateMutator, Metadata>;
   } {
+    const getMetadata = this.getMetadata.bind(this);
+
     // passes the same object to all the actions
     const storeTools: typeof this.storeTools = {
       setMetadata: this.setMetadata.bind(this),
-      getMetadata: this.getMetadata.bind(this),
+      get metadata() {
+        return getMetadata();
+      },
+      getMetadata,
       getState: this.getState.bind(this),
       setState: this.setState.bind(this),
       subscribe: this.subscribe.bind(this),

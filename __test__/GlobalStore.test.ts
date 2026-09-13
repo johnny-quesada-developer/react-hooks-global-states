@@ -182,7 +182,7 @@ describe('GlobalStore with actions', () => {
 
 describe('GlobalStore with configuration callbacks', () => {
   $it('should execute onInit callback', () => {
-    expect.assertions(6);
+    expect.assertions(7);
 
     const initialState = { count: 0 };
     const onInitSpy = jest.fn();
@@ -192,10 +192,11 @@ describe('GlobalStore with configuration callbacks', () => {
         onInit: (parameters) => {
           onInitSpy();
 
-          const { setState, getState, getMetadata, setMetadata, actions } = parameters;
+          const { setState, getState, getMetadata, metadata, setMetadata, actions } = parameters;
 
           expect(getState()).toEqual(initialState);
           expect(getMetadata()).toEqual({});
+          expect(metadata).toEqual({});
           expect(setState).toBeInstanceOf(Function);
           expect(setMetadata).toBeInstanceOf(Function);
           expect(actions).toBe(null);
@@ -207,7 +208,7 @@ describe('GlobalStore with configuration callbacks', () => {
   });
 
   $it('should execute onInit callback with metadata', () => {
-    expect.assertions(3);
+    expect.assertions(5);
 
     const initialState = { count: 0 };
     const onInitSpy = jest.fn();
@@ -225,12 +226,19 @@ describe('GlobalStore with configuration callbacks', () => {
           expect(getMetadata()).toEqual({
             isAsyncStorageReady: false,
           });
+          expect(parameters.metadata).toEqual({
+            isAsyncStorageReady: false,
+          });
 
           setMetadata({
             isAsyncStorageReady: true,
           });
 
           expect(getMetadata()).toEqual({
+            isAsyncStorageReady: true,
+          });
+          // `metadata` is a live getter, so it reflects the value set above
+          expect(parameters.metadata).toEqual({
             isAsyncStorageReady: true,
           });
         },
@@ -252,10 +260,11 @@ describe('GlobalStore with configuration callbacks', () => {
           onSubscribed: (parameters) => {
             onSubscribedSpy();
 
-            const { setState, getState, getMetadata, setMetadata, actions } = parameters;
+            const { setState, getState, getMetadata, metadata, setMetadata, actions } = parameters;
 
             // this code will be execute 3 times
             expect(getMetadata()).toEqual({});
+            expect(metadata).toEqual({});
             expect(setState).toBeInstanceOf(Function);
             expect(setMetadata).toBeInstanceOf(Function);
             expect(actions).toBe(null);
@@ -278,7 +287,7 @@ describe('GlobalStore with configuration callbacks', () => {
   });
 
   $it('should execute onStateChanged callback every time the state is changed', () => {
-    expect.assertions(7);
+    expect.assertions(8);
 
     const onStateChangedSpy = jest.fn();
 
@@ -289,9 +298,10 @@ describe('GlobalStore with configuration callbacks', () => {
           onStateChanged: (parameters) => {
             onStateChangedSpy();
 
-            const { setState, getState, getMetadata, setMetadata, actions } = parameters;
+            const { setState, getState, getMetadata, metadata, setMetadata, actions } = parameters;
 
             expect(getMetadata()).toEqual({});
+            expect(metadata).toEqual({});
             expect(setState).toBeInstanceOf(Function);
             expect(setMetadata).toBeInstanceOf(Function);
             expect(actions).toBe(null);
@@ -311,7 +321,7 @@ describe('GlobalStore with configuration callbacks', () => {
   $it(
     'should execute computePreventStateChange callback before state is changed and continue if it returns false',
     () => {
-      expect.assertions(7);
+      expect.assertions(8);
 
       const computePreventStateChangeSpy = jest.fn();
 
@@ -322,9 +332,10 @@ describe('GlobalStore with configuration callbacks', () => {
             computePreventStateChange: (parameters) => {
               computePreventStateChangeSpy();
 
-              const { setState, getMetadata, setMetadata, actions } = parameters;
+              const { setState, getMetadata, metadata, setMetadata, actions } = parameters;
 
               expect(getMetadata()).toEqual({});
+              expect(metadata).toEqual({});
               expect(setState).toBeInstanceOf(Function);
               expect(setMetadata).toBeInstanceOf(Function);
               expect(actions).toBe(null);
@@ -347,7 +358,7 @@ describe('GlobalStore with configuration callbacks', () => {
   $it(
     'should execute computePreventStateChange callback before state is changed and prevent state change if it returns true',
     () => {
-      expect.assertions(7);
+      expect.assertions(8);
 
       const computePreventStateChangeSpy = jest.fn();
 
@@ -358,9 +369,10 @@ describe('GlobalStore with configuration callbacks', () => {
             computePreventStateChange: (parameters) => {
               computePreventStateChangeSpy();
 
-              const { setState, getMetadata, setMetadata, actions } = parameters;
+              const { setState, getMetadata, metadata, setMetadata, actions } = parameters;
 
               expect(getMetadata()).toEqual({});
+              expect(metadata).toEqual({});
               expect(setState).toBeInstanceOf(Function);
               expect(setMetadata).toBeInstanceOf(Function);
               expect(actions).toBe(null);

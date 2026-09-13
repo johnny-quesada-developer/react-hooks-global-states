@@ -31,6 +31,8 @@ describe('createGlobalState - Edge Cases', () => {
     const metadata = useStore.getMetadata();
     expect(metadata.initialized).toBe(true);
     expect(metadata.timestamp).toBeGreaterThan(0);
+
+    expect(useStore.metadata).toBe(metadata);
   });
 
   it('should handle both state and metadata as functions', ({ renderHook }) => {
@@ -76,6 +78,7 @@ describe('createGlobalState - Edge Cases', () => {
     expect(onInitSpy).toHaveBeenCalledTimes(1);
     expect(useStore.getState()).toEqual({ value: 10 });
     expect(useStore.getMetadata()).toEqual({ meta: 'data' });
+    expect(useStore.metadata).toEqual({ meta: 'data' });
 
     act(() => {
       useStore.actions.increment();
@@ -99,6 +102,8 @@ describe('createGlobalState - Edge Cases', () => {
     expect(useStore.setState).toBeInstanceOf(Function);
     expect(useStore.subscribe).toBeInstanceOf(Function);
     expect(useStore.getMetadata).toBeInstanceOf(Function);
+    expect(useStore.metadata).not.toBeInstanceOf(Function);
+    expect(useStore.metadata).toBe(useStore.getMetadata());
     expect(useStore.setMetadata).toBeInstanceOf(Function);
   });
 
@@ -227,6 +232,8 @@ describe('createGlobalState - Edge Cases', () => {
 
     expect(useStore1.getMetadata()).toEqual({ id: 1 });
     expect(useStore2.getMetadata()).toEqual({ id: 2 });
+    expect(useStore1.metadata).toEqual({ id: 1 });
+    expect(useStore2.metadata).toEqual({ id: 2 });
     expect(callCount).toBe(2);
   });
 
@@ -265,6 +272,8 @@ describe('createGlobalState - Edge Cases', () => {
     expect(useStore.getState).toBeInstanceOf(Function);
     expect(useStore.setState).toBeInstanceOf(Function);
     expect(useStore.getMetadata).toBeInstanceOf(Function);
+    expect(useStore.metadata).not.toBeInstanceOf(Function);
+    expect(useStore.metadata).toBe(useStore.getMetadata());
     expect(useStore.setMetadata).toBeInstanceOf(Function);
     expect(useStore.subscribe).toBeInstanceOf(Function);
     expect(useStore.reset).toBeInstanceOf(Function);
