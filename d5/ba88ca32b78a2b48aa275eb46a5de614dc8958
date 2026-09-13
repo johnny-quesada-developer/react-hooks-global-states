@@ -1,0 +1,36 @@
+.vscode/settings.json
+  h_6029769cf9ac60 25
+__test__/GlobalStore.functionHooks.test.ts
+  h_6029769cf9ac60 78-79,91-92,123,268
+__test__/GlobalStore.test.ts
+  h_6029769cf9ac60 185,195,199,211,229-231,240-243,263,267,290,301,304,324,335,338,361,372,375
+__test__/actions.edge-cases.test.tsx
+  h_6029769cf9ac60 242,246,285,305
+__test__/actions.test.tsx
+  h_6029769cf9ac60 195,199,655-656,659-660,664,672
+__test__/createContext.test.tsx
+  h_6029769cf9ac60 33-34,138-139,252,262-263,543
+__test__/createGlobalState.edge-cases.test.tsx
+  h_6029769cf9ac60 34-35,81,105-106,235-236,275-276
+__test__/types.inference.test.tsx
+  h_6029769cf9ac60 130-134,136,149-152,154,167-170,172,196-199,201,331,339-340,345,367,375-376,381,494,497-498,501,512,515-516,519,530,533-534,537,559,562-563,566,706,714-715,720,744,752-753,758
+src/GlobalStore.ts
+  h_6029769cf9ac60 416,423-427,444-451,537-544,563-564,568-571
+src/actions.ts
+  h_6029769cf9ac60 63-65
+src/createContext.ts
+  h_6029769cf9ac60 81-84,88
+src/types.ts
+  h_6029769cf9ac60 58-65,272-278,1450-1455,1457,1461
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d5ba88ca32b78a2b48aa275eb46a5de614dc8958",
+  "prompts": {},
+  "humans": {
+    "h_6029769cf9ac60": {
+      "author": "Johnny Esteban Quesada <johnny.quesadachaves@vonage.com>"
+    }
+  }
+}
