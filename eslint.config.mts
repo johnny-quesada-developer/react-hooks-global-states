@@ -14,7 +14,7 @@ delete $globals['AudioWorkletGlobalScope '];
 
 export default defineConfig([
   {
-    ignores: ['**.js', '**.d.ts', 'coverage/**', 'node_modules/**'],
+    ignores: ['dist/**', '**/*.d.ts', 'coverage/**', 'node_modules/**'],
   },
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
@@ -43,6 +43,15 @@ export default defineConfig([
   {
     rules: {
       '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
+  {
+    // Node-runtime config files (CommonJS): allow `module`, `require`, `process`, etc.
+    files: ['*.js', '*.cjs', 'jest.config.js', '*.config.{js,cjs,mjs,ts,mts}', 'scripts/**'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
     },
   },
 ]);

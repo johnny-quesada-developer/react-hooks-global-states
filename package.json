@@ -84,7 +84,7 @@
     "lint:fix": "eslint . --fix --max-warnings=0",
     "clean": "rm -rf dist coverage",
     "ts-check": "tsc -p tsconfig.json --noEmit",
-    "ts-check:tests": "tsc -p tsconfig.test.json --noEmit"
+    "ts-check:tests": "tsc -p __test__/tsconfig.json --noEmit"
   },
   "repository": {
     "type": "git",

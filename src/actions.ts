@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import GlobalStore from './GlobalStore';
 import type {
   ActionCollectionResult,
+  Any,
   AnyFunction,
   DerivedActionsBuilder,
   DerivedActionsConfig,
@@ -20,7 +20,7 @@ import type {
  *
  * const { syncUser } = makeUserActions(api);
  */
-export function actions<Api extends StoreTools<any, any, any>>(): DerivedActionsBuilder<Api>;
+export function actions<Api extends StoreTools<Any, Any, Any>>(): DerivedActionsBuilder<Api>;
 
 /**
  * Creates and action group from a config and binds it the provided store
@@ -34,7 +34,7 @@ export function actions<Api extends StoreTools<any, any, any>>(): DerivedActions
  *
  * const { syncUser } = userActions;
  */
-export function actions<Api extends StoreTools<any, any, any>, Actions extends DerivedActionsConfig<Api>>(
+export function actions<Api extends StoreTools<Any, Any, Any>, Actions extends DerivedActionsConfig<Api>>(
   api: Api,
   actions: Actions,
 ): {
@@ -44,7 +44,7 @@ export function actions<Api extends StoreTools<any, any, any>, Actions extends D
 };
 
 // Implementation
-export function actions<Api extends StoreTools<any, any, any>, Actions extends DerivedActionsConfig<Api>>(
+export function actions<Api extends StoreTools<Any, Any, Any>, Actions extends DerivedActionsConfig<Api>>(
   api?: Api,
   actions?: Actions,
 ):

@@ -53,7 +53,12 @@ try {
   fs.writeFileSync(
     path.join(work, 'package.json'),
     JSON.stringify(
-      { name: 'interop-scratch', private: true, version: '1.0.0', dependencies: { react: '18.3.1', 'react-dom': '18.3.1' } },
+      {
+        name: 'interop-scratch',
+        private: true,
+        version: '1.0.0',
+        dependencies: { react: '18.3.1', 'react-dom': '18.3.1' },
+      },
       null,
       2,
     ),

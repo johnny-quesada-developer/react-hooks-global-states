@@ -704,8 +704,8 @@ export type ContextProviderExtensions<State, StateMutator, Metadata extends Base
       /**
        * @description Underlying store instance
        */
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      instance: GlobalStore<State, Metadata, unknown, any>;
+
+      instance: GlobalStore<State, Metadata, unknown, Any>;
     };
   };
 };

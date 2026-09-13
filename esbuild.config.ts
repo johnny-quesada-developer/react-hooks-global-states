@@ -80,8 +80,8 @@ const shared: esbuild.BuildOptions = {
   // No sourcemaps in the published output: they would reference ../src which is not shipped.
   sourcemap: false,
   logLevel: 'info',
-  // Preserve original names; do not mangle. Keeps stack traces / debugging friendly.
-  minify: false,
+  // Minify the published output (matches the pre-dual-output webpack build).
+  minify: true,
   external: bareExternals,
 };
 
@@ -114,7 +114,6 @@ async function build(): Promise<void> {
 }
 
 build().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 });
