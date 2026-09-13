@@ -1,0 +1,56 @@
+.vscode/settings.json
+  h_6029769cf9ac60 2-32
+scripts/test-interop.ts
+  h_6029769cf9ac60 56-61
+__test__/createContext.test.tsx
+  h_6029769cf9ac60 2
+__test__/actions.test.tsx
+  h_6029769cf9ac60 2
+__test__/GlobalStore.utils.test.ts
+  h_6029769cf9ac60 1
+__test__/isRecord.test.ts
+  h_6029769cf9ac60 1
+__test__/GlobalStore.test.ts
+  h_6029769cf9ac60 1
+__test__/createGlobalState.edge-cases.test.tsx
+  h_6029769cf9ac60 1
+__test__/throwWrongKeyOnActionCollectionConfig.test.ts
+  h_6029769cf9ac60 1
+__test__/tsconfig.json
+  h_6029769cf9ac60 1-17
+jest.config.js
+  h_6029769cf9ac60 1-50
+__test__/uniqueId.interop.test.ts
+  h_6029769cf9ac60 13,30
+__test__/GlobalStore.functionHooks.test.ts
+  h_6029769cf9ac60 8
+package.json
+  h_6029769cf9ac60 87
+__test__/actions.edge-cases.test.tsx
+  h_6029769cf9ac60 1
+__test__/uniqueId.test.ts
+  h_6029769cf9ac60 2
+__test__/types.inference.test.tsx
+  h_6029769cf9ac60 1-2
+__test__/createContext.edge-cases.test.tsx
+  h_6029769cf9ac60 2
+esbuild.config.ts
+  h_6029769cf9ac60 83-84
+eslint.config.mts
+  h_6029769cf9ac60 17,48-56
+src/actions.ts
+  h_6029769cf9ac60 4,23,37,47
+src/types.ts
+  h_6029769cf9ac60 707-708
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "28e32ee1c474bd1995c544e63041f911c4cfdf59",
+  "prompts": {},
+  "humans": {
+    "h_6029769cf9ac60": {
+      "author": "Johnny Esteban Quesada <johnny.quesadachaves@vonage.com>"
+    }
+  }
+}
